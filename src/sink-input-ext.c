@@ -86,6 +86,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
     int        i;
 
     pa_assert(sinp);
+    pa_assert(sinp->sink);
 
     if (limit > PA_VOLUME_NORM)
         limit = PA_VOLUME_NORM;
@@ -99,9 +100,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
             vol.values[i] = limit;
     }
 
-    pa_asyncmsgq_post(sinp->sink->asyncmsgq, PA_MSGOBJECT(sinp),
-                      PA_SINK_INPUT_MESSAGE_SET_VOLUME,
-                      pa_xnewdup(struct pa_cvolume,&vol,1), 0, NULL, pa_xfree);
+    pa_sink_input_set_volume(sinp, &vol);
 
     return 0;
 }

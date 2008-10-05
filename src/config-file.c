@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <pwd.h>
 #include <errno.h>
 
 #ifndef __USE_ISOC99
@@ -30,11 +31,13 @@ enum section_type {
     section_unknown = 0,
     section_groups,
     section_device,
+    section_stream,
     section_max
 };
 
 struct groupdef {
-    char      *name;
+    char                     *name;
+    uint32_t                 flags;
 };
 
 struct devicedef {
@@ -44,12 +47,21 @@ struct devicedef {
     uint32_t                 flags;
 };
 
+struct streamdef {
+    char                    *stnam; /* stream name */
+    char                    *clnam; /* client's name in pulse audio */
+    uid_t                    uid;   /* client's user id */
+    char                    *exe;   /* the executable name (i.e. argv[0]) */
+    char                    *group; /* group name the stream belong to */
+};
+
 struct section {
     enum section_type     type;
     union {
         void             *any;
         struct groupdef  *group;
         struct devicedef *device;
+        struct streamdef *stream;
     }                     def;
 };
 
@@ -62,6 +74,7 @@ static int section_close(struct userdata *, struct section *);
 
 static int groupdef_parse(int, char *, struct groupdef *);
 static int devicedef_parse(int, char *, struct devicedef *);
+static int streamdef_parse(int, char *, struct streamdef *);
 
 static int valid_label(char *);
 
@@ -79,6 +92,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     struct section     section;
     struct groupdef   *grdef;
     struct devicedef  *devdef;
+    struct streamdef  *strdef;
     int                sts;
 
     pa_assert(u);
@@ -136,6 +150,14 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 
                 break;
 
+            case section_stream:
+                strdef = section.def.stream;
+
+                if (streamdef_parse(lineno, line, strdef) < 0)
+                    sts = 0;
+                
+                break;
+                
             default:
                 break;
 
@@ -144,7 +166,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     }
 
     section_close(u, &section);
-
+    endpwent();
 
     return sts;
 }
@@ -196,6 +218,8 @@ static int section_header(int lineno, char *line, enum section_type *type)
             *type = section_groups;
         else if (!strcmp(line,"[device]"))
             *type = section_device;
+        else if (!strcmp(line, "[stream]"))
+            *type = section_stream;
         else {
             *type = section_unknown;
             pa_log("%s: Invalid section type '%s' in line %d",
@@ -225,6 +249,12 @@ static int section_open(struct userdata *u, enum section_type type,
             sec->def.device = pa_xnew0(struct devicedef, 1);
             status = 0;
             break;
+
+        case section_stream:
+            sec->def.stream = pa_xnew0(struct streamdef, 1);
+            sec->def.stream->uid = -1;
+            status = 0;
+            break;
             
         default:
             type = section_unknown;
@@ -243,6 +273,7 @@ static int section_close(struct userdata *u, struct section *sec)
 {
     struct groupdef  *grdef;
     struct devicedef *devdef;
+    struct streamdef *strdef;
     int               status;
 
     if (sec == NULL)
@@ -266,6 +297,21 @@ static int section_close(struct userdata *u, struct section *sec)
             pa_xfree(devdef->type);
             pa_xfree(devdef->sink);
             pa_xfree(devdef);
+
+            break;
+
+        case section_stream:
+            status = 0;
+            strdef = sec->def.stream;
+
+            pa_classify_add_stream(u, strdef->clnam, strdef->uid, strdef->exe,
+                                   strdef->stnam, strdef->group);
+
+            pa_xfree(strdef->stnam);
+            pa_xfree(strdef->clnam);
+            pa_xfree(strdef->exe);
+            pa_xfree(strdef->group);
+            pa_xfree(strdef);
 
             break;
             
@@ -336,6 +382,72 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
                            __FILE__, method, lineno);
                 }
             }
+        }
+        else {
+            if ((end = strchr(line, '=')) == NULL) {
+                pa_log("%s: invalid definition '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            else {
+                *end = '\0';
+                pa_log("%s: invalid key value '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            sts = -1;
+        }
+    }
+
+    return sts;
+}
+
+static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
+{
+    int            sts;
+    char          *user;
+    struct passwd *pwd;
+    uid_t          uid;
+    char          *end;
+
+    if (strdef == NULL)
+        sts = -1;
+    else {
+        sts = 0;
+
+        if (!strncmp(line, "name=", 5)) {
+            strdef->stnam = pa_xstrdup(line+5);
+        }
+        else if (!strncmp(line, "client=", 7)) {
+            strdef->clnam = pa_xstrdup(line+7);
+        }
+        else if (!strncmp(line, "user=", 5)) {
+            user = line+5;
+            uid  = strtol(user, &end, 10);
+
+            if (end == user || *end != '\0' || uid < 0) {
+                uid = -1;
+                setpwent();
+
+                while ((pwd = getpwent()) != NULL) {
+                    if (!strcmp(user, pwd->pw_name)) {
+                        uid = pwd->pw_uid;
+                        break;
+                    }
+                }
+
+                if (uid < 0) {
+                    pa_log("%s: invalid user '%s' in line %d",
+                           __FILE__, user, lineno);
+                    sts = -1;
+                }
+            }
+
+            strdef->uid = uid;
+        }
+        else if (!strncmp(line, "exe=", 4)) {
+            strdef->exe = pa_xstrdup(line+4);
+        }
+        else if (!strncmp(line, "group=", 6)) {
+            strdef->group = pa_xstrdup(line+6);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {

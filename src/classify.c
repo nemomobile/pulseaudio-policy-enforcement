@@ -284,7 +284,7 @@ static char *find_group_for_client(struct userdata *u, char *clnam,
     hash = classify->streams.pid_hash;
     defs = &classify->streams.defs;
 
-    if ((group = pid_hash_get_group(hash, pid, stnam))            == NULL ||
+    if ((group = pid_hash_get_group(hash, pid, stnam))            == NULL &&
         (group = streams_get_group(defs, clnam, uid, exe, stnam)) == NULL   )
     {
         group = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
@@ -490,8 +490,8 @@ static struct pa_classify_stream_def *
 streams_find(struct pa_classify_stream_def **defs, char *clnam, uid_t uid,
              char *exe, char *stnam, struct pa_classify_stream_def **prev_ret)
 {
-#define STRING_MATCH_OF(m) ((!m && !d->m) || (m && d->m && !strcmp(m, d->m)))
-#define ID_MATCH_OF(m)      (m == d->m)
+#define STRING_MATCH_OF(m) (!d->m || (m && d->m && !strcmp(m, d->m)))
+#define ID_MATCH_OF(m)      (d->m == -1 || m == d->m)
 
     struct pa_classify_stream_def *prev;
     struct pa_classify_stream_def *d;
