@@ -10,6 +10,19 @@
 #define PA_POLICY_GROUP_HASH_DIM  (1 << PA_POLICY_GROUP_HASH_BITS)
 #define PA_POLICY_GROUP_HASH_MASK (PA_POLICY_GROUP_HASH_DIM - 1)
 
+
+#define PA_POLICY_GROUP_BIT(b)             (1UL << (b))
+#define PA_POLICY_GROUP_FLAG_NONE          0
+#define PA_POLICY_GROUP_FLAG_ROUTE_AUDIO   PA_POLICY_GROUP_BIT(0)
+#define PA_POLICY_GROUP_FLAG_LIMIT_VOLUME  PA_POLICY_GROUP_BIT(1)
+#define PA_POLICY_GROUP_FLAG_CORK_STREAM   PA_POLICY_GROUP_BIT(2)
+
+#define PA_POLICY_GROUP_FLAGS_CLIENT      (PA_POLICY_GROUP_FLAG_ROUTE_AUDIO  |\
+                                           PA_POLICY_GROUP_FLAG_LIMIT_VOLUME |\
+                                           PA_POLICY_GROUP_FLAG_CORK_STREAM  )
+
+#define PA_POLICY_GROUP_FLAGS_NOPOLICY     PA_POLICY_GROUP_FLAG_NONE
+
 struct pa_sink_input_list {
     struct pa_sink_input_list *next;
     uint32_t                   index;
@@ -18,6 +31,7 @@ struct pa_sink_input_list {
 
 struct pa_policy_group {
     struct pa_policy_group    *next;
+    uint32_t                   flags;  /* or'ed PA_POLICY_GROUP_FLAG_x's */
     char                      *name;   /* name of the policy group */
     struct pa_sink            *sink;   /* default sink for the group */
     uint32_t                   index;  /* index of the default sink */
@@ -36,7 +50,7 @@ void pa_policy_groupset_free(struct pa_policy_groupset *);
 void pa_policy_groupset_update_default_sink(struct userdata *, uint32_t);
 void pa_policy_groupset_create_default_group(struct userdata *);
 
-struct pa_policy_group *pa_policy_group_new(struct userdata *, char*);
+struct pa_policy_group *pa_policy_group_new(struct userdata *, char*,uint32_t);
 void pa_policy_group_free(struct pa_policy_groupset *, char *);
 struct pa_policy_group *pa_policy_group_find(struct userdata *, char *);
 

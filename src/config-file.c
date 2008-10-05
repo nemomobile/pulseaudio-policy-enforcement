@@ -76,7 +76,7 @@ static int groupdef_parse(int, char *, struct groupdef *);
 static int devicedef_parse(int, char *, struct devicedef *);
 static int streamdef_parse(int, char *, struct streamdef *);
 
-static int valid_label(char *);
+static int valid_label(int, char *);
 
 
 int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
@@ -138,7 +138,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 if (groupdef_parse(lineno, line, grdef) < 0)
                     sts = 0;
                 else
-                    pa_policy_group_new(u, grdef->name);
+                    pa_policy_group_new(u, grdef->name, grdef->flags);
 
                 break;
 
@@ -330,13 +330,73 @@ static int section_close(struct userdata *u, struct section *sec)
 
 static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
 {
-    int   sts;
+    int       sts;
+    char     *equal;
+    char     *comma;
+    char     *name;
+    char     *fldef;
+    char     *flname;
+    int       len;
+    uint32_t  flags;
 
     if (grdef == NULL)
         sts = -1;
     else {
-        grdef->name = line;
-        sts = valid_label(grdef->name) ? 0 : -1;
+        if ((equal = strchr(line, '=')) == NULL) {
+            pa_log("%s: invalid definition '%s' in line %d",
+                   __FILE__, line, lineno);
+        }
+        else {
+            *equal = '\0';
+            name  = line;
+            fldef = equal + 1;
+            
+            if (!valid_label(lineno, name))
+                sts = -1;
+            else if (fldef[0] == '\0') {
+                sts = -1;
+                pa_log("%s: missing flag definition in line %d",
+                       __FILE__, lineno);
+            }
+            else {
+                sts = 0;
+
+                if (!strcmp(fldef, "client"))
+                    flags = PA_POLICY_GROUP_FLAGS_CLIENT;
+                else if (!strcmp(fldef, "nopolicy"))
+                    flags = PA_POLICY_GROUP_FLAGS_NOPOLICY;
+                else {
+                    flags = 0;
+
+                    for (flname = fldef;  *flname;  flname += len) {
+                        if ((comma = strchr(flname, ',')) == NULL)
+                            len = strlen(flname);
+                        else {
+                            *comma = '\0';
+                            len = (comma - flname) + 1;
+                        }
+
+                        if (!strcmp(flname, "route_audio"))
+                            flags |= PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+                        else if (!strcmp(flname, "limit_volume"))
+                            flags |= PA_POLICY_GROUP_FLAG_LIMIT_VOLUME;
+                        else if (!strcmp(flname, "cork_stream"))
+                            flags |= PA_POLICY_GROUP_FLAG_CORK_STREAM;
+                        else {
+                            pa_log("%s: invalid flag '%s' in line %d",
+                                   __FILE__, flname, lineno);
+                            sts = -1;
+                            break;
+                        }
+                    } /* for */
+                }
+
+                if (sts >= 0) {
+                    grdef->name  = line;
+                    grdef->flags = flags;
+                }
+            }
+        }
     }
 
     return sts;
@@ -466,19 +526,23 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
     return sts;
 }
 
-static int valid_label(char *label)
+static int valid_label(int lineno, char *label)
 {
     int c;
 
     if (!isalpha(*label))
-        return 0;
+        goto invalid;
 
     while((c = *label++) != '\0') {
         if (!isalpha(c) && isdigit(c) && c != '-' && c != '_')
-            return 0;
+            goto invalid;
     }
 
     return 1;
+
+ invalid:
+    pa_log("%s: invalid label '%s' in line %d", __FILE__, label, lineno);
+    return 0;
 }
 
 
