@@ -299,10 +299,10 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
 static void handle_action_message(struct userdata *u, DBusMessage *msg)
 {
     static struct actdsc actions[] = {
-        { "audio_route" , audio_route_parser  },
-        { "volume_limit", volume_limit_parser },
-        { "audio_cork"  , audio_cork_parser   },
-        {     NULL      , NULL                }
+        { "com.nokia.policy.audio_route" , audio_route_parser  },
+        { "com.nokia.policy.volume_limit", volume_limit_parser },
+        { "com.nokia.policy.audio_cork"  , audio_cork_parser   },
+        {               NULL             , NULL                }
     };
 
     struct actdsc   *act;
