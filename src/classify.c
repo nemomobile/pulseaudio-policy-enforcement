@@ -124,7 +124,7 @@ void pa_classify_add_device(struct userdata *u, char *type,
 
     sinks->ndef++;
 
-    pa_log_info("%s: device '%s' added", __FILE__, type);
+    pa_log_info("device '%s' added", type);
 }
 
 void pa_classify_add_stream(struct userdata *u, char *clnam, uid_t uid,
@@ -135,7 +135,7 @@ void pa_classify_add_stream(struct userdata *u, char *clnam, uid_t uid,
     pa_assert(u);
     pa_assert((classify = u->classify));
 
-    if ((clnam || uid != (uid_t)-1 || exe) && group) {
+    if ((stnam || clnam || uid != (uid_t)-1 || exe) && group) {
         streams_add(&classify->streams.defs, clnam, uid, exe, stnam, group);
     }
 }
@@ -148,7 +148,7 @@ void pa_classify_register_pid(struct userdata *u, pid_t pid, char *stnam,
     pa_assert(u);
     pa_assert((classify = u->classify));
 
-    if (group) {
+    if (pid && group) {
         pid_hash_insert(classify->streams.pid_hash, pid, stnam, group);
     }
 }
@@ -160,7 +160,9 @@ void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *stnam)
     pa_assert(u);
     pa_assert((classify = u->classify));
 
-    pid_hash_remove(classify->streams.pid_hash, pid, stnam);
+    if (pid) {
+        pid_hash_remove(classify->streams.pid_hash, pid, stnam);
+    }
 }
 
 char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
@@ -177,12 +179,11 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
     pa_assert(sinp);
 
     if ((client = sinp->client) == NULL) {
-        clnam = (char *)" ";
+        clnam = (char *)"";
         pid   = 0;
         uid   = (uid_t)-1;
-        exe   = (char *)" ";
+        exe   = (char *)"";
         stnam = pa_sink_input_ext_get_name(sinp);
-        group = NULL;
     }
     else {
         clnam = pa_client_ext_name(client);
@@ -190,13 +191,13 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
         uid   = pa_client_ext_uid(client);
         exe   = pa_client_ext_exe(client);
         stnam = pa_sink_input_ext_get_name(sinp);
-
-        group = find_group_for_client(u, clnam, pid, uid, exe, stnam);
     }
 
-    pa_log_debug("%s: classify sink input (%s|%s|%d|%d|%s|%s) => %s",
-                 __FILE__, clnam, stnam, pid, uid, exe?exe:"<null>",
-                 stnam?stnam:"<null>", group?group:"<null>");
+    group = find_group_for_client(u, clnam, pid, uid, exe, stnam);
+
+    pa_log_debug("classify sink input (%s|%s|%d|%d|%s) => %s",
+                 clnam?clnam:"<null>", stnam?stnam:"<null>",
+                 pid, uid, exe?exe:"<null>", group?group:"<null>");
 
     return group;
 }
@@ -413,7 +414,7 @@ pa_classify_pid_hash *pid_hash_find(struct pa_classify_pid_hash **hash,
          (st = prev->next) != NULL;
          prev = prev->next)
     {
-        if (pid == st->pid) {
+        if (pid && pid == st->pid) {
             if ((!stnam && !st->stnam) ||
                 ( stnam &&  st->stnam && !strcmp(stnam,st->stnam)))
                 break;
@@ -422,6 +423,11 @@ pa_classify_pid_hash *pid_hash_find(struct pa_classify_pid_hash **hash,
 
     if (prev_ret)
         *prev_ret = prev;
+
+#if 0
+    pa_log_debug("%s(%d,'%s') => %p", __FUNCTION__,
+                 pid, stnam?stnam:"<null>", st);
+#endif
 
     return st;
 }
@@ -465,6 +471,9 @@ static void streams_add(struct pa_classify_stream_def **defs, char *clnam,
         d->stnam = stnam ? pa_xstrdup(stnam) : NULL; 
         
         prev->next = d;
+
+        pa_log_debug("stream added (%d|%s|%s|%s)", uid, exe?exe:"<null>",
+                     clnam?clnam:"<null>", stnam?stnam:"<null>");
     }
 
     d->group = pa_xstrdup(group);
@@ -511,6 +520,12 @@ streams_find(struct pa_classify_stream_def **defs, char *clnam, uid_t uid,
 
     if (prev_ret)
         *prev_ret = prev;
+
+#if 0
+    pa_log_debug("%s('%s',%d,'%s','%s') => %p", __FUNCTION__,
+                 clnam?clnam:"<null>", uid, exe?exe:"<null>",
+                 stnam?stnam:"<null>", d);
+#endif
 
     return d;
 
