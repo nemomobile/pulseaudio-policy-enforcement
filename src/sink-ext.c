@@ -135,7 +135,7 @@ static void send_device_state(struct userdata *u, const char *state,
         
     } while (*p);
 
-    pa_policy_dbusif_send_device_state(u, state, types, ntype);
+    pa_policy_dbusif_send_device_state(u, (char *)state, types, ntype);
 
 #undef MAX_TYPE
 }

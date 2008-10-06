@@ -108,13 +108,15 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
 
 void pa_policy_groupset_create_default_group(struct userdata *u)
 {
+    static char     *name = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
+    static uint32_t flags = PA_POLICY_GROUP_FLAGS_CLIENT;
+
     struct pa_policy_groupset *gset;
     
     pa_assert(u);
     pa_assert((gset = u->groups));
 
-    gset->dflt = pa_policy_group_new(u, (char *)PA_POLICY_DEFAULT_GROUP_NAME,
-                                     PA_POLICY_GROUP_FLAGS_CLIENT);
+    gset->dflt = pa_policy_group_new(u, name, flags);
 }
 
 
