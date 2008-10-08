@@ -56,13 +56,13 @@ struct streamdef {
 };
 
 struct section {
-    enum section_type     type;
+    enum section_type        type;
     union {
         void             *any;
         struct groupdef  *group;
         struct devicedef *device;
         struct streamdef *stream;
-    }                     def;
+    }                        def;
 };
 
 
@@ -284,7 +284,9 @@ static int section_close(struct userdata *u, struct section *sec)
         case section_groups:
             status = 0;
             grdef  = sec->def.group;
+
             pa_xfree(grdef);
+
             break;
             
         case section_device:
@@ -345,6 +347,7 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
         if ((equal = strchr(line, '=')) == NULL) {
             pa_log("%s: invalid definition '%s' in line %d",
                    __FILE__, line, lineno);
+            sts = -1;
         }
         else {
             *equal = '\0';
