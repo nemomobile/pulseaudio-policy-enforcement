@@ -7,7 +7,7 @@ m4_define(PA_MICRO, [12])
 AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.PA_MICRO],[janos.f.kovacs@nokia.com])
 AC_CONFIG_SRCDIR([src/module-policy-enforcement.c])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([foreign 1.10 -Wall])
+AM_INIT_AUTOMAKE([foreign 1.8.5 -Wall])
 
 # this would not be really needed if everything would be as it should be
 AS_IF([test x${exec_prefix} = xNONE], [LIBDIR=$ac_default_prefix/lib], [LIBDIR=${libdir}])
@@ -62,7 +62,7 @@ PKG_CHECK_MODULES(LIBPULSE, [libpulse])
 AC_SUBST(LIBPULSE_CFLAGS)
 AC_SUBST(LIBPULSE_LIBS)
 
-PKG_CHECK_MODULES(LIBPULSECORE, [pulseaudio-dev])
+PKG_CHECK_MODULES(LIBPULSECORE, [pulsecore])
 AC_SUBST(LIBPULSECORE_CFLAGS)
 AC_SUBST(LIBPULSECORE_LIBS)
 
