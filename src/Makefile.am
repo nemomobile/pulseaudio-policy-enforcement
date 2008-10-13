@@ -5,7 +5,9 @@ module_policy_enforcement_la_SOURCES = \
 			config-file.c \
 			client-ext.c \
 			sink-ext.c \
+			source-ext.c \
 			sink-input-ext.c \
+			source-output-ext.c \
 			classify.c \
 			policy-group.c \
 			dbusif.c

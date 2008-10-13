@@ -34,7 +34,9 @@
 #include "classify.h"
 #include "client-ext.h"
 #include "sink-ext.h"
+#include "source-ext.h"
 #include "sink-input-ext.h"
+#include "source-output-ext.h"
 #include "dbusif.h"
 
 #ifndef PA_DEFAULT_CONFIG_DIR
@@ -91,7 +93,9 @@ int pa__init(pa_module *m) {
     u->module   = m;
     u->scl      = pa_client_ext_subscription(u);
     u->ssnk     = pa_sink_ext_subscription(u);
+    u->ssrc     = pa_source_ext_subscription(u);
     u->ssi      = pa_sink_input_ext_subscription(u);
+    u->sso      = pa_source_output_ext_subscription(u);
     u->groups   = pa_policy_groupset_new(u);
     u->classify = pa_classify_new(u);
     u->dbusif   = pa_policy_dbusif_init(u, ifnam, mypath, pdpath, pdnam);
@@ -133,7 +137,9 @@ void pa__done(pa_module *m) {
 
     pa_subscription_free(u->scl);
     pa_subscription_free(u->ssnk);
+    pa_subscription_free(u->ssrc);
     pa_subscription_free(u->ssi);
+    pa_subscription_free(u->sso);
     
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);

@@ -4,6 +4,8 @@
 #include <pulsecore/core.h>
 
 #define PA_POLICY_DEFAULT_GROUP_NAME     "othermedia"
+#define PA_POLICY_CONNECTED              "1"
+#define PA_POLICY_DISCONNECTED           "0"
 
 #define PA_PROP_APPLICATION_PROCESS_ARGS "application.process.args"
 #define PA_PROP_POLICY_GROUP             "policy.group"
@@ -17,11 +19,13 @@ struct pa_policy_dbusif;
 struct userdata {
     pa_core                   *core;
     pa_module                 *module;
-    pa_subscription           *scl;       /* client event susbscription */
-    pa_subscription           *ssnk;      /* sink event subscription */
-    pa_subscription           *ssi;       /* sink input event susbscription */
-    struct pa_policy_groupset *groups;    /* policy groups */
-    struct pa_classify        *classify;  /* rules for classification */
+    pa_subscription           *scl;      /* client event susbscription */
+    pa_subscription           *ssnk;     /* sink event subscription */
+    pa_subscription           *ssrc;     /* source event subscription */
+    pa_subscription           *ssi;      /* sink input event susbscription */
+    pa_subscription           *sso;      /* source output event susbscription*/
+    struct pa_policy_groupset *groups;   /* policy groups */
+    struct pa_classify        *classify; /* rules for classification */
     struct pa_policy_dbusif   *dbusif;
 };
 

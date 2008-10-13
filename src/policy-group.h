@@ -23,26 +23,43 @@
 #define PA_POLICY_GROUP_FLAGS_NOPOLICY     PA_POLICY_GROUP_FLAG_NONE
 
 struct pa_sink_input_list {
-    struct pa_sink_input_list *next;
-    uint32_t                   index;
-    struct pa_sink_input      *sink_input;
+    struct pa_sink_input_list    *next;
+    uint32_t                      index;
+    struct pa_sink_input         *sink_input;
+};
+
+struct pa_source_output_list {
+    struct pa_source_output_list *next;
+    uint32_t                      index;
+    struct pa_source_output      *source_output;
 };
 
 struct pa_policy_group {
-    struct pa_policy_group    *next;
-    uint32_t                   flags;  /* or'ed PA_POLICY_GROUP_FLAG_x's */
-    char                      *name;   /* name of the policy group */
-    struct pa_sink            *sink;   /* default sink for the group */
-    uint32_t                   index;  /* index of the default sink */
-    pa_volume_t                limit;  /* volume limit for the group */
-    int                        corked;
-    struct pa_sink_input_list *sinpls; /* sink input list */
+    struct pa_policy_group       *next;
+    uint32_t                      flags;    /* or'ed PA_POLICY_GROUP_FLAG_x's*/
+    char                         *name;     /* name of the policy group */
+    struct pa_sink               *sink;     /* default sink for the group */
+    uint32_t                      sinpidx;  /* index of the default sink */
+    struct pa_source             *source;   /* default source fror the group */
+    uint32_t                      soutidx;  /* index of the default source */
+    pa_volume_t                   limit;    /* volume limit for the group */
+    int                           corked;
+    struct pa_sink_input_list    *sinpls;   /* sink input list */
+    struct pa_source_output_list *soutls;   /* source output list */
 };
 
 struct pa_policy_groupset {
     struct pa_policy_group    *dflt;     /*  default group */
     struct pa_policy_group    *hash_tbl[PA_POLICY_GROUP_HASH_DIM];
 };
+
+enum pa_policy_route_class {
+    pa_policy_route_unknown = 0,
+    pa_policy_route_to_sink,
+    pa_policy_route_to_source,
+    pa_policy_route_max
+};
+
 
 struct pa_policy_groupset *pa_policy_groupset_new(struct userdata *);
 void pa_policy_groupset_free(struct pa_policy_groupset *);
@@ -58,7 +75,13 @@ void pa_policy_group_insert_sink_input(struct userdata *, char *,
                                        struct pa_sink_input *);
 void pa_policy_group_remove_sink_input(struct userdata *, uint32_t);
 
-int  pa_policy_group_move_to(struct userdata *, char *, char *);
+
+void pa_policy_group_insert_source_output(struct userdata *, char *,
+                                          struct pa_source_output *);
+void pa_policy_group_remove_source_output(struct userdata *, uint32_t);
+
+int  pa_policy_group_move_to(struct userdata *, char *,
+                             enum pa_policy_route_class, char *);
 int  pa_policy_group_cork(struct userdata *u, char *, int);
 int  pa_policy_group_volume_limit(struct userdata *, char *, uint32_t);
 struct pa_policy_group *pa_policy_group_scan(struct pa_policy_groupset *,

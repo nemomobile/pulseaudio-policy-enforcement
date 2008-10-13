@@ -46,36 +46,44 @@ union pa_classify_arg {
     regex_t     rexp;
 };
 
-struct pa_classify_sink_def {
+struct pa_classify_device_def {
     const char             *type;
-    union pa_classify_arg   sink;
+    union pa_classify_arg   dev;
     int                   (*method)(const char *, union pa_classify_arg *);
     uint32_t                sidx;
     uint32_t                flags;
 };
 
-struct pa_classify_sink {
-    int                          ndef;
-    struct pa_classify_sink_def  defs[1];
+struct pa_classify_device {
+    int                            ndef;
+    struct pa_classify_device_def  defs[1];
 };
 
 struct pa_classify {
     struct pa_classify_stream    streams;
-    struct pa_classify_sink     *sinks;
+    struct pa_classify_device   *sinks;
+    struct pa_classify_device   *sources;
 };
 
 
 struct pa_classify *pa_classify_new(struct userdata *);
 void  pa_classify_free(struct pa_classify *);
-void  pa_classify_add_device(struct userdata *, char *,
+void  pa_classify_add_sink(struct userdata *, char *,
+                           enum pa_classify_method, char *, uint32_t);
+void  pa_classify_add_source(struct userdata *, char *,
                              enum pa_classify_method, char *, uint32_t);
 void  pa_classify_add_stream(struct userdata *, char *, uid_t, char *,
                              char *, char *);
+
 void  pa_classify_register_pid(struct userdata *, pid_t, char *, char *);
 void  pa_classify_unregister_pid(struct userdata *, pid_t, char *);
+
 char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *);
+char *pa_classify_source_output(struct userdata *, struct pa_source_output *);
 int   pa_classify_sink(struct userdata *, uint32_t, char *, char *, int);
+int   pa_classify_source(struct userdata *, uint32_t, char *, char *, int);
 int   pa_classify_is_sink_typeof(struct userdata *, char *, char *);
+int   pa_classify_is_source_typeof(struct userdata *, char *, char *);
 
 
 #endif

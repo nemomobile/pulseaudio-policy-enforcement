@@ -445,9 +445,9 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
         {  NULL  ,            0                       , DBUS_TYPE_INVALID}
     };
 
-    struct argrt  args;
-    int           sink;
-    char         *target;
+    struct argrt args;
+    enum pa_policy_route_class class;
+    char *target;
 
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
@@ -457,24 +457,19 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
             return FALSE;
 
         if (!strcmp(args.type, "sink"))
-            sink = 1;
+            class = pa_policy_route_to_sink;
         else if (!strcmp(args.type, "source"))
-            sink = 0;
+            class = pa_policy_route_to_source;
         else
             return FALSE;
 
         target = args.device;
 
-        if (sink) {
-            pa_log_debug("%s: route sink to %s", __FILE__, target);
+        pa_log_debug("%s: route %s to %s", __FILE__, args.type, target);
 
-            if (pa_policy_group_move_to(u, NULL, target) < 0) {
-                pa_log("%s: can't route to sink %s", __FILE__, target);
-                return FALSE;
-            }
-        }
-        else {
-            pa_log_debug("audio_route(source, %s) is ignored", target);
+        if (pa_policy_group_move_to(u, NULL, class, target) < 0) {
+            pa_log("%s: can't route to %s %s", __FILE__, args.type, target);
+            return FALSE;
         }
 
     } while (dbus_message_iter_next(actit));

@@ -35,15 +35,23 @@ enum section_type {
     section_max
 };
 
+enum device_class {
+    device_unknown = 0,
+    device_sink,
+    device_source,
+    device_max
+};
+
 struct groupdef {
     char                     *name;
     uint32_t                 flags;
 };
 
 struct devicedef {
+    enum device_class        class;
     char                    *type;
     enum pa_classify_method  method;
-    char                    *sink;
+    char                    *device;
     uint32_t                 flags;
 };
 
@@ -76,6 +84,7 @@ static int groupdef_parse(int, char *, struct groupdef *);
 static int devicedef_parse(int, char *, struct devicedef *);
 static int streamdef_parse(int, char *, struct streamdef *);
 
+static int devicename_parse(int, enum device_class,char *, struct devicedef *);
 static int valid_label(int, char *);
 
 
@@ -293,11 +302,24 @@ static int section_close(struct userdata *u, struct section *sec)
             status = 0;
             devdef = sec->def.device;
             
-            pa_classify_add_device(u, devdef->type, devdef->method,
-                                   devdef->sink, devdef->flags); 
+            switch (devdef->class) {
+
+            case device_sink:
+                pa_classify_add_sink(u, devdef->type, devdef->method,
+                                     devdef->device, devdef->flags);
+                break;
+
+            case device_source:
+                pa_classify_add_source(u, devdef->type, devdef->method,
+                                       devdef->device, devdef->flags);
+                break;
+
+            default:
+                break;
+            }
             
             pa_xfree(devdef->type);
-            pa_xfree(devdef->sink);
+            pa_xfree(devdef->device);
             pa_xfree(devdef);
 
             break;
@@ -409,8 +431,6 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
 {
     int   sts;
     char *end;
-    char *colon;
-    char *method;
 
     if (devdef == NULL)
         sts = -1;
@@ -421,30 +441,10 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
             devdef->type = pa_xstrdup(line+5);
         }
         else if (!strncmp(line, "sink=", 5)) {
-            if ((colon = strchr(line+5, ':')) == NULL) {
-                sts = -1;
-                pa_log("%s: invalid definition '%s' in line %d",
-                       __FILE__, line+5, lineno);
-            }
-            else {
-                *colon = '\0';
-                method = line+5;
-
-                devdef->sink = pa_xstrdup(colon+1);
-
-                if (!strcmp(method, "equals"))
-                    devdef->method = pa_method_equals;
-                else if (!strcmp(method, "startswith"))
-                    devdef->method = pa_method_startswith;
-                else if (!strcmp(method, "matches"))
-                    devdef->method = pa_method_matches;
-                else {
-                    sts = -1;
-
-                    pa_log("%s: invalid method '%s' in line %d",
-                           __FILE__, method, lineno);
-                }
-            }
+            sts = devicename_parse(lineno, device_sink, line+5, devdef);
+        }
+        else if (!strncmp(line, "source=", 7)) {
+            sts = devicename_parse(lineno, device_source, line+7, devdef);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
@@ -527,6 +527,42 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
     }
 
     return sts;
+}
+
+static int devicename_parse(int lineno, enum device_class class, char *namdef,
+                            struct devicedef *devdef)
+{
+    char *colon;
+    char *method;
+    char *device;
+
+    if ((colon = strchr(namdef, ':')) == NULL) {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, namdef, lineno);
+        return -1;
+    }
+    else {
+        *colon = '\0';
+        method = namdef;
+        device = colon + 1;
+                
+        if (!strcmp(method, "equals"))
+            devdef->method = pa_method_equals;
+        else if (!strcmp(method, "startswith"))
+            devdef->method = pa_method_startswith;
+        else if (!strcmp(method, "matches"))
+            devdef->method = pa_method_matches;
+        else {
+            pa_log("%s: invalid method '%s' in line %d",
+                   __FILE__, method, lineno);
+            return -1;
+        }
+
+        devdef->class  = class;
+        devdef->device = pa_xstrdup(device);
+    }
+
+    return 0;
 }
 
 static int valid_label(int lineno, char *label)
