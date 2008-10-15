@@ -9,6 +9,7 @@
 
 #include <pulse/def.h>
 #include <pulse/proplist.h>
+#include <pulse/volume.h>
 #include <pulsecore/sink.h>
 #include <pulsecore/sink-input.h>
 
@@ -82,7 +83,7 @@ char *pa_sink_input_ext_get_name(struct pa_sink_input *sinp)
 int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
                                        pa_volume_t limit)
 {
-    pa_cvolume vol;
+    pa_cvolume vol, saved_vol;
     int        i;
 
     pa_assert(sinp);
@@ -96,7 +97,9 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
     pa_assert(vol.channels <= PA_CHANNELS_MAX);
 
     for (i = 0;  i < vol.channels;  i++) {
+#if 0
         if (vol.values[i] > limit)
+#endif
             vol.values[i] = limit;
     }
 

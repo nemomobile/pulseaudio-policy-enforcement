@@ -1,3 +1,4 @@
+
 AC_PREREQ(2.61)
 
 m4_define(PA_MAJOR, [0])

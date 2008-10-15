@@ -4,6 +4,7 @@
 #endif
 
 #include <pulsecore/namereg.h>
+#include <pulse/volume.h>
 
 #include "policy-group.h"
 #include "sink-ext.h"
@@ -490,11 +491,10 @@ int pa_policy_group_cork(struct userdata *u, char *name, int corked)
 }
 
 
-int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
+int pa_policy_group_volume_limit(struct userdata *u, char *name, uint32_t limit)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
-    pa_volume_t                newlim;
     int                        ret;
 
     pa_assert(u);
@@ -516,7 +516,7 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
         else {
             pa_log_debug("%s: setting volume limit %d for group '%s'",
                          __FILE__, limit, group->name);
-            ret = volset_group(group, newlim);
+            ret = volset_group(group, limit);
         }
     }
 

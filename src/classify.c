@@ -154,6 +154,7 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
 
     pa_assert(u);
     pa_assert(sinp);
+    pa_assert((client = sinp->client));
 
     stnam = pa_sink_input_ext_get_name(sinp);
     group = find_group_for_client(u, client, stnam);
