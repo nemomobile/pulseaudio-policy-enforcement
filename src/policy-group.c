@@ -362,7 +362,7 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
             pa_source_output_move_to(so, group->source);
         }
 
-        pa_log_debug("source output '%s' added to group '%s'",
+       pa_log_debug("source output '%s' added to group '%s'",
                      pa_source_output_ext_get_name(so), group->name);
     }
 }
