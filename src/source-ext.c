@@ -114,35 +114,37 @@ static void send_device_state(struct userdata *u, const char *state,
     char  buf[1024];
     char *p, *q, c;
 
-    ntype = 0;
+    if (typelist && typelist[0]) {
+        ntype = 0;
 
-    p = typelist - 1;
-    q = buf;
-
-    do {
-        p++;
-
-        if (ntype < MAX_TYPE)
-            types[ntype] = q;
-        else {
-            pa_log("%s() list overflow", __FUNCTION__);
-            return;
-        }
-
-        while ((c = *p) != ' ' && c != '\0') {
-            if (q < buf + sizeof(buf)-1)
-                *q++ = *p++;
+        p = typelist - 1;
+        q = buf;
+        
+        do {
+            p++;
+            
+            if (ntype < MAX_TYPE)
+                types[ntype] = q;
             else {
-                pa_log("%s() buffer overflow", __FUNCTION__);
+                pa_log("%s() list overflow", __FUNCTION__);
                 return;
             }
-        }
-        *q++ = '\0';
-        ntype++;
+            
+            while ((c = *p) != ' ' && c != '\0') {
+                if (q < buf + sizeof(buf)-1)
+                    *q++ = *p++;
+                else {
+                    pa_log("%s() buffer overflow", __FUNCTION__);
+                    return;
+                }
+            }
+            *q++ = '\0';
+            ntype++;
+            
+        } while (*p);
         
-    } while (*p);
-
-    pa_policy_dbusif_send_device_state(u, (char *)state, types, ntype);
+        pa_policy_dbusif_send_device_state(u, (char *)state, types, ntype);
+    }
 
 #undef MAX_TYPE
 }

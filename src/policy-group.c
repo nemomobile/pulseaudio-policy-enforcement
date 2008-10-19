@@ -292,7 +292,9 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
 
         if (group->sink != NULL) {
             pa_sink_input_move_to(si, group->sink);
-            pa_sink_input_cork(si, group->corked);
+
+            if (group->corked)
+                pa_sink_input_cork(si, group->corked);
 
             pa_sink_input_ext_set_volume_limit(si, group->limit);
         }

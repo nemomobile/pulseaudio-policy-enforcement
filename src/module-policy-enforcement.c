@@ -110,7 +110,7 @@ int pa__init(pa_module *m) {
     
     if (u->scl == NULL || u->ssnk == NULL || u->ssi == NULL)
         goto fail;
-        
+       
     pa_modargs_free(ma);
     
     return 0;
