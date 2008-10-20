@@ -561,38 +561,65 @@ struct pa_policy_group *pa_policy_group_scan(struct pa_policy_groupset *gset,
 
 static int move_group(struct pa_policy_group *group, struct target *target)
 {
-    struct pa_sink *sink;
-    struct pa_sink_input_list *sil;
-    struct pa_sink_input *sinp;
-    int ret = 0;
+    struct pa_sink               *sink;
+    struct pa_source             *source;
+    struct pa_sink_input_list    *sil;
+    struct pa_source_output_list *sol;
+    struct pa_sink_input         *sinp;
+    struct pa_source_output      *sout;
+    int                           ret = 0;
 
-    switch (target->class) {
-
-    case pa_policy_route_to_sink:
-        for (sil = group->sinpls;    sil;   sil = sil->next) {
-            sinp = sil->sink_input;
-            
-            if (pa_sink_input_move_to(sinp, sink) < 0) {
-                ret = -1;
-                
-                pa_log("failed to move sink input '%s' to sink '%s'",
-                       pa_sink_input_ext_get_name(sinp),
-                       pa_sink_ext_get_name(sink));
-            }
-            else {
-                pa_log_debug("move sink input '%s' to sink '%s'",
-                             pa_sink_input_ext_get_name(sinp),
-                             pa_sink_ext_get_name(sink));
-            }
-        }
-        break;
-
-    case pa_policy_route_to_source:
-        break;
-
-    default:
+    if (group == NULL || target->any == NULL)
         ret = -1;
-        break;
+    else {
+        switch (target->class) {
+            
+        case pa_policy_route_to_sink:
+            sink = target->sink;
+
+            for (sil = group->sinpls;    sil;   sil = sil->next) {
+                sinp = sil->sink_input;
+                
+                if (pa_sink_input_move_to(sinp, sink) < 0) {
+                    ret = -1;
+                    
+                    pa_log("failed to move sink input '%s' to sink '%s'",
+                           pa_sink_input_ext_get_name(sinp),
+                           pa_sink_ext_get_name(sink));
+                }
+                else {
+                    pa_log_debug("move sink input '%s' to sink '%s'",
+                                 pa_sink_input_ext_get_name(sinp),
+                                 pa_sink_ext_get_name(sink));
+                }
+            }
+            break;
+            
+        case pa_policy_route_to_source:
+            source = target->source;
+
+            for (sol = group->soutls;    sol;    sol = sol->next) {
+                sout = sol->source_output;
+
+                if (pa_source_output_move_to(sout, source) < 0) {
+                    ret = -1;
+                    
+                    pa_log("failed to move source output '%s' to source '%s'",
+                           pa_source_output_ext_get_name(sout),
+                           pa_source_ext_get_name(source));
+                }
+                else {
+                    pa_log_debug("move source output '%s' to source '%s'",
+                                 pa_source_output_ext_get_name(sout),
+                                 pa_source_ext_get_name(source));
+                }
+            }
+            break;
+            
+        default:
+            ret = -1;
+            break;
+        } /* switch class */
     }
 
     return ret;

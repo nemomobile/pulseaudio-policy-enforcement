@@ -154,10 +154,10 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
 
     pa_assert(u);
     pa_assert(sinp);
-    pa_assert((client = sinp->client));
 
-    stnam = pa_sink_input_ext_get_name(sinp);
-    group = find_group_for_client(u, client, stnam);
+    client = sinp->client;
+    stnam  = pa_sink_input_ext_get_name(sinp);
+    group  = find_group_for_client(u, client, stnam);
 
     return group;
 }
@@ -172,8 +172,9 @@ char *pa_classify_source_output(struct userdata *u,
     pa_assert(u);
     pa_assert(sout);
 
-    stnam = pa_source_output_ext_get_name(sout);
-    group = find_group_for_client(u, client, stnam);
+    client = sout->client;
+    stnam  = pa_source_output_ext_get_name(sout);
+    group  = find_group_for_client(u, client, stnam);
 
     return group;
 }
