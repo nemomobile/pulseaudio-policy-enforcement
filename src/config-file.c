@@ -29,7 +29,7 @@
 
 enum section_type {
     section_unknown = 0,
-    section_groups,
+    section_group,
     section_device,
     section_stream,
     section_max
@@ -43,7 +43,9 @@ enum device_class {
 };
 
 struct groupdef {
-    char                     *name;
+    char                    *name;
+    char                    *sink;
+    char                    *source;
     uint32_t                 flags;
 };
 
@@ -118,7 +120,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
         return 0;
     }
 
-    sts = 1;
+    sts = 1;                    /* assume successful operation */
 
     memset(&section, 0, sizeof(section));
 
@@ -141,13 +143,11 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
         else {
             switch (section.type) {
 
-            case section_groups:
+            case section_group:
                 grdef = section.def.group;
 
                 if (groupdef_parse(lineno, line, grdef) < 0)
                     sts = 0;
-                else
-                    pa_policy_group_new(u, grdef->name, grdef->flags);
 
                 break;
 
@@ -223,8 +223,8 @@ static int section_header(int lineno, char *line, enum section_type *type)
     else {
         is_section = 1;
 
-        if (!strcmp(line, "[groups]"))
-            *type = section_groups;
+        if (!strcmp(line, "[group]"))
+            *type = section_group;
         else if (!strcmp(line,"[device]"))
             *type = section_device;
         else if (!strcmp(line, "[stream]"))
@@ -249,7 +249,7 @@ static int section_open(struct userdata *u, enum section_type type,
     else {
         switch (type) {
             
-        case section_groups:
+        case section_group:
             sec->def.group = pa_xnew0(struct groupdef, 1);
             status = 0;
             break;
@@ -290,10 +290,16 @@ static int section_close(struct userdata *u, struct section *sec)
     else {
         switch (sec->type) {
             
-        case section_groups:
+        case section_group:
             status = 0;
             grdef  = sec->def.group;
 
+            pa_policy_group_new(u, grdef->name, grdef->sink,
+                                grdef->source, grdef->flags);
+
+            pa_xfree(grdef->name);
+            pa_xfree(grdef->sink);
+            pa_xfree(grdef->source);
             pa_xfree(grdef);
 
             break;
@@ -355,9 +361,8 @@ static int section_close(struct userdata *u, struct section *sec)
 static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
 {
     int       sts;
-    char     *equal;
+    char     *end;
     char     *comma;
-    char     *name;
     char     *fldef;
     char     *flname;
     int       len;
@@ -366,19 +371,22 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
     if (grdef == NULL)
         sts = -1;
     else {
-        if ((equal = strchr(line, '=')) == NULL) {
-            pa_log("%s: invalid definition '%s' in line %d",
-                   __FILE__, line, lineno);
-            sts = -1;
-        }
-        else {
-            *equal = '\0';
-            name  = line;
-            fldef = equal + 1;
-            
-            if (!valid_label(lineno, name))
+        if (!strncmp(line, "name=", 5)) {
+            if (!valid_label(lineno, line+5))
                 sts = -1;
-            else if (fldef[0] == '\0') {
+            else
+                grdef->name = pa_xstrdup(line+5);
+        }
+        else if (!strncmp(line, "sink=", 5)) {
+            grdef->sink = pa_xstrdup(line+5);
+        }
+        else if (!strncmp(line, "source=", 7)) {
+            grdef->source = pa_xstrdup(line+7);
+        }
+        else if (!strncmp(line, "flags=", 6)) { 
+            fldef = line + 6;
+            
+            if (fldef[0] == '\0') {
                 sts = -1;
                 pa_log("%s: missing flag definition in line %d",
                        __FILE__, lineno);
@@ -417,10 +425,21 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
                 }
 
                 if (sts >= 0) {
-                    grdef->name  = line;
                     grdef->flags = flags;
                 }
             }
+        }
+        else {
+            if ((end = strchr(line, '=')) == NULL) {
+                pa_log("%s: invalid definition '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            else {
+                *end = '\0';
+                pa_log("%s: invalid key value '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            sts = -1;
         }
     }
 

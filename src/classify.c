@@ -647,31 +647,31 @@ static int devices_is_typeof(struct pa_classify_device_def *defs,
     return FALSE;
 }
 
-int method_equals(const char *name, union pa_classify_arg *sink)
+int method_equals(const char *name, union pa_classify_arg *dev)
 {
     int found;
 
-    if (!name || !sink || !sink->name)
+    if (!name || !dev || !dev->name)
         found = FALSE;
     else
-        found = !strcmp(name, sink->name);
+        found = !strcmp(name, dev->name);
 
     return found;
 }
 
-int method_startswith(const char *name, union pa_classify_arg *sink)
+int method_startswith(const char *name, union pa_classify_arg *dev)
 {
     int found;
 
-    if (!name || !sink || !sink->name)
+    if (!name || !dev || !dev->name)
         found = FALSE;
     else
-        found = !strncmp(name, sink->name, strlen(sink->name));
+        found = !strncmp(name, dev->name, strlen(dev->name));
 
     return found;
 }
 
-int method_matches(const char *name, union pa_classify_arg *sink)
+int method_matches(const char *name, union pa_classify_arg *dev)
 {
 #define MAX_MATCH 5
 
@@ -681,8 +681,8 @@ int method_matches(const char *name, union pa_classify_arg *sink)
     
     found = FALSE;
 
-    if (name && sink) {
-        if (regexec(&sink->rexp, name, MAX_MATCH, m, 0) == 0) {
+    if (name && dev) {
+        if (regexec(&dev->rexp, name, MAX_MATCH, m, 0) == 0) {
             end = strlen(name);
 
             if (m[0].rm_so == 0 && m[0].rm_eo == end && m[1].rm_so == -1)

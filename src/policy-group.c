@@ -31,7 +31,9 @@ struct cursor {
 
 
 static struct pa_sink   *defsink;
-static uint32_t          defidx = PA_IDXSET_INVALID;
+static struct pa_source *defsource;
+static uint32_t          defsinkidx = PA_IDXSET_INVALID;
+static uint32_t          defsrcidx  = PA_IDXSET_INVALID;
 
 static int move_group(struct pa_policy_group *, struct target *);
 static int volset_group(struct pa_policy_group *, pa_volume_t);
@@ -68,6 +70,7 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
+    char                      *defsinkname;
     int                        i;
 
     pa_assert(u);
@@ -78,20 +81,22 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
      * and equals to the default sink's index
      */
 
-    if (defsink != NULL && defidx == idx) {
+    if (defsink != NULL && defsinkidx == idx) {
         pa_log_debug("Unset default sink (idx=%d)", idx);
 
         for (i = 0;   i < PA_POLICY_GROUP_HASH_DIM;   i++) {
             for (group = gset->hash_tbl[i]; group; group = group->next) {
-                if (group->sinpidx == defidx) {
+                if (group->sinkidx == defsinkidx) {
+                    pa_log_debug("  unset default sink for group '%s'",
+                                 group->name);
                     group->sink = NULL;
-                    group->sinpidx = PA_IDXSET_INVALID;
+                    group->sinkidx = PA_IDXSET_INVALID;
                 }
             }
         }
         
         defsink = NULL;
-        defidx  = PA_IDXSET_INVALID;
+        defsinkidx = PA_IDXSET_INVALID;
     }
 
     /*
@@ -102,16 +107,19 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
         defsink = pa_namereg_get(u->core, NULL, PA_NAMEREG_SINK, FALSE);
 
         if (defsink != NULL) {
-            defidx = defsink->index;
+            defsinkname = pa_sink_ext_get_name(defsink);
+            defsinkidx  = defsink->index;
 
             pa_log_debug("Set default sink to '%s' (idx=%d)",
-                         pa_sink_ext_get_name(defsink), defidx);
+                         defsinkname, defsinkidx);
 
             for (i = 0;   i < PA_POLICY_GROUP_HASH_DIM;   i++) {
                 for (group = gset->hash_tbl[i]; group; group = group->next) {
-                    if (group->sink == NULL) {
+                    if (group->sinkname == NULL && group->sink == NULL) {
+                        pa_log_debug("  set sink '%s' as default for "
+                                     "group '%s'", defsinkname, group->name);
                         group->sink = defsink;
-                        group->sinpidx = defidx;
+                        group->sinkidx = defsinkidx;
 
                         /* TODO: we should move the streams to defsink */
                     }
@@ -121,6 +129,127 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
     }
 }
 
+
+void pa_policy_groupset_register_sink(struct userdata *u, struct pa_sink *sink)
+{
+    struct pa_policy_groupset *gset;
+    struct pa_policy_group    *group;
+    char                      *sinkname;
+    uint32_t                   sinkidx;
+    int                        i;
+
+    pa_assert(u);
+    pa_assert(sink);
+    pa_assert((gset = u->groups));
+
+    sinkname = pa_sink_ext_get_name(sink);
+    sinkidx  = sink->index;
+
+    if (sinkname && sinkname[0]) {
+        pa_log_debug("Register sink '%s' (idx=%d)", sinkname, sinkidx);
+        
+        for (i = 0;   i < PA_POLICY_GROUP_HASH_DIM;   i++) {
+            for (group = gset->hash_tbl[i];    group;    group = group->next) {
+                if (group->sinkname && !strcmp(group->sinkname, sinkname)) {
+                    pa_log_debug("  set sink '%s' as default for group '%s'",
+                                 sinkname, group->name);
+
+                    group->sink    = sink;
+                    group->sinkidx = sinkidx;
+
+                    /* TODO: we should move the streams to the sink */
+                }
+            }
+        }
+    }
+}
+
+void pa_policy_groupset_unregister_sink(struct userdata *u, uint32_t sinkidx)
+{
+    struct pa_policy_groupset *gset;
+    struct pa_policy_group    *group;
+    int                        i;
+
+    pa_assert(u);
+    pa_assert((gset = u->groups));
+
+    pa_log_debug("Unregister sink (idx=%d)", sinkidx);
+        
+    for (i = 0;   i < PA_POLICY_GROUP_HASH_DIM;   i++) {
+        for (group = gset->hash_tbl[i];    group;    group = group->next) {
+            if (group->sinkidx == sinkidx) {
+                pa_log_debug("  unset default sink for group '%s'",
+                             group->name);
+
+                group->sink    = NULL;
+                group->sinkidx = PA_IDXSET_INVALID;
+
+                /* TODO: we should move the streams to somewhere */
+            }
+        }
+    }
+}
+
+void pa_policy_groupset_register_source(struct userdata *u,
+                                        struct pa_source *source)
+{
+    struct pa_policy_groupset *gset;
+    struct pa_policy_group    *group;
+    char                      *srcname;
+    uint32_t                   srcidx;
+    int                        i;
+
+    pa_assert(u);
+    pa_assert(source);
+    pa_assert((gset = u->groups));
+
+    srcname = pa_source_ext_get_name(source);
+    srcidx  = source->index;
+
+    if (srcname && srcname[0]) {
+        pa_log_debug("Register source '%s' (idx=%d)", srcname, srcidx);
+        
+        for (i = 0;   i < PA_POLICY_GROUP_HASH_DIM;   i++) {
+            for (group = gset->hash_tbl[i];    group;    group = group->next) {
+                if (group->srcname && !strcmp(group->srcname, srcname)) {
+                    pa_log_debug("  set source '%s' as default for group '%s'",
+                                 srcname, group->name);
+
+                    group->source = source;
+                    group->srcidx = srcidx;
+
+                    /* TODO: we should move the streams to the source */
+                }
+            }
+        }
+    }
+}
+
+void pa_policy_groupset_unregister_source(struct userdata *u, uint32_t srcidx)
+{
+    struct pa_policy_groupset *gset;
+    struct pa_policy_group    *group;
+    int                        i;
+
+    pa_assert(u);
+    pa_assert((gset = u->groups));
+
+    pa_log_debug("Unregister source (idx=%d)", srcidx);
+        
+    for (i = 0;   i < PA_POLICY_GROUP_HASH_DIM;   i++) {
+        for (group = gset->hash_tbl[i];    group;    group = group->next) {
+            if (group->srcidx == srcidx) {
+                pa_log_debug("  unset default source for group '%s'",
+                             group->name);
+
+                group->source = NULL;
+                group->srcidx = PA_IDXSET_INVALID;
+                
+                /* TODO: we should move the streams to the somwhere */
+            }
+        }
+    }
+}
 
 void pa_policy_groupset_create_default_group(struct userdata *u)
 {
@@ -132,13 +261,14 @@ void pa_policy_groupset_create_default_group(struct userdata *u)
     pa_assert(u);
     pa_assert((gset = u->groups));
 
-    gset->dflt = pa_policy_group_new(u, name, flags);
+    gset->dflt = pa_policy_group_new(u, name, NULL, NULL, flags);
 }
 
 
 
-struct pa_policy_group *pa_policy_group_new(struct userdata *u,
-                                            char *name, uint32_t flags)
+struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name, 
+                                            char *sinkname, char *srcname,
+                                            uint32_t flags)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
@@ -152,12 +282,16 @@ struct pa_policy_group *pa_policy_group_new(struct userdata *u,
 
     group = pa_xnew0(struct pa_policy_group, 1);
 
-    group->next    = gset->hash_tbl[idx];
-    group->flags   = flags;
-    group->name    = pa_xstrdup(name);
-    group->limit   = PA_VOLUME_NORM;
-    group->sink    = defsink;
-    group->sinpidx = defidx;
+    group->next     = gset->hash_tbl[idx];
+    group->flags    = flags;
+    group->name     = pa_xstrdup(name);
+    group->limit    = PA_VOLUME_NORM;
+    group->sinkname = sinkname ? pa_xstrdup(sinkname) : NULL;
+    group->sink     = sinkname ? defsink : NULL;
+    group->sinkidx  = sinkname ? defsinkidx : PA_IDXSET_INVALID;
+    group->srcname  = srcname  ? pa_xstrdup(srcname) : NULL;
+    group->source   = srcname  ? defsource : NULL;
+    group->srcidx   = srcname  ? defsrcidx : PA_IDXSET_INVALID;
 
     gset->hash_tbl[idx] = group;
 
@@ -240,6 +374,8 @@ void pa_policy_group_free(struct pa_policy_groupset *gset, char *name)
                 } /* if group->soutls */
 
                 pa_xfree(group->name);
+                pa_xfree(group->sinkname);
+                pa_xfree(group->srcname);
 
                 prev->next = group->next;
 

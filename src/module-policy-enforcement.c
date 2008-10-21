@@ -40,7 +40,7 @@
 #include "dbusif.h"
 
 #ifndef PA_DEFAULT_CONFIG_DIR
-#define PA_DEFAULT_CONFIG_DIR "/usr/local/etc/pulse"
+#define PA_DEFAULT_CONFIG_DIR "/etc/pulse"
 #endif
 
 PA_MODULE_AUTHOR("Janos Kovacs");

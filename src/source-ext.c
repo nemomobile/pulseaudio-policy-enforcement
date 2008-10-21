@@ -71,10 +71,12 @@ static void handle_source_events(pa_core *c,pa_subscription_event_type_t t,
                                  name, idx, buf);
 
 #if 0
-                    pa_policy_groupset_update_default_source(
-                        u, PA_IDXSET_INVALID
-                    );
+                    pa_policy_groupset_update_default_source(u,
+                                                             PA_IDXSET_INVALID
+                                                             );
 #endif
+                    pa_policy_groupset_register_source(u, source);
+
                     send_device_state(u, PA_POLICY_CONNECTED, buf);
                 }
             }
@@ -93,6 +95,7 @@ static void handle_source_events(pa_core *c,pa_subscription_event_type_t t,
 #if 0
             pa_policy_groupset_update_default_source(u, idx);
 #endif
+            pa_policy_groupset_unregister_source(u, idx);
 
             send_device_state(u, PA_POLICY_DISCONNECTED, buf);
         }

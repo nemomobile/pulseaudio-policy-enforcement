@@ -69,9 +69,8 @@ static void handle_sink_events(pa_core *c,pa_subscription_event_type_t t,
                 else {
                     pa_log_debug("new sink '%s' (idx=%d) (type %s)",
                                  name, idx, buf);
-                    pa_policy_groupset_update_default_sink(
-                        u, PA_IDXSET_INVALID
-                    );
+                    pa_policy_groupset_update_default_sink(u,PA_IDXSET_INVALID);
+                    pa_policy_groupset_register_sink(u, sink);
                     send_device_state(u, PA_POLICY_CONNECTED, buf);
                 }
             }
@@ -88,6 +87,7 @@ static void handle_sink_events(pa_core *c,pa_subscription_event_type_t t,
             pa_log_debug("remove sink %d (type=%s)", idx, buf);
             
             pa_policy_groupset_update_default_sink(u, idx);
+            pa_policy_groupset_unregister_sink(u, idx);
 
             send_device_state(u, PA_POLICY_DISCONNECTED, buf);
         }
