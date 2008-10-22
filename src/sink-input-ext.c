@@ -17,24 +17,48 @@
 #include "sink-input-ext.h"
 #include "classify.h"
 
+/* hooks */
+static pa_hook_result_t sink_input_put(void *, void *, void *);
+static pa_hook_result_t sink_input_unlink(void *, void *, void *);
 
 
-static void handle_sink_input_events(pa_core *, pa_subscription_event_type_t,
-				     uint32_t, void *);
-
-
-
-pa_subscription *pa_sink_input_ext_subscription(struct userdata *u)
+struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
 {
-    pa_subscription *subscr;
+    pa_core                 *core;
+    pa_hook                 *hooks;
+    struct pa_sinp_evsubscr *subscr;
+    pa_hook_slot            *put;
+    pa_hook_slot            *unlink;
     
-    pa_assert(u->core);
+    pa_assert(u);
+    pa_assert((core = u->core));
+
+    hooks  = core->hooks;
     
-    subscr = pa_subscription_new(u->core, 1<<PA_SUBSCRIPTION_EVENT_SINK_INPUT,
-                                 handle_sink_input_events, (void *)u);
+    put    = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_PUT,
+                             PA_HOOK_LATE, sink_input_put, (void *)u);
+    unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_UNLINK,
+                             PA_HOOK_LATE, sink_input_unlink, (void *)u);
+
+
+    subscr = pa_xnew0(struct pa_sinp_evsubscr, 1);
     
+    subscr->put    = put;
+    subscr->unlink = unlink;
+
     return subscr;
 }
+
+void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *subscr)
+{
+    if (subscr != NULL) {
+        pa_hook_slot_free(subscr->put);
+        pa_hook_slot_free(subscr->unlink);
+        
+        pa_xfree(subscr);
+    }
+}
+
 
 int pa_sink_input_ext_set_policy_group(struct pa_sink_input *sinp,
                                          char *group)
@@ -109,43 +133,48 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
 }
 
 
-static void handle_sink_input_events(pa_core *c,pa_subscription_event_type_t t,
-				     uint32_t idx, void *userdata)
+ 
+static pa_hook_result_t sink_input_put(void *hook_data, void *call_data,
+                                       void *slot_data)
 {
-    struct userdata      *u  = userdata;
-    uint32_t              et = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
-    struct pa_sink_input *sinp;
+    struct pa_sink_input *sinp = (struct pa_sink_input *)call_data;
+    struct userdata      *u    = (struct userdata *)slot_data;
     char                 *snam;
     char                 *gnam;
-    
-    pa_assert(u);
-    
-    switch (et) {
 
-    case PA_SUBSCRIPTION_EVENT_NEW:
-        if ((sinp = pa_idxset_get_by_index(c->sink_inputs, idx)) != NULL) {
-            snam = pa_sink_input_ext_get_name(sinp);
-            gnam = pa_classify_sink_input(u, sinp);
+    if (sinp && u) {
+        snam = pa_sink_input_ext_get_name(sinp);
+        gnam = pa_classify_sink_input(u, sinp);
 
-            pa_policy_group_insert_sink_input(u, gnam, sinp);
+        pa_policy_group_insert_sink_input(u, gnam, sinp);
 
-            pa_log_debug("new sink_input %s (idx=%d) (group=%s)",
-                         snam, idx, gnam);
-        }
-        break;
-        
-    case PA_SUBSCRIPTION_EVENT_CHANGE:
-        break;
-        
-    case PA_SUBSCRIPTION_EVENT_REMOVE:
-        pa_policy_group_remove_sink_input(u, idx);
-        pa_log_debug("sink input removed (idx=%d)", idx);
-        break;
-        
-    default:
-        pa_log("%s: unknown sink input event type %d", __FILE__, et);
-        break;
+        pa_log_debug("new sink_input %s (idx=%d) (group=%s)",
+                     snam, sinp->index, gnam);
     }
+
+    return PA_HOOK_OK;
+}
+
+
+static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
+                                          void *slot_data)
+{
+    struct pa_sink_input *sinp = (struct pa_sink_input *)call_data;
+    struct userdata      *u    = (struct userdata *)slot_data;
+    char                 *snam;
+    char                 *gnam;
+
+    if (sinp && u) {
+        snam = pa_sink_input_ext_get_name(sinp);
+        gnam = pa_classify_sink_input(u, sinp);
+
+        pa_policy_group_remove_sink_input(u, sinp->index);
+
+        pa_log_debug("removed sink_input %s (idx=%d) (group=%s)",
+                     snam, sinp->index, gnam);
+    }
+
+    return PA_HOOK_OK;
 }
 
 

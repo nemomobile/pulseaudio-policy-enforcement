@@ -11,7 +11,12 @@
 
 struct pa_client;
 
-pa_subscription *pa_client_ext_subscription(struct userdata *);
+struct pa_client_evsubscr {
+    pa_subscription         *events;
+};
+
+struct pa_client_evsubscr *pa_client_ext_subscription(struct userdata *);
+void   pa_client_ext_subscription_free(struct pa_client_evsubscr *);
 char  *pa_client_ext_name(struct pa_client *);
 char  *pa_client_ext_id(struct pa_client *);
 pid_t  pa_client_ext_pid(struct pa_client *);

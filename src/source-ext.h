@@ -5,9 +5,15 @@
 
 struct pa_source;
 
-pa_subscription *pa_source_ext_subscription(struct userdata *);
-char            *pa_source_ext_get_name(struct pa_source *);
-int              pa_source_ext_set_mute(struct userdata *, char *, int);
+struct pa_source_evsubscr {
+    pa_hook_slot    *put;
+    pa_hook_slot    *unlink;
+};
+
+struct pa_source_evsubscr *pa_source_ext_subscription(struct userdata *);
+void  pa_source_ext_subscription_free(struct pa_source_evsubscr *);
+char *pa_source_ext_get_name(struct pa_source *);
+int   pa_source_ext_set_mute(struct userdata *, char *, int);
 
 #endif /* foosourceextfoo */
 

@@ -15,22 +15,50 @@
 #include "policy-group.h"
 #include "dbusif.h"
 
-static void handle_sink_events(pa_core *, pa_subscription_event_type_t,
-                               uint32_t, void *);
+/* hooks */
+static pa_hook_result_t sink_put(void *, void *, void *);
+static pa_hook_result_t sink_unlink(void *, void *, void *);
+
 static void send_device_state(struct userdata *, const char *, char *);
 
 
-pa_subscription *pa_sink_ext_subscription(struct userdata *u)
+struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *u)
 {
-    pa_subscription *subscr;
+    pa_core                 *core;
+    pa_hook                 *hooks;
+    struct pa_sink_evsubscr *subscr;
+    pa_hook_slot            *put;
+    pa_hook_slot            *unlink;
     
-    pa_assert(u->core);
+    pa_assert(u);
+    pa_assert((core = u->core));
+
+    hooks  = core->hooks;
     
-    subscr = pa_subscription_new(u->core, 1<<PA_SUBSCRIPTION_EVENT_SINK,
-                                 handle_sink_events, (void *)u);
+    put    = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_PUT,
+                             PA_HOOK_LATE, sink_put, (void *)u);
+    unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_UNLINK,
+                             PA_HOOK_LATE, sink_unlink, (void *)u);
     
+
+    subscr = pa_xnew0(struct pa_sink_evsubscr, 1);
+    
+    subscr->put    = put;
+    subscr->unlink = unlink;
+
     return subscr;
 }
+
+void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *subscr)
+{
+    if (subscr != NULL) {
+        pa_hook_slot_free(subscr->put);
+        pa_hook_slot_free(subscr->unlink);
+
+        pa_xfree(subscr);
+    }
+}
+
 
 char *pa_sink_ext_get_name(struct pa_sink *sink)
 {
@@ -38,66 +66,73 @@ char *pa_sink_ext_get_name(struct pa_sink *sink)
 }
 
 
-static void handle_sink_events(pa_core *c,pa_subscription_event_type_t t,
-                               uint32_t idx, void *userdata)
+static pa_hook_result_t sink_put(void *hook_data, void *call_data,
+                                       void *slot_data)
 {
-    struct userdata    *u  = userdata;
-    uint32_t            et = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
-    struct pa_sink     *sink;
-    char               *name;
-    char                buf[1024];
-    int                 ret;
+    struct pa_sink  *sink = (struct pa_sink *)call_data;
+    struct userdata *u    = (struct userdata *)slot_data;
+    char            *name;
+    uint32_t         idx;
+    char             buf[1024];
+    int              ret;
 
-    pa_assert(u);
-    
-    switch (et) {
+    if (sink && u) {
+        name = pa_sink_ext_get_name(sink);
+        idx  = sink->index;
 
-    case PA_SUBSCRIPTION_EVENT_NEW:
-        if ((sink = pa_idxset_get_by_index(c->sinks, idx)) != NULL) {
-            name = pa_sink_ext_get_name(sink);
-
-            if (pa_classify_sink(u, idx, name, buf, sizeof(buf)) <= 0)
+        if (pa_classify_sink(u, idx, name, buf, sizeof(buf)) <= 0)
                 pa_log_debug("new sink '%s' (idx=%d)", name, idx);
-            else {
-                ret = pa_proplist_sets(sink->proplist,
-                                       PA_PROP_POLICY_DEVTYPELIST, buf);
+        else {
+            ret = pa_proplist_sets(sink->proplist,
+                                   PA_PROP_POLICY_DEVTYPELIST, buf);
 
-                if (ret < 0) {
-                    pa_log("failed to set property '%s' on sink '%s'",
-                           PA_PROP_POLICY_DEVTYPELIST, name);
-                }
-                else {
-                    pa_log_debug("new sink '%s' (idx=%d) (type %s)",
-                                 name, idx, buf);
-                    pa_policy_groupset_update_default_sink(u,PA_IDXSET_INVALID);
-                    pa_policy_groupset_register_sink(u, sink);
-                    send_device_state(u, PA_POLICY_CONNECTED, buf);
-                }
+            if (ret < 0) {
+                pa_log("failed to set property '%s' on sink '%s'",
+                       PA_PROP_POLICY_DEVTYPELIST, name);
+            }
+            else {
+                pa_log_debug("new sink '%s' (idx=%d) (type %s)",
+                             name, idx, buf);
+                pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
+                pa_policy_groupset_register_sink(u, sink);
+                send_device_state(u, PA_POLICY_CONNECTED, buf);
             }
         }
-        break;
-        
-    case PA_SUBSCRIPTION_EVENT_CHANGE:
-        break;        
-        
-    case PA_SUBSCRIPTION_EVENT_REMOVE:
+    }
+
+    return PA_HOOK_OK;
+}
+
+
+static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
+                                          void *slot_data)
+{
+    struct pa_sink  *sink = (struct pa_sink *)call_data;
+    struct userdata *u    = (struct userdata *)slot_data;
+    char            *name;
+    uint32_t         idx;
+    char             buf[1024];
+    int              ret;
+
+    if (sink && u) {
+        name = pa_sink_ext_get_name(sink);
+        idx  = sink->index;
+
         if (pa_classify_sink(u, idx, NULL, buf, sizeof(buf)) <= 0)
-            pa_log_debug("remove sink (idx=%d)", idx);
+            pa_log_debug("remove sink '%s' (idx=%d)", name, idx);
         else {
-            pa_log_debug("remove sink %d (type=%s)", idx, buf);
+            pa_log_debug("remove sink '%s' (idx=%d, type=%s)", name, idx, buf);
             
             pa_policy_groupset_update_default_sink(u, idx);
             pa_policy_groupset_unregister_sink(u, idx);
 
             send_device_state(u, PA_POLICY_DISCONNECTED, buf);
         }
-        break;
-
-    default:
-        pa_log("unknown sink event type %d", et);
-        break;
     }
+
+    return PA_HOOK_OK;
 }
+
 
 static void send_device_state(struct userdata *u, const char *state,
                               char *typelist) 

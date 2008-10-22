@@ -19,17 +19,34 @@ static void handle_client_events(pa_core *, pa_subscription_event_type_t,
 static char *client_ext_dump(struct pa_client *, char *, int);
 
 
-pa_subscription *pa_client_ext_subscription(struct userdata *u)
+struct pa_client_evsubscr *pa_client_ext_subscription(struct userdata *u)
 {
-    pa_subscription *subscr;
+    struct pa_client_evsubscr *subscr;
+    pa_subscription           *events;
     
+    pa_assert(u);
     pa_assert(u->core);
     
-    subscr = pa_subscription_new(u->core, 1 << PA_SUBSCRIPTION_EVENT_CLIENT,
+    events = pa_subscription_new(u->core, 1 << PA_SUBSCRIPTION_EVENT_CLIENT,
                                  handle_client_events, (void *)u);
+
+
+    subscr = pa_xnew0(struct pa_client_evsubscr, 1);
+    
+    subscr->events = events;
     
     return subscr;
 }
+
+void pa_client_ext_subscription_free(struct pa_client_evsubscr *subscr)
+{
+    if (subscr != NULL) {
+        pa_subscription_free(subscr->events);
+        
+        pa_xfree(subscr);
+    }
+}
+
 
 char *pa_client_ext_name(struct pa_client *client)
 {

@@ -5,7 +5,13 @@
 
 struct pa_sink;
 
-pa_subscription *pa_sink_ext_subscription(struct userdata *);
+struct pa_sink_evsubscr {
+    pa_hook_slot    *put;
+    pa_hook_slot    *unlink;
+};
+
+struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *);
+void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
 char *pa_sink_ext_get_name(struct pa_sink *);
 
 #endif /* foosinkextfoo */

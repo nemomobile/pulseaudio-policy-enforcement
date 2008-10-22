@@ -18,23 +18,47 @@
 
 
 
-static void handle_source_output_events(pa_core *,
-                                        pa_subscription_event_type_t,
-                                        uint32_t, void *);
+/* hooks */
+static pa_hook_result_t source_output_put(void *, void *, void *);
+static pa_hook_result_t source_output_unlink(void *, void *, void *);
 
 
 
-pa_subscription *pa_source_output_ext_subscription(struct userdata *u)
+struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
 {
-    pa_subscription *subscr;
+    pa_core                 *core;
+    pa_hook                 *hooks;
+    struct pa_sout_evsubscr *subscr;
+    pa_hook_slot            *put;
+    pa_hook_slot            *unlink;
     
-    pa_assert(u->core);
+    pa_assert(u);
+    pa_assert((core = u->core));
+
+    hooks  = core->hooks;
     
-    subscr = pa_subscription_new(u->core,
-                                 1<<PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT,
-                                 handle_source_output_events, (void *)u);
+    put    = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_OUTPUT_PUT,
+                             PA_HOOK_LATE, source_output_put, (void *)u);
+    unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_OUTPUT_UNLINK,
+                             PA_HOOK_LATE, source_output_unlink, (void *)u);
+
+    subscr = pa_xnew0(struct pa_sout_evsubscr, 1);
+    
+    subscr->put    = put;
+    subscr->unlink = unlink;
+
     
     return subscr;
+}
+
+void  pa_source_output_ext_subscription_free(struct pa_sout_evsubscr *subscr)
+{
+    if (subscr != NULL) {
+        pa_hook_slot_free(subscr->put);
+        pa_hook_slot_free(subscr->unlink);
+        
+        pa_xfree(subscr);
+    }
 }
 
 int pa_source_output_ext_set_policy_group(struct pa_source_output *sout, 
@@ -81,45 +105,47 @@ char *pa_source_output_ext_get_name(struct pa_source_output *sout)
 }
 
 
-static void handle_source_output_events(pa_core *c,
-                                        pa_subscription_event_type_t t,
-                                        uint32_t idx, void *userdata)
+static pa_hook_result_t source_output_put(void *hook_data, void *call_data,
+                                       void *slot_data)
 {
-    struct userdata         *u  = userdata;
-    uint32_t                 et = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
-    struct pa_source_output *sout;
+    struct pa_source_output *sout = (struct pa_source_output *)call_data;
+    struct userdata         *u    = (struct userdata *)slot_data;
     char                    *snam;
     char                    *gnam;
-    
-    pa_assert(u);
-    
-    switch (et) {
 
-    case PA_SUBSCRIPTION_EVENT_NEW:
-        if ((sout = pa_idxset_get_by_index(c->source_outputs, idx)) != NULL) {
-            snam = pa_source_output_ext_get_name(sout);
-            gnam = pa_classify_source_output(u, sout);
+    if (sout && u) {
+        snam = pa_source_output_ext_get_name(sout);
+        gnam = pa_classify_source_output(u, sout);
 
-            pa_policy_group_insert_source_output(u, gnam, sout);
+        pa_policy_group_insert_source_output(u, gnam, sout);
 
-            pa_log_debug("new source output %s (idx=%d) (group=%s)",
-                         snam, idx, gnam);
-        }
-        break;
-        
-    case PA_SUBSCRIPTION_EVENT_CHANGE:
-        break;
-        
-    case PA_SUBSCRIPTION_EVENT_REMOVE:
-        pa_policy_group_remove_source_output(u, idx);
-
-        pa_log_debug("source output removed (idx=%d)", idx);
-        break;
-        
-    default:
-        pa_log("%s: unknown source output event type %d", __FILE__, et);
-        break;
+        pa_log_debug("new source_output %s (idx=%d) (group=%s)",
+                     snam, sout->index, gnam);
     }
+
+    return PA_HOOK_OK;
+}
+
+
+static pa_hook_result_t source_output_unlink(void *hook_data, void *call_data,
+                                          void *slot_data)
+{
+    struct pa_source_output *sout = (struct pa_source_output *)call_data;
+    struct userdata         *u    = (struct userdata *)slot_data;
+    char                    *snam;
+    char                    *gnam;
+
+    if (sout && u) {
+        snam = pa_source_output_ext_get_name(sout);
+        gnam = pa_classify_source_output(u, sout);
+
+        pa_policy_group_remove_source_output(u, sout->index);
+
+        pa_log_debug("removed source_output %s (idx=%d) (group=%s)",
+                     snam, sout->index, gnam);
+    }
+
+    return PA_HOOK_OK;
 }
 
 

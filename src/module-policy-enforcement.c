@@ -135,11 +135,11 @@ void pa__done(pa_module *m) {
     
     pa_policy_dbusif_done(u);
 
-    pa_subscription_free(u->scl);
-    pa_subscription_free(u->ssnk);
-    pa_subscription_free(u->ssrc);
-    pa_subscription_free(u->ssi);
-    pa_subscription_free(u->sso);
+    pa_client_ext_subscription_free(u->scl);
+    pa_sink_ext_subscription_free(u->ssnk);
+    pa_source_ext_subscription_free(u->ssrc);
+    pa_sink_input_ext_subscription_free(u->ssi);
+    pa_source_output_ext_subscription_free(u->sso);
     
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);

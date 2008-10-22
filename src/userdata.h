@@ -12,6 +12,11 @@
 #define PA_PROP_POLICY_DEVTYPELIST       "policy.device.typelist"
 
 
+struct pa_client_evsubscr;
+struct pa_sink_evsubscr;
+struct pa_source_evsubscr;
+struct pa_sinp_evsubscr;
+struct pa_sout_evsubscr;
 struct pa_policy_groupset;
 struct pa_classify;
 struct pa_policy_dbusif;
@@ -19,11 +24,11 @@ struct pa_policy_dbusif;
 struct userdata {
     pa_core                   *core;
     pa_module                 *module;
-    pa_subscription           *scl;      /* client event susbscription */
-    pa_subscription           *ssnk;     /* sink event subscription */
-    pa_subscription           *ssrc;     /* source event subscription */
-    pa_subscription           *ssi;      /* sink input event susbscription */
-    pa_subscription           *sso;      /* source output event susbscription*/
+    struct pa_client_evsubscr *scl;      /* client event susbscription */
+    struct pa_sink_evsubscr   *ssnk;     /* sink event subscription */
+    struct pa_source_evsubscr *ssrc;     /* source event subscription */
+    struct pa_sinp_evsubscr   *ssi;      /* sink input event susbscription */
+    struct pa_sout_evsubscr   *sso;      /* source output event susbscription*/
     struct pa_policy_groupset *groups;   /* policy groups */
     struct pa_classify        *classify; /* rules for classification */
     struct pa_policy_dbusif   *dbusif;

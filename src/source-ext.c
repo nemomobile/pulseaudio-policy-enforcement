@@ -15,21 +15,48 @@
 #include "policy-group.h"
 #include "dbusif.h"
 
-static void handle_source_events(pa_core *, pa_subscription_event_type_t,
-				 uint32_t, void *);
+/* hooks */
+static pa_hook_result_t source_put(void *, void *, void *);
+static pa_hook_result_t source_unlink(void *, void *, void *);
+
 static void send_device_state(struct userdata *, const char *, char *);
 
 
-pa_subscription *pa_source_ext_subscription(struct userdata *u)
+struct pa_source_evsubscr *pa_source_ext_subscription(struct userdata *u)
 {
-    pa_subscription *subscr;
+    pa_core                   *core;
+    pa_hook                   *hooks;
+    struct pa_source_evsubscr *subscr;
+    pa_hook_slot              *put;
+    pa_hook_slot              *unlink;
     
-    pa_assert(u->core);
+    pa_assert(u);
+    pa_assert((core = u->core));
+
+    hooks  = core->hooks;
     
-    subscr = pa_subscription_new(u->core, 1<<PA_SUBSCRIPTION_EVENT_SOURCE,
-                                 handle_source_events, (void *)u);
+    put    = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_PUT,
+                             PA_HOOK_LATE, source_put, (void *)u);
+    unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_UNLINK,
+                             PA_HOOK_LATE, source_unlink, (void *)u);
+
+
+    subscr = pa_xnew0(struct pa_source_evsubscr, 1);
+    
+    subscr->put    = put;
+    subscr->unlink = unlink;
     
     return subscr;
+}
+
+void pa_source_ext_subscription_free(struct pa_source_evsubscr *subscr)
+{
+    if (subscr != NULL) {
+        pa_hook_slot_free(subscr->put);
+        pa_hook_slot_free(subscr->unlink);
+
+        pa_xfree(subscr);
+    }
 }
 
 char *pa_source_ext_get_name(struct pa_source *source)
@@ -67,74 +94,77 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     return -1;
 }
 
-static void handle_source_events(pa_core *c,pa_subscription_event_type_t t,
-                               uint32_t idx, void *userdata)
+
+static pa_hook_result_t source_put(void *hook_data, void *call_data,
+                                       void *slot_data)
 {
-    struct userdata    *u  = userdata;
-    uint32_t            et = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
-    struct pa_source   *source;
-    char               *name;
-    char                buf[1024];
-    int                 ret;
+    struct pa_source  *source = (struct pa_source *)call_data;
+    struct userdata *u    = (struct userdata *)slot_data;
+    char            *name;
+    uint32_t         idx;
+    char             buf[1024];
+    int              ret;
 
-    pa_assert(u);
-    
-    switch (et) {
+    if (source && u) {
+        name = pa_source_ext_get_name(source);
+        idx  = source->index;
 
-    case PA_SUBSCRIPTION_EVENT_NEW:
-        if ((source = pa_idxset_get_by_index(c->sources, idx)) != NULL) {
-            name = pa_source_ext_get_name(source);
-
-            if (pa_classify_source(u, idx, name, buf, sizeof(buf)) <= 0)
+        if (pa_classify_source(u, idx, name, buf, sizeof(buf)) <= 0)
                 pa_log_debug("new source '%s' (idx=%d)", name, idx);
+        else {
+            ret = pa_proplist_sets(source->proplist,
+                                   PA_PROP_POLICY_DEVTYPELIST, buf);
+
+            if (ret < 0) {
+                pa_log("failed to set property '%s' on source '%s'",
+                       PA_PROP_POLICY_DEVTYPELIST, name);
+            }
             else {
-                ret = pa_proplist_sets(source->proplist,
-                                       PA_PROP_POLICY_DEVTYPELIST, buf);
-
-                if (ret < 0) {
-                    pa_log("failed to set property '%s' on source '%s'",
-                           PA_PROP_POLICY_DEVTYPELIST, name);
-                }
-                else {
-                    pa_log_debug("new source '%s' (idx=%d) (type %s)",
-                                 name, idx, buf);
-
+                pa_log_debug("new source '%s' (idx=%d type %s)",
+                             name, idx, buf);
 #if 0
-                    pa_policy_groupset_update_default_source(u,
-                                                             PA_IDXSET_INVALID
-                                                             );
+                pa_policy_groupset_update_default_source(u, PA_IDXSET_INVALID);
 #endif
-                    pa_policy_groupset_register_source(u, source);
-
-                    send_device_state(u, PA_POLICY_CONNECTED, buf);
-                }
+                pa_policy_groupset_register_source(u, source);
+                send_device_state(u, PA_POLICY_CONNECTED, buf);
             }
         }
-        break;
-        
-    case PA_SUBSCRIPTION_EVENT_CHANGE:
-        break;        
-        
-    case PA_SUBSCRIPTION_EVENT_REMOVE:
+    }
+
+    return PA_HOOK_OK;
+}
+
+
+static pa_hook_result_t source_unlink(void *hook_data, void *call_data,
+                                          void *slot_data)
+{
+    struct pa_source  *source = (struct pa_source *)call_data;
+    struct userdata *u    = (struct userdata *)slot_data;
+    char            *name;
+    uint32_t         idx;
+    char             buf[1024];
+    int              ret;
+
+    if (source && u) {
+        name = pa_source_ext_get_name(source);
+        idx  = source->index;
+
         if (pa_classify_source(u, idx, NULL, buf, sizeof(buf)) <= 0)
-            pa_log_debug("remove source (idx=%d)", idx);
+            pa_log_debug("remove source '%s' (idx=%d)", name, idx);
         else {
-            pa_log_debug("remove source %d (type=%s)", idx, buf);
+            pa_log_debug("remove source '%s' (idx=%d, type=%s)", name,idx,buf);
             
 #if 0
             pa_policy_groupset_update_default_source(u, idx);
 #endif
             pa_policy_groupset_unregister_source(u, idx);
-
             send_device_state(u, PA_POLICY_DISCONNECTED, buf);
         }
-        break;
-
-    default:
-        pa_log("unknown source event type %d", et);
-        break;
     }
+
+    return PA_HOOK_OK;
 }
+
 
 static void send_device_state(struct userdata *u, const char *state,
                               char *typelist) 

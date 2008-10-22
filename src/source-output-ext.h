@@ -12,8 +12,13 @@
 
 #include "userdata.h"
 
-pa_subscription *pa_source_output_ext_subscription(struct userdata *);
+struct pa_sout_evsubscr {
+    pa_hook_slot    *put;
+    pa_hook_slot    *unlink;
+};
 
+struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *);
+void  pa_source_output_ext_subscription_free(struct pa_sout_evsubscr *);
 int   pa_source_output_ext_set_policy_group(struct pa_source_output *, char *);
 char *pa_source_output_ext_get_policy_group(struct pa_source_output *);
 char *pa_source_output_ext_get_name(struct pa_source_output *);
