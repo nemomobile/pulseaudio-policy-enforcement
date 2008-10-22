@@ -6,7 +6,8 @@
 struct pa_source;
 
 pa_subscription *pa_source_ext_subscription(struct userdata *);
-char *pa_source_ext_get_name(struct pa_source *);
+char            *pa_source_ext_get_name(struct pa_source *);
+int              pa_source_ext_set_mute(struct userdata *, char *, int);
 
 #endif /* foosourceextfoo */
 

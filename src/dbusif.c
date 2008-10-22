@@ -12,6 +12,7 @@
 #include "dbusif.h"
 #include "classify.h"
 #include "policy-group.h"
+#include "source-ext.h"
 
 #define POLICY_DBUS_INTERFACE       "com.nokia.policy"
 #define POLICY_DBUS_MYPATH          "/com/nokia/policy/enforce/pulseaudio"
@@ -63,10 +64,16 @@ struct argcork {                /* audio_cork arguments */
     char               *cork;
 };
 
+struct argmute {
+    char               *device;
+    char               *mute;
+};
+
 static int action_parser(DBusMessageIter *, struct argdsc *, void *, int);
 static int audio_route_parser(struct userdata *, DBusMessageIter *);
 static int volume_limit_parser(struct userdata *, DBusMessageIter *);
 static int audio_cork_parser(struct userdata *, DBusMessageIter *);
+static int audio_mute_parser(struct userdata *, DBusMessageIter *);
 
 static DBusHandlerResult filter(DBusConnection *, DBusMessage *, void *);
 static void handle_info_message(struct userdata *, DBusMessage *);
@@ -302,6 +309,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
         { "com.nokia.policy.audio_route" , audio_route_parser  },
         { "com.nokia.policy.volume_limit", volume_limit_parser },
         { "com.nokia.policy.audio_cork"  , audio_cork_parser   },
+        { "com.nokia.policy.audio_mute"  , audio_mute_parser   },
         {               NULL             , NULL                }
     };
 
@@ -541,6 +549,42 @@ static int audio_cork_parser(struct userdata *u, DBusMessageIter *actit)
         
         pa_log_debug("%s: cork stream (%s|%d)", __FILE__, grp, val);
         pa_policy_group_cork(u, grp, val);
+
+    } while (dbus_message_iter_next(actit));
+    
+    return TRUE;
+}
+
+static int audio_mute_parser(struct userdata *u, DBusMessageIter *actit)
+{
+    static struct argdsc descs[] = {
+        {"device", STRUCT_OFFSET(struct argmute, device), DBUS_TYPE_STRING },
+        {"mute"  , STRUCT_OFFSET(struct argmute, mute)  , DBUS_TYPE_STRING },
+        { NULL   ,            0                         , DBUS_TYPE_INVALID}
+    };
+    
+    struct argmute  args;
+    char           *device;
+    int             val;
+    
+    do {
+        if (!action_parser(actit, descs, &args, sizeof(args)))
+            return FALSE;
+
+        if (args.device == NULL || args.mute == NULL)
+            return FALSE;
+
+        device = args.device;
+
+        if (!strcmp(args.mute, "muted"))
+            val = 1;
+        else if (!strcmp(args.mute, "unmuted"))
+            val = 0;
+        else
+            return FALSE;
+        
+        pa_log_debug("%s: mute device (%s|%d)", __FILE__, device, val);
+        pa_source_ext_set_mute(u, device, val);
 
     } while (dbus_message_iter_next(actit));
     

@@ -37,6 +37,35 @@ char *pa_source_ext_get_name(struct pa_source *source)
     return source->name ? source->name : (char *)"<unknown>";
 }
 
+int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
+{
+    void              *state = NULL;
+    pa_idxset         *idxset;
+    struct pa_source  *source;
+    char              *name;
+
+    pa_assert(u);
+    pa_assert(type);
+    pa_assert(u->core);
+    pa_assert((idxset = u->core->sources));
+
+    while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
+        if ((name = pa_source_ext_get_name(source)) != NULL) {
+
+            if (pa_classify_is_source_typeof(u, name, type)) {
+                pa_log_debug("%s() %smute source '%s' type '%s'",
+                             __FUNCTION__, mute ? "" : "un", name, type);
+
+                pa_source_set_mute(source, mute);
+
+                return 0;
+            }
+        }
+    }
+
+
+    return -1;
+}
 
 static void handle_source_events(pa_core *c,pa_subscription_event_type_t t,
                                uint32_t idx, void *userdata)
