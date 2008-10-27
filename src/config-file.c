@@ -360,7 +360,7 @@ static int section_close(struct userdata *u, struct section *sec)
 
 static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
 {
-    int       sts;
+    int       sts = 0;
     char     *end;
     char     *comma;
     char     *fldef;

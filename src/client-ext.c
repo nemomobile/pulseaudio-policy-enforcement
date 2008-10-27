@@ -174,6 +174,7 @@ static void handle_client_events(pa_core *c,pa_subscription_event_type_t t,
     
 }
 
+#if 0
 static void client_ext_set_args(struct pa_client *client)
 {
 #if 0
@@ -226,6 +227,7 @@ static void client_ext_set_args(struct pa_client *client)
         ext->argv[i] += offs;
 #endif
 }
+#endif
 
 
 static char *client_ext_dump(struct pa_client *client, char *buf, int len)

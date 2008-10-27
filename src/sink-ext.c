@@ -112,7 +112,6 @@ static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
     char            *name;
     uint32_t         idx;
     char             buf[1024];
-    int              ret;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);

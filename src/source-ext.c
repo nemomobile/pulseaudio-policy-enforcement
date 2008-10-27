@@ -143,7 +143,6 @@ static pa_hook_result_t source_unlink(void *hook_data, void *call_data,
     char            *name;
     uint32_t         idx;
     char             buf[1024];
-    int              ret;
 
     if (source && u) {
         name = pa_source_ext_get_name(source);
