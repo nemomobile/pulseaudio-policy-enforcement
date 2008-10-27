@@ -10,4 +10,13 @@ Section: sound
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: Pulseaudio module for policy enforcement
- Pulseaudio module for policy enforcement. Uses
+ Pulseaudio module for policy enforcement.
+
+
+Package: pulseaudio-policy-enforcement-dbg
+Priority: extra
+Section: sound
+Architecture: any
+Depends: pulseaudio-policy-enforcement (= ${binary:Version})
+Description: Debug symbols for Pulseaudio policy enforcement module.
+
