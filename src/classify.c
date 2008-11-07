@@ -1,8 +1,6 @@
 #include <stdio.h>
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include <pulsecore/pulsecore-config.h>
 
 #include <pulsecore/log.h>
 #include <pulsecore/client.h>

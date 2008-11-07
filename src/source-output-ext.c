@@ -3,9 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include <pulsecore/pulsecore-config.h>
 
 #include <pulse/def.h>
 #include <pulse/proplist.h>

@@ -11,9 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include <pulsecore/pulsecore-config.h>
 
 #include <pulse/timeval.h>
 #include <pulse/xmalloc.h>
