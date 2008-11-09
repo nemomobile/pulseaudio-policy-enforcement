@@ -108,8 +108,15 @@ int pa__init(pa_module *m) {
     
     if (u->scl == NULL || u->ssnk == NULL || u->ssi == NULL)
         goto fail;
-       
+
+    pa_sink_ext_discover(u);
+    pa_source_ext_discover(u);
+    pa_client_ext_discover(u);
+    pa_sink_input_ext_discover(u);
+    pa_source_output_ext_discover(u);
+
     pa_modargs_free(ma);
+
     
     return 0;
     

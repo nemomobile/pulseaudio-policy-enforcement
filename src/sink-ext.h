@@ -12,6 +12,7 @@ struct pa_sink_evsubscr {
 
 struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *);
 void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
+void  pa_sink_ext_discover(struct userdata *);
 char *pa_sink_ext_get_name(struct pa_sink *);
 
 #endif /* foosinkextfoo */

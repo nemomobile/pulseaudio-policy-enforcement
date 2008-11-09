@@ -19,6 +19,7 @@ struct pa_sinp_evsubscr {
 
 struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *);
 void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *);
+void  pa_sink_input_ext_discover(struct userdata *);
 int   pa_sink_input_ext_set_policy_group(struct pa_sink_input *, char *);
 char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *);
 char *pa_sink_input_ext_get_name(struct pa_sink_input *);

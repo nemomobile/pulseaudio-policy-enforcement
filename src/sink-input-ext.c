@@ -19,6 +19,9 @@
 static pa_hook_result_t sink_input_put(void *, void *, void *);
 static pa_hook_result_t sink_input_unlink(void *, void *, void *);
 
+static void handle_new_sink_input(struct userdata *, struct pa_sink_input *);
+static void handle_removed_sink_input(struct userdata *,
+                                      struct pa_sink_input *);
 
 struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
 {
@@ -55,6 +58,20 @@ void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *subscr)
         
         pa_xfree(subscr);
     }
+}
+
+void pa_sink_input_ext_discover(struct userdata *u)
+{
+    void                 *state = NULL;
+    pa_idxset            *idxset;
+    struct pa_sink_input *sinp;
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert((idxset = u->core->sink_inputs));
+
+    while ((sinp = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
+        handle_new_sink_input(u, sinp);
 }
 
 
@@ -137,18 +154,8 @@ static pa_hook_result_t sink_input_put(void *hook_data, void *call_data,
 {
     struct pa_sink_input *sinp = (struct pa_sink_input *)call_data;
     struct userdata      *u    = (struct userdata *)slot_data;
-    char                 *snam;
-    char                 *gnam;
 
-    if (sinp && u) {
-        snam = pa_sink_input_ext_get_name(sinp);
-        gnam = pa_classify_sink_input(u, sinp);
-
-        pa_policy_group_insert_sink_input(u, gnam, sinp);
-
-        pa_log_debug("new sink_input %s (idx=%d) (group=%s)",
-                     snam, sinp->index, gnam);
-    }
+    handle_new_sink_input(u, sinp);
 
     return PA_HOOK_OK;
 }
@@ -159,8 +166,35 @@ static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
 {
     struct pa_sink_input *sinp = (struct pa_sink_input *)call_data;
     struct userdata      *u    = (struct userdata *)slot_data;
-    char                 *snam;
-    char                 *gnam;
+
+    handle_removed_sink_input(u, sinp);
+
+    return PA_HOOK_OK;
+}
+
+static void handle_new_sink_input(struct userdata      *u,
+                                  struct pa_sink_input *sinp)
+{
+    char *snam;
+    char *gnam;
+
+    if (sinp && u) {
+        snam = pa_sink_input_ext_get_name(sinp);
+        gnam = pa_classify_sink_input(u, sinp);
+
+        pa_policy_group_insert_sink_input(u, gnam, sinp);
+
+        pa_log_debug("new sink_input %s (idx=%d) (group=%s)",
+                     snam, sinp->index, gnam);
+    }
+}
+
+
+static void handle_removed_sink_input(struct userdata      *u,
+                                      struct pa_sink_input *sinp)
+{
+    char *snam;
+    char *gnam;
 
     if (sinp && u) {
         snam = pa_sink_input_ext_get_name(sinp);
@@ -171,10 +205,7 @@ static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
         pa_log_debug("removed sink_input %s (idx=%d) (group=%s)",
                      snam, sinp->index, gnam);
     }
-
-    return PA_HOOK_OK;
 }
-
 
 /*
  * Local Variables:

@@ -17,6 +17,9 @@
 static pa_hook_result_t sink_put(void *, void *, void *);
 static pa_hook_result_t sink_unlink(void *, void *, void *);
 
+static void handle_new_sink(struct userdata *, struct pa_sink *);
+static void handle_removed_sink(struct userdata *, struct pa_sink *);
+
 static void send_device_state(struct userdata *, const char *, char *);
 
 
@@ -57,6 +60,20 @@ void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *subscr)
     }
 }
 
+void pa_sink_ext_discover(struct userdata *u)
+{
+    void            *state = NULL;
+    pa_idxset       *idxset;
+    struct pa_sink  *sink;
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert((idxset = u->core->sinks));
+
+    while ((sink = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
+        handle_new_sink(u, sink);
+}
+
 
 char *pa_sink_ext_get_name(struct pa_sink *sink)
 {
@@ -69,6 +86,27 @@ static pa_hook_result_t sink_put(void *hook_data, void *call_data,
 {
     struct pa_sink  *sink = (struct pa_sink *)call_data;
     struct userdata *u    = (struct userdata *)slot_data;
+
+    handle_new_sink(u, sink);
+
+    return PA_HOOK_OK;
+}
+
+
+static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
+                                          void *slot_data)
+{
+    struct pa_sink  *sink = (struct pa_sink *)call_data;
+    struct userdata *u    = (struct userdata *)slot_data;
+
+    handle_removed_sink(u, sink);
+
+    return PA_HOOK_OK;
+}
+
+
+static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
+{
     char            *name;
     uint32_t         idx;
     char             buf[1024];
@@ -97,16 +135,10 @@ static pa_hook_result_t sink_put(void *hook_data, void *call_data,
             }
         }
     }
-
-    return PA_HOOK_OK;
 }
 
-
-static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
-                                          void *slot_data)
+static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
 {
-    struct pa_sink  *sink = (struct pa_sink *)call_data;
-    struct userdata *u    = (struct userdata *)slot_data;
     char            *name;
     uint32_t         idx;
     char             buf[1024];
@@ -126,8 +158,6 @@ static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
             send_device_state(u, PA_POLICY_DISCONNECTED, buf);
         }
     }
-
-    return PA_HOOK_OK;
 }
 
 

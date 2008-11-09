@@ -17,6 +17,9 @@
 static pa_hook_result_t source_put(void *, void *, void *);
 static pa_hook_result_t source_unlink(void *, void *, void *);
 
+static void handle_new_source(struct userdata *, struct pa_source *);
+static void handle_removed_source(struct userdata *, struct pa_source *);
+
 static void send_device_state(struct userdata *, const char *, char *);
 
 
@@ -56,6 +59,21 @@ void pa_source_ext_subscription_free(struct pa_source_evsubscr *subscr)
         pa_xfree(subscr);
     }
 }
+
+void pa_source_ext_discover(struct userdata *u)
+{
+    void             *state = NULL;
+    pa_idxset        *idxset;
+    struct pa_source *source;
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert((idxset = u->core->sources));
+
+    while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
+        handle_new_source(u, source);
+}
+
 
 char *pa_source_ext_get_name(struct pa_source *source)
 {
@@ -98,6 +116,26 @@ static pa_hook_result_t source_put(void *hook_data, void *call_data,
 {
     struct pa_source  *source = (struct pa_source *)call_data;
     struct userdata *u    = (struct userdata *)slot_data;
+
+    handle_new_source(u, source);
+
+    return PA_HOOK_OK;
+}
+
+
+static pa_hook_result_t source_unlink(void *hook_data, void *call_data,
+                                          void *slot_data)
+{
+    struct pa_source  *source = (struct pa_source *)call_data;
+    struct userdata *u = (struct userdata *)slot_data;
+
+    handle_removed_source(u, source);
+
+    return PA_HOOK_OK;
+}
+
+static void handle_new_source(struct userdata *u, struct pa_source *source)
+{
     char            *name;
     uint32_t         idx;
     char             buf[1024];
@@ -128,16 +166,10 @@ static pa_hook_result_t source_put(void *hook_data, void *call_data,
             }
         }
     }
-
-    return PA_HOOK_OK;
 }
 
-
-static pa_hook_result_t source_unlink(void *hook_data, void *call_data,
-                                          void *slot_data)
+static void handle_removed_source(struct userdata *u, struct pa_source *source)
 {
-    struct pa_source  *source = (struct pa_source *)call_data;
-    struct userdata *u    = (struct userdata *)slot_data;
     char            *name;
     uint32_t         idx;
     char             buf[1024];
@@ -158,8 +190,6 @@ static pa_hook_result_t source_unlink(void *hook_data, void *call_data,
             send_device_state(u, PA_POLICY_DISCONNECTED, buf);
         }
     }
-
-    return PA_HOOK_OK;
 }
 
 

@@ -14,6 +14,10 @@
 static void handle_client_events(pa_core *, pa_subscription_event_type_t,
 				 uint32_t, void *);
 
+static void handle_new_or_modified_client(struct userdata  *,
+                                          struct pa_client *);
+static void handle_removed_client(struct userdata *, uint32_t);
+
 static char *client_ext_dump(struct pa_client *, char *, int);
 
 
@@ -45,6 +49,19 @@ void pa_client_ext_subscription_free(struct pa_client_evsubscr *subscr)
     }
 }
 
+void pa_client_ext_discover(struct userdata *u)
+{
+    void             *state = NULL;
+    pa_idxset        *idxset;
+    struct pa_client *client;
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert((idxset = u->core->clients));
+
+    while ((client = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
+        handle_new_or_modified_client(u, client);
+}
 
 char *pa_client_ext_name(struct pa_client *client)
 {
@@ -137,32 +154,28 @@ char *pa_client_ext_args(struct pa_client *client)
 static void handle_client_events(pa_core *c,pa_subscription_event_type_t t,
 				 uint32_t idx, void *userdata)
 {
-    struct userdata  *udata  = userdata;
-    uint32_t          et     = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
+    struct userdata  *u  = userdata;
+    uint32_t          et = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
     struct pa_client *client;
-    char              buf[1024];
     
-    pa_assert(udata);
+    pa_assert(u);
     
     switch (et) {
         
     case PA_SUBSCRIPTION_EVENT_NEW:
         if ((client = pa_idxset_get_by_index(c->clients, idx)) != NULL) {
-            pa_log_debug("new client (idx=%d) %s", idx,
-                         client_ext_dump(client, buf, sizeof(buf)));
+            handle_new_or_modified_client(u, client);
         }
         break;
         
     case PA_SUBSCRIPTION_EVENT_CHANGE:
         if ((client = pa_idxset_get_by_index(c->clients, idx)) != NULL) {
-            
-            pa_log_debug("change client (idx=%d) %s", idx,
-                         client_ext_dump(client, buf, sizeof(buf)));
+            handle_new_or_modified_client(u, client);
         }
         break;
         
     case PA_SUBSCRIPTION_EVENT_REMOVE:
-        pa_log_debug("client removed (idx=%d)", idx);
+        handle_removed_client(u, idx);
         break;
         
     default:
@@ -170,6 +183,21 @@ static void handle_client_events(pa_core *c,pa_subscription_event_type_t t,
         break;
     }
     
+}
+
+static void handle_new_or_modified_client(struct userdata  *u,
+                                          struct pa_client *client)
+{
+    uint32_t idx = client->index;
+    char     buf[1024];
+
+    pa_log_debug("new/modified client (idx=%d) %s", idx,
+                 client_ext_dump(client, buf, sizeof(buf)));
+}
+
+static void handle_removed_client(struct userdata *u, uint32_t idx)
+{
+    pa_log_debug("client removed (idx=%d)", idx);
 }
 
 #if 0

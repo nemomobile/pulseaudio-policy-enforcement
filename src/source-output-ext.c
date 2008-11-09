@@ -20,6 +20,10 @@
 static pa_hook_result_t source_output_put(void *, void *, void *);
 static pa_hook_result_t source_output_unlink(void *, void *, void *);
 
+static void handle_new_source_output(struct userdata *,
+                                     struct pa_source_output *);
+static void handle_removed_source_output(struct userdata *,
+                                         struct pa_source_output *);
 
 
 struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
@@ -57,6 +61,20 @@ void  pa_source_output_ext_subscription_free(struct pa_sout_evsubscr *subscr)
         
         pa_xfree(subscr);
     }
+}
+
+void pa_source_output_ext_discover(struct userdata *u)
+{
+    void                    *state = NULL;
+    pa_idxset               *idxset;
+    struct pa_source_output *sout;
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert((idxset = u->core->source_outputs));
+
+    while ((sout = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
+        handle_new_source_output(u, sout);
 }
 
 int pa_source_output_ext_set_policy_group(struct pa_source_output *sout, 
@@ -108,18 +126,8 @@ static pa_hook_result_t source_output_put(void *hook_data, void *call_data,
 {
     struct pa_source_output *sout = (struct pa_source_output *)call_data;
     struct userdata         *u    = (struct userdata *)slot_data;
-    char                    *snam;
-    char                    *gnam;
 
-    if (sout && u) {
-        snam = pa_source_output_ext_get_name(sout);
-        gnam = pa_classify_source_output(u, sout);
-
-        pa_policy_group_insert_source_output(u, gnam, sout);
-
-        pa_log_debug("new source_output %s (idx=%d) (group=%s)",
-                     snam, sout->index, gnam);
-    }
+    handle_new_source_output(u, sout);
 
     return PA_HOOK_OK;
 }
@@ -130,8 +138,36 @@ static pa_hook_result_t source_output_unlink(void *hook_data, void *call_data,
 {
     struct pa_source_output *sout = (struct pa_source_output *)call_data;
     struct userdata         *u    = (struct userdata *)slot_data;
-    char                    *snam;
-    char                    *gnam;
+
+    handle_removed_source_output(u, sout);
+
+    return PA_HOOK_OK;
+}
+
+
+static void handle_new_source_output(struct userdata         *u,
+                                     struct pa_source_output *sout)
+{
+    char *snam;
+    char *gnam;
+
+    if (sout && u) {
+        snam = pa_source_output_ext_get_name(sout);
+        gnam = pa_classify_source_output(u, sout);
+
+        pa_policy_group_insert_source_output(u, gnam, sout);
+
+        pa_log_debug("new source_output %s (idx=%d) (group=%s)",
+                     snam, sout->index, gnam);
+    }
+}
+
+
+static void handle_removed_source_output(struct userdata         *u,
+                                         struct pa_source_output *sout)
+{
+    char *snam;
+    char *gnam;
 
     if (sout && u) {
         snam = pa_source_output_ext_get_name(sout);
@@ -142,8 +178,6 @@ static pa_hook_result_t source_output_unlink(void *hook_data, void *call_data,
         pa_log_debug("removed source_output %s (idx=%d) (group=%s)",
                      snam, sout->index, gnam);
     }
-
-    return PA_HOOK_OK;
 }
 
 
