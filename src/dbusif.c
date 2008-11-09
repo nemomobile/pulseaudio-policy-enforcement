@@ -12,6 +12,12 @@
 #include "policy-group.h"
 #include "source-ext.h"
 
+#define ADMIN_DBUS_MANAGER          "org.freedesktop.DBus"
+#define ADMIN_DBUS_PATH             "/org/freedesktop/DBus"
+#define ADMIN_DBUS_INTERFACE        "org.freedesktop.DBus"
+
+#define ADMIN_NAME_OWNER_CHANGED    "NameOwnerChanged"
+
 #define POLICY_DBUS_INTERFACE       "com.nokia.policy"
 #define POLICY_DBUS_MYPATH          "/com/nokia/policy/enforce/pulseaudio"
 #define POLICY_DBUS_MYNAME          "com.nokia.policy.pulseaudio"
@@ -32,7 +38,8 @@ struct pa_policy_dbusif {
     char               *mypath;  /* my signal path */
     char               *pdpath;  /* policy daemon's signal path */
     char               *pdnam;   /* policy daemon's D-Bus name */
-    char               *rule;    /* match rule to catch policy signals */
+    char               *admrule; /* match rule to catch name changes */
+    char               *polrule; /* match rule to catch policy signals */
     int                 regist;  /* wheter or not registered to policy daemon*/
 };
 
@@ -74,6 +81,7 @@ static int audio_cork_parser(struct userdata *, DBusMessageIter *);
 static int audio_mute_parser(struct userdata *, DBusMessageIter *);
 
 static DBusHandlerResult filter(DBusConnection *, DBusMessage *, void *);
+static void handle_admin_message(struct userdata *, DBusMessage *);
 static void handle_info_message(struct userdata *, DBusMessage *);
 static void handle_action_message(struct userdata *, DBusMessage *);
 static void registration_cb(DBusPendingCall *, void *);
@@ -92,7 +100,8 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     struct pa_policy_dbusif *dbusif = NULL;
     DBusConnection          *dbusconn;
     DBusError                error;
-    char                     rule[512];
+    char                     polrule[512];
+    char                     admrule[512];
     
     dbusif = pa_xnew0(struct pa_policy_dbusif, 1);
 
@@ -136,9 +145,20 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     if (!pdnam)
         pdnam = POLICY_DBUS_PDNAME;
 
-    snprintf(rule, sizeof(rule), "type='signal',interface='%s',"
+    snprintf(admrule, sizeof(admrule), "type='signal',sender='%s',path='%s',"
+             "interface='%s',member='%s'", ADMIN_DBUS_MANAGER,
+             ADMIN_DBUS_PATH, ADMIN_DBUS_INTERFACE, ADMIN_NAME_OWNER_CHANGED);
+    dbus_bus_add_match(dbusconn, admrule, &error);
+
+    if (dbus_error_is_set(&error)) {
+        pa_log("%s: unable to subscribe name change signals on %s: %s: %s",
+               __FILE__, ADMIN_DBUS_INTERFACE, error.name, error.message);
+        goto fail;
+    }
+
+    snprintf(polrule, sizeof(polrule), "type='signal',interface='%s',"
              "path='%s/%s'", ifnam, pdpath, POLICY_DECISION);
-    dbus_bus_add_match(dbusconn, rule, &error);
+    dbus_bus_add_match(dbusconn, polrule, &error);
 
     if (dbus_error_is_set(&error)) {
         pa_log("%s: unable to subscribe policy signals on %s: %s: %s",
@@ -148,11 +168,12 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
 
     pa_log_info("%s: subscribed policy signals on %s", __FILE__, ifnam);
 
-    dbusif->ifnam  = pa_xstrdup(ifnam);
-    dbusif->mypath = pa_xstrdup(mypath);
-    dbusif->pdpath = pa_xstrdup(pdpath);
-    dbusif->pdnam  = pa_xstrdup(pdnam);
-    dbusif->rule   = pa_xstrdup(rule);
+    dbusif->ifnam   = pa_xstrdup(ifnam);
+    dbusif->mypath  = pa_xstrdup(mypath);
+    dbusif->pdpath  = pa_xstrdup(pdpath);
+    dbusif->pdnam   = pa_xstrdup(pdnam);
+    dbusif->admrule = pa_xstrdup(admrule);
+    dbusif->polrule = pa_xstrdup(polrule);
 
     register_to_pdp(dbusif, u);
 
@@ -175,7 +196,8 @@ void pa_policy_dbusif_done(struct userdata *u)
             dbusconn = pa_dbus_connection_get(dbusif->conn);
 
             dbus_connection_remove_filter(dbusconn, filter,u);
-            dbus_bus_remove_match(dbusconn, dbusif->rule, NULL);
+            dbus_bus_remove_match(dbusconn, dbusif->admrule, NULL);
+            dbus_bus_remove_match(dbusconn, dbusif->polrule, NULL);
 
             pa_dbus_connection_unref(dbusif->conn);
         }
@@ -184,7 +206,8 @@ void pa_policy_dbusif_done(struct userdata *u)
         pa_xfree(dbusif->mypath);
         pa_xfree(dbusif->pdpath);
         pa_xfree(dbusif->pdnam);
-        pa_xfree(dbusif->rule);
+        pa_xfree(dbusif->admrule);
+        pa_xfree(dbusif->polrule);
 
         pa_xfree(dbusif);
     }
@@ -245,6 +268,14 @@ static DBusHandlerResult filter(DBusConnection *conn, DBusMessage *msg,
 {
     struct userdata  *u = arg;
 
+    if (dbus_message_is_signal(msg, ADMIN_DBUS_INTERFACE,
+                               ADMIN_NAME_OWNER_CHANGED))
+    {
+        handle_admin_message(u, msg);
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+
+
     if (dbus_message_is_signal(msg, POLICY_DBUS_INTERFACE, POLICY_INFO)) {
         handle_info_message(u, msg);
         return DBUS_HANDLER_RESULT_HANDLED;
@@ -256,6 +287,47 @@ static DBusHandlerResult filter(DBusConnection *conn, DBusMessage *msg,
     }
 
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+static void handle_admin_message(struct userdata *u, DBusMessage *msg)
+{
+    struct pa_policy_dbusif *dbusif;
+    char                    *name;
+    char                    *before;
+    char                    *after;
+    int                      success;
+
+    pa_assert(u);
+    pa_assert((dbusif = u->dbusif));
+
+    success = dbus_message_get_args(msg, NULL,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &before,
+                                    DBUS_TYPE_STRING, &after,
+                                    DBUS_TYPE_INVALID);
+
+    if (!success || !name) {
+        pa_log("Received malformed '%s' message", ADMIN_NAME_OWNER_CHANGED);
+        return;
+    }
+
+    if (strcmp(name, dbusif->pdnam)) {
+        return;
+    }
+
+    if (after && strcmp(after, "")) {
+        pa_log_debug("policy decision point is up");
+
+        if (!dbusif->regist) {
+            register_to_pdp(dbusif, u);
+        }
+    }
+
+
+    if (name && before && (!after || !strcmp(after, ""))) {
+        pa_log_info("policy decision point is gone");
+        dbusif->regist = 0;
+    } 
 }
 
 static void handle_info_message(struct userdata *u, DBusMessage *msg)
@@ -593,16 +665,31 @@ static void registration_cb(DBusPendingCall *pend, void *data)
 {
     struct userdata *u = (struct userdata *)data;
     DBusMessage     *reply;
+    const char      *error_descr;
+    int              success;
 
     if ((reply = dbus_pending_call_steal_reply(pend)) == NULL || u == NULL) {
         pa_log("%s: registartion setting failed: invalid argument", __FILE__);
         return;
     }
 
-    pa_log_info("got reply to registration");
+    if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
+        success = dbus_message_get_args(reply, NULL,
+                                        DBUS_TYPE_STRING, &error_descr,
+                                        DBUS_TYPE_INVALID);
 
-    if (u->dbusif) {
-        u->dbusif->regist = 1;
+        if (!success)
+            error_descr = dbus_message_get_error_name(reply);
+
+        pa_log_info("%s: registration to policy decision point failed: %s",
+                    __FILE__, error_descr);
+    }
+    else {
+        pa_log_info("got reply to registration");
+
+        if (u->dbusif) {
+            u->dbusif->regist = 1;
+        }
     }
 
     dbus_message_unref(reply);
