@@ -10,6 +10,8 @@
 #define PA_POLICY_PID_HASH_MAX   (1 << PA_POLICY_PID_HASH_BITS)
 #define PA_POLICY_PID_HASH_MASK  (PA_POLICY_PID_HASH_MAX - 1)
 
+struct pa_sink;
+struct pa_source;
 struct pa_sink_input;
 
 struct pa_classify_pid_hash {
@@ -42,15 +44,15 @@ enum pa_classify_method {
 };
 
 union pa_classify_arg {
-    const char *name;
+    const char *string;
     regex_t     rexp;
 };
 
 struct pa_classify_device_def {
     const char             *type;
-    union pa_classify_arg   dev;
+    char                   *prop; /* property name used for classification */
     int                   (*method)(const char *, union pa_classify_arg *);
-    uint32_t                sidx;
+    union pa_classify_arg   arg;  /* method & argument for classification */
     uint32_t                flags;
 };
 
@@ -68,9 +70,9 @@ struct pa_classify {
 
 struct pa_classify *pa_classify_new(struct userdata *);
 void  pa_classify_free(struct pa_classify *);
-void  pa_classify_add_sink(struct userdata *, char *,
+void  pa_classify_add_sink(struct userdata *, char *, char *,
                            enum pa_classify_method, char *, uint32_t);
-void  pa_classify_add_source(struct userdata *, char *,
+void  pa_classify_add_source(struct userdata *, char *, char *,
                              enum pa_classify_method, char *, uint32_t);
 void  pa_classify_add_stream(struct userdata *, char *, uid_t, char *,
                              char *, char *);
@@ -80,10 +82,11 @@ void  pa_classify_unregister_pid(struct userdata *, pid_t, char *);
 
 char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *);
 char *pa_classify_source_output(struct userdata *, struct pa_source_output *);
-int   pa_classify_sink(struct userdata *, uint32_t, char *, char *, int);
-int   pa_classify_source(struct userdata *, uint32_t, char *, char *, int);
-int   pa_classify_is_sink_typeof(struct userdata *, char *, char *);
-int   pa_classify_is_source_typeof(struct userdata *, char *, char *);
+int   pa_classify_sink(struct userdata *, struct pa_sink *, char *, int);
+int   pa_classify_source(struct userdata *, struct pa_source *, char *, int);
+int   pa_classify_is_sink_typeof(struct userdata *, struct pa_sink *, char *);
+int   pa_classify_is_source_typeof(struct userdata *, struct pa_source *,
+                                   char *);
 
 
 #endif

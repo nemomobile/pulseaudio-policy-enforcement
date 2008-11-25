@@ -9,6 +9,8 @@
 
 #include "classify.h"
 #include "client-ext.h"
+#include "sink-ext.h"
+#include "source-ext.h"
 #include "sink-input-ext.h"
 #include "source-output-ext.h"
 
@@ -42,10 +44,13 @@ static struct pa_classify_stream_def
 
 static void devices_free(struct pa_classify_device *);
 static void devices_add(struct pa_classify_device **, char *,
-                        enum pa_classify_method, char *, uint32_t);
-static int devices_classify(struct pa_classify_device_def *,
-                            uint32_t, char *, char *, int);
-static int devices_is_typeof(struct pa_classify_device_def *, char *, char *);
+                        char *,  enum pa_classify_method, char *, uint32_t);
+static int devices_classify(struct pa_classify_device_def *, 
+                            pa_proplist *, char *, char *, int);
+static int devices_is_typeof(struct pa_classify_device_def *, pa_proplist *,
+                             char *, char *);
+
+char *get_property(char *, pa_proplist *, char *);
 
 int method_equals(const char *, union pa_classify_arg *);
 int method_startswith(const char *, union pa_classify_arg *);
@@ -76,8 +81,8 @@ void pa_classify_free(struct pa_classify *cl)
     }
 }
 
-void pa_classify_add_sink(struct userdata *u, char *type,
-                          enum pa_classify_method method, char *sinkid,
+void pa_classify_add_sink(struct userdata *u, char *type, char *prop,
+                          enum pa_classify_method method, char *arg,
                           uint32_t flags)
 {
     struct pa_classify *classify;
@@ -86,13 +91,14 @@ void pa_classify_add_sink(struct userdata *u, char *type,
     pa_assert((classify = u->classify));
     pa_assert(classify->sinks);
     pa_assert(type);
-    pa_assert(sinkid);
+    pa_assert(prop);
+    pa_assert(arg);
 
-    devices_add(&classify->sinks, type, method, sinkid, flags);
+    devices_add(&classify->sinks, type, prop, method, arg, flags);
 }
 
-void pa_classify_add_source(struct userdata *u, char *type,
-                            enum pa_classify_method method, char *sourceid,
+void pa_classify_add_source(struct userdata *u, char *type, char *prop,
+                            enum pa_classify_method method, char *arg,
                             uint32_t flags)
 {
     struct pa_classify *classify;
@@ -101,9 +107,10 @@ void pa_classify_add_source(struct userdata *u, char *type,
     pa_assert((classify = u->classify));
     pa_assert(classify->sources);
     pa_assert(type);
-    pa_assert(sourceid);
+    pa_assert(prop);
+    pa_assert(arg);
 
-    devices_add(&classify->sources, type, method, sourceid, flags);
+    devices_add(&classify->sources, type, prop, method, arg, flags);
 }
 
 void pa_classify_add_stream(struct userdata *u, char *clnam, uid_t uid,
@@ -177,69 +184,79 @@ char *pa_classify_source_output(struct userdata *u,
     return group;
 }
 
-int pa_classify_sink(struct userdata *u, uint32_t sidx, char *name,
+int pa_classify_sink(struct userdata *u, struct pa_sink *sink,
                      char *buf, int len)
 {
     struct pa_classify *classify;
-    struct pa_classify_device *sinks;
     struct pa_classify_device_def *defs;
+    char *name;
 
     pa_assert(u);
     pa_assert((classify = u->classify));
-    pa_assert((sinks = classify->sinks));
-    pa_assert((defs = sinks->defs));
+    pa_assert(classify->sinks);
+    pa_assert((defs = classify->sinks->defs));
 
-    return devices_classify(defs, sidx, name, buf, len);
+    name = pa_sink_ext_get_name(sink);
+
+    return devices_classify(defs, sink->proplist, name, buf, len);
 }
 
-int pa_classify_source(struct userdata *u, uint32_t sidx, char *name,
+int pa_classify_source(struct userdata *u, struct pa_source *source,
                        char *buf, int len)
 {
     struct pa_classify *classify;
-    struct pa_classify_device *sources;
     struct pa_classify_device_def *defs;
+    char *name;
 
     pa_assert(u);
     pa_assert((classify = u->classify));
-    pa_assert((sources = classify->sources));
-    pa_assert((defs = sources->defs));
+    pa_assert(classify->sources);
+    pa_assert((defs = classify->sources->defs));
 
-    return devices_classify(defs, sidx, name, buf, len);
+    name = pa_source_ext_get_name(source);
+
+    return devices_classify(defs, source->proplist, name, buf, len);
 }
 
-int pa_classify_is_sink_typeof(struct userdata *u, char *sink, char *type)
+int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
+                               char *type)
 {
     struct pa_classify *classify;
-    struct pa_classify_device *sinks;
     struct pa_classify_device_def *defs;
+    char *name;
 
     pa_assert(u);
     pa_assert((classify = u->classify));
-    pa_assert((sinks = classify->sinks));
-    pa_assert((defs = sinks->defs));
+    pa_assert(classify->sinks);
+    pa_assert((defs = classify->sinks->defs));
 
     if (!sink || !type)
         return FALSE;
 
-    return devices_is_typeof(defs, sink, type);
+    name = pa_sink_ext_get_name(sink);
+
+    return devices_is_typeof(defs, sink->proplist, name, type);
 }
 
 
-int pa_classify_is_source_typeof(struct userdata *u, char *source, char *type)
+int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
+                                 char *type)
 {
     struct pa_classify *classify;
-    struct pa_classify_device *sources;
     struct pa_classify_device_def *defs;
+    char *name;
 
     pa_assert(u);
     pa_assert((classify = u->classify));
-    pa_assert((sources = classify->sources));
-    pa_assert((defs = sources->defs));
+    pa_assert(classify->sources);
+    pa_assert((defs = classify->sources->defs));
 
     if (!source || !type)
         return FALSE;
 
-    return devices_is_typeof(defs, source, type);
+    name = pa_source_ext_get_name(source);
+
+    return devices_is_typeof(defs, source->proplist, name, type);
 }
 
 
@@ -532,9 +549,9 @@ static void devices_free(struct pa_classify_device *sinks)
     if (sinks) {
         for (d = sinks->defs;  d->type;  d++) {
             if (d->method == method_matches)
-                regfree(&d->dev.rexp);
+                regfree(&d->arg.rexp);
             else
-                pa_xfree((void *)d->dev.name);
+                pa_xfree((void *)d->arg.string);
         }
 
         pa_xfree(sinks);
@@ -542,12 +559,13 @@ static void devices_free(struct pa_classify_device *sinks)
 }
 
 static void devices_add(struct pa_classify_device **p_devices, char *type,
-                        enum pa_classify_method method, char *name,
+                        char *prop, enum pa_classify_method method, char *arg,
                         uint32_t flags)
 {
     struct pa_classify_device *devs;
     struct pa_classify_device_def *d;
     size_t newsize;
+    char *method_name;
 
     pa_assert(p_devices);
     pa_assert((devs = *p_devices));
@@ -561,23 +579,26 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
     memset(d+1, 0, sizeof(devs->defs[0]));
 
     d->type  = pa_xstrdup(type);
-    d->sidx  = PA_IDXSET_INVALID;
+    d->prop  = pa_xstrdup(prop);
     d->flags = flags;
 
     switch (method) {
 
     case pa_method_equals:
-        d->dev.name = pa_xstrdup(name);
+        method_name = "equals";
         d->method = method_equals;
+        d->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_startswith:
-        d->dev.name = pa_xstrdup(name);
+        method_name = "startswidth";
         d->method = method_startswith;
+        d->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_matches:
-        if (regcomp(&d->dev.rexp, name, 0) == 0) {
+        method_name = "matches";
+        if (regcomp(&d->arg.rexp, arg, 0) == 0) {
             d->method = method_matches;
             break;
         }
@@ -591,13 +612,16 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
     devs->ndef++;
 
-    pa_log_info("device '%s' added", type);
+    pa_log_info("device '%s' added (%s|%s|%s|0x%04x)",
+                type, d->prop, method_name, arg, d->flags);
 }
 
-static int devices_classify(struct pa_classify_device_def *defs, uint32_t sidx,
-                            char *name, char *buf, int len)
+static int devices_classify(struct pa_classify_device_def *defs,
+                            pa_proplist *proplist, char *name,
+                            char *buf, int len)
 {
     struct pa_classify_device_def *d;
+    char       *propval;
     int         i;
     char       *p;
     char       *e;
@@ -605,16 +629,15 @@ static int devices_classify(struct pa_classify_device_def *defs, uint32_t sidx,
 
     pa_assert(buf);
     pa_assert(len > 0);
-    pa_assert(sidx != PA_IDXSET_INVALID);
 
     e = (p = buf) + len;
     p[0] = '\0';
     s = "";
         
     for (d = defs, i = 0;  d->type;  d++) {
-        if ((name != NULL && d->method(name, &d->dev)) ||
-            (name == NULL && sidx == d->sidx))
-        {
+        propval = get_property(d->prop, proplist, name);
+
+        if ((d->method(propval, &d->arg))) {
             p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
             s  = " ";
             
@@ -623,9 +646,7 @@ static int devices_classify(struct pa_classify_device_def *defs, uint32_t sidx,
                 *buf = '\0';
                 p = e;
                 break;
-            }
-            
-            d->sidx = name ? sidx : PA_IDXSET_INVALID;
+            }            
         }
     }
 
@@ -633,43 +654,65 @@ static int devices_classify(struct pa_classify_device_def *defs, uint32_t sidx,
 }
 
 static int devices_is_typeof(struct pa_classify_device_def *defs,
-                             char *device, char *type)
+                             pa_proplist *proplist, char *name, char *type)
 {
     struct pa_classify_device_def *d;
+    char *propval;
 
     for (d = defs;  d->type;  d++) {
-        if (!strcmp(type, d->type) && d->method(device, &d->dev))
-            return TRUE;
+        if (!strcmp(type, d->type)) {
+            propval = get_property(d->prop, proplist, name);
+
+            if (d->method(propval, &d->arg))
+                return TRUE;
+        }
     }
 
     return FALSE;
 }
 
-int method_equals(const char *name, union pa_classify_arg *dev)
+char *get_property(char *propname, pa_proplist *proplist, char *name)
+{
+    char *propval = NULL;
+
+    if (propname != NULL && proplist != NULL && name != NULL) {
+        if (!strcmp(propname, "name"))
+            propval = name;
+        else
+            propval = (char *)pa_proplist_gets(proplist, propname);
+    }
+
+    if (propval == NULL || propval[0] == '\0')
+        propval = (char *)"<unknown>";
+
+    return propval;
+}
+
+int method_equals(const char *string, union pa_classify_arg *arg)
 {
     int found;
 
-    if (!name || !dev || !dev->name)
+    if (!string || !arg || !arg->string)
         found = FALSE;
     else
-        found = !strcmp(name, dev->name);
+        found = !strcmp(string, arg->string);
 
     return found;
 }
 
-int method_startswith(const char *name, union pa_classify_arg *dev)
+int method_startswith(const char *string, union pa_classify_arg *arg)
 {
     int found;
 
-    if (!name || !dev || !dev->name)
+    if (!string || !arg || !arg->string)
         found = FALSE;
     else
-        found = !strncmp(name, dev->name, strlen(dev->name));
+        found = !strncmp(string, arg->string, strlen(arg->string));
 
     return found;
 }
 
-int method_matches(const char *name, union pa_classify_arg *dev)
+int method_matches(const char *string, union pa_classify_arg *arg)
 {
 #define MAX_MATCH 5
 
@@ -679,9 +722,9 @@ int method_matches(const char *name, union pa_classify_arg *dev)
     
     found = FALSE;
 
-    if (name && dev) {
-        if (regexec(&dev->rexp, name, MAX_MATCH, m, 0) == 0) {
-            end = strlen(name);
+    if (string && arg) {
+        if (regexec(&arg->rexp, string, MAX_MATCH, m, 0) == 0) {
+            end = strlen(string);
 
             if (m[0].rm_so == 0 && m[0].rm_eo == end && m[1].rm_so == -1)
                 found = TRUE;

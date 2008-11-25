@@ -93,16 +93,15 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     pa_assert((idxset = u->core->sources));
 
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
-        if ((name = pa_source_ext_get_name(source)) != NULL) {
+        if (pa_classify_is_source_typeof(u, source, type)) {
+            name = pa_source_ext_get_name(source);
 
-            if (pa_classify_is_source_typeof(u, name, type)) {
-                pa_log_debug("%s() %smute source '%s' type '%s'",
-                             __FUNCTION__, mute ? "" : "un", name, type);
-
-                pa_source_set_mute(source, mute);
-
-                return 0;
-            }
+            pa_log_debug("%s() %smute source '%s' type '%s'",
+                         __FUNCTION__, mute ? "" : "un", name, type);
+            
+            pa_source_set_mute(source, mute);
+            
+            return 0;
         }
     }
 
@@ -145,7 +144,7 @@ static void handle_new_source(struct userdata *u, struct pa_source *source)
         name = pa_source_ext_get_name(source);
         idx  = source->index;
 
-        if (pa_classify_source(u, idx, name, buf, sizeof(buf)) <= 0)
+        if (pa_classify_source(u, source, buf, sizeof(buf)) <= 0)
                 pa_log_debug("new source '%s' (idx=%d)", name, idx);
         else {
             ret = pa_proplist_sets(source->proplist,
@@ -178,7 +177,7 @@ static void handle_removed_source(struct userdata *u, struct pa_source *source)
         name = pa_source_ext_get_name(source);
         idx  = source->index;
 
-        if (pa_classify_source(u, idx, NULL, buf, sizeof(buf)) <= 0)
+        if (pa_classify_source(u, source, buf, sizeof(buf)) <= 0)
             pa_log_debug("remove source '%s' (idx=%d)", name, idx);
         else {
             pa_log_debug("remove source '%s' (idx=%d, type=%s)", name,idx,buf);

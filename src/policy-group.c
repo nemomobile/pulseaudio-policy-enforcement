@@ -832,7 +832,6 @@ static struct pa_sink *find_sink_by_type(struct userdata *u, char *type)
     void            *state = NULL;
     pa_idxset       *idxset;
     struct pa_sink  *sink;
-    char            *name;
 
     pa_assert(u);
     pa_assert(type);
@@ -840,13 +839,8 @@ static struct pa_sink *find_sink_by_type(struct userdata *u, char *type)
     pa_assert((idxset = u->core->sinks));
 
     while ((sink = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
-        if ((name = pa_sink_ext_get_name(sink)) != NULL) {
-            pa_log_debug("%s() sink '%s' type '%s'",
-                         __FUNCTION__, name, type);
-
-            if (pa_classify_is_sink_typeof(u, name, type))
-                break;
-        }
+        if (pa_classify_is_sink_typeof(u, sink, type))
+            break;
     }
 
     return sink;
@@ -857,7 +851,6 @@ static struct pa_source *find_source_by_type(struct userdata *u, char *type)
     void              *state = NULL;
     pa_idxset         *idxset;
     struct pa_source  *source;
-    char              *name;
 
     pa_assert(u);
     pa_assert(type);
@@ -865,13 +858,8 @@ static struct pa_source *find_source_by_type(struct userdata *u, char *type)
     pa_assert((idxset = u->core->sources));
 
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
-        if ((name = pa_source_ext_get_name(source)) != NULL) {
-            pa_log_debug("%s() source '%s' type '%s'",
-                         __FUNCTION__, name, type);
-
-            if (pa_classify_is_source_typeof(u, name, type))
-                break;
-        }
+        if (pa_classify_is_source_typeof(u, source, type))
+            break;
     }
 
     return source;

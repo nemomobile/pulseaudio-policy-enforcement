@@ -80,7 +80,6 @@ char *pa_sink_ext_get_name(struct pa_sink *sink)
     return sink->name ? sink->name : (char *)"<unknown>";
 }
 
-
 static pa_hook_result_t sink_put(void *hook_data, void *call_data,
                                        void *slot_data)
 {
@@ -116,7 +115,7 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
         name = pa_sink_ext_get_name(sink);
         idx  = sink->index;
 
-        if (pa_classify_sink(u, idx, name, buf, sizeof(buf)) <= 0)
+        if (pa_classify_sink(u, sink, buf, sizeof(buf)) <= 0)
                 pa_log_debug("new sink '%s' (idx=%d)", name, idx);
         else {
             ret = pa_proplist_sets(sink->proplist,
@@ -147,7 +146,7 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
         name = pa_sink_ext_get_name(sink);
         idx  = sink->index;
 
-        if (pa_classify_sink(u, idx, NULL, buf, sizeof(buf)) <= 0)
+        if (pa_classify_sink(u, sink, buf, sizeof(buf)) <= 0)
             pa_log_debug("remove sink '%s' (idx=%d)", name, idx);
         else {
             pa_log_debug("remove sink '%s' (idx=%d, type=%s)", name, idx, buf);
