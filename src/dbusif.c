@@ -564,24 +564,18 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
     };
 
     struct argvol  args;
-    char          *grp;
-    uint32_t       val;
 
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
             return FALSE;
 
-        if (args.group == NULL || args.limit == NULL)
+        if (args.group == NULL || args.limit > 100)
             return FALSE;
 
-        grp = args.group;
-        val = args.limit;
+        pa_log_debug("%s: volume limit (%s|%d)", __FILE__,
+                     args.group, args.limit); 
 
-        if (val > 100)
-            return FALSE;
-
-        pa_log_debug("%s: volume limit (%s|%d)", __FILE__, grp, val); 
-        pa_policy_group_volume_limit(u, grp, val);
+        pa_policy_group_volume_limit(u, args.group, args.limit);
 
     } while (dbus_message_iter_next(actit));
 
