@@ -61,7 +61,7 @@ struct argrt {                  /* audio_route arguments */
 
 struct argvol {                 /* volume_limit arguments */
     char               *group;
-    uint32_t            limit;
+    int32_t             limit;
 };
 
 struct argcork {                /* audio_cork arguments */
@@ -559,7 +559,7 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
 {
     static struct argdsc descs[] = {
         {"group", STRUCT_OFFSET(struct argvol, group), DBUS_TYPE_STRING },
-        {"limit", STRUCT_OFFSET(struct argvol, limit), DBUS_TYPE_UINT32 },
+        {"limit", STRUCT_OFFSET(struct argvol, limit), DBUS_TYPE_INT32  },
         {  NULL ,            0                       , DBUS_TYPE_INVALID}
     };
 
@@ -569,13 +569,13 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
         if (!action_parser(actit, descs, &args, sizeof(args)))
             return FALSE;
 
-        if (args.group == NULL || args.limit > 100)
+        if (args.group == NULL || args.limit < 0 || args.limit > 100)
             return FALSE;
 
         pa_log_debug("%s: volume limit (%s|%d)", __FILE__,
                      args.group, args.limit); 
 
-        pa_policy_group_volume_limit(u, args.group, args.limit);
+        pa_policy_group_volume_limit(u, args.group, (uint32_t)args.limit);
 
     } while (dbus_message_iter_next(actit));
 

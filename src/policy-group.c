@@ -627,7 +627,7 @@ int pa_policy_group_cork(struct userdata *u, char *name, int corked)
 }
 
 
-int pa_policy_group_volume_limit(struct userdata *u, char *name, uint32_t limit)
+int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
