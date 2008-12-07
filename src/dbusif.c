@@ -57,6 +57,8 @@ struct argdsc {                 /* argument descriptor for actions */
 struct argrt {                  /* audio_route arguments */
     char               *type;
     char               *device;
+    char               *mode;
+    char               *hwid;
 };
 
 struct argvol {                 /* volume_limit arguments */
@@ -520,12 +522,16 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
     static struct argdsc descs[] = {
         {"type"  , STRUCT_OFFSET(struct argrt, type)  , DBUS_TYPE_STRING },
         {"device", STRUCT_OFFSET(struct argrt, device), DBUS_TYPE_STRING },
+        {"mode"  , STRUCT_OFFSET(struct argrt, mode),   DBUS_TYPE_STRING },
+        {"hwid"  , STRUCT_OFFSET(struct argrt, hwid),   DBUS_TYPE_STRING },
         {  NULL  ,            0                       , DBUS_TYPE_INVALID}
     };
 
     struct argrt args;
     enum pa_policy_route_class class;
     char *target;
+    char *mode;
+    char *hwid;
 
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
@@ -542,10 +548,13 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
             return FALSE;
 
         target = args.device;
+        mode   = (args.mode && strcmp(args.mode, "na")) ? args.mode : ""; 
+        hwid   = (args.hwid && strcmp(args.hwid, "na")) ? args.hwid : "";
 
-        pa_log_debug("%s: route %s to %s", __FILE__, args.type, target);
+        pa_log_debug("%s: route %s to %s (%s|%s)", __FILE__,
+                     args.type, target, mode, hwid);
 
-        if (pa_policy_group_move_to(u, NULL, class, target) < 0) {
+        if (pa_policy_group_move_to(u, NULL, class, target, mode, hwid) < 0) {
             pa_log("%s: can't route to %s %s", __FILE__, args.type, target);
             return FALSE;
         }

@@ -10,7 +10,8 @@
 #define PA_PROP_APPLICATION_PROCESS_ARGS "application.process.args"
 #define PA_PROP_POLICY_GROUP             "policy.group"
 #define PA_PROP_POLICY_DEVTYPELIST       "policy.device.typelist"
-
+#define PA_PROP_MAEMO_AUDIO_MODE         "x-maemo.mode"
+#define PA_PROP_MAEMO_ACCESSORY_HWID     "x-maemo.accessory_hwid"
 
 struct pa_client_evsubscr;
 struct pa_sink_evsubscr;
