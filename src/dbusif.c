@@ -713,6 +713,7 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
     if (msg == NULL) {
         pa_log("%s: Failed to create D-Dbus message to register",
                __FILE__);
+        success = FALSE;
         goto failed;
     }
 
