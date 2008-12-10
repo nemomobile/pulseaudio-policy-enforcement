@@ -1,0 +1,34 @@
+#!/bin/sh
+
+CMD=$1
+
+SYSTEM_PA=/etc/pulse/system.pa
+SYSTEM_PA_ORIG=${SYSTEM_PA}.orig
+FILTER="^load-module[ \\t]*module-bluetooth-discover"
+
+
+case $CMD in
+    abort-remove)
+	cp $SYSTEM_PA_ORIG $SYSTEM_PA
+	;;
+
+    configure)
+	if [ -f $SYSTEM_PA ] ; then
+	    mv $SYSTEM_PA $SYSTEM_PA_ORIG
+
+	    grep -v "$FILTER" $SYSTEM_PA_ORIG              > $SYSTEM_PA
+	    echo ""                                       >> $SYSTEM_PA
+	    echo ".ifexists module-bluetooth-discover.so" >> $SYSTEM_PA
+	    echo "load-module module-bluetooth-discover"  >> $SYSTEM_PA
+	    echo ".endif"                                 >> $SYSTEM_PA
+	fi
+
+	;;
+
+    *)
+	;;
+esac
+
+#DEBHELPER#
+
+exit 0
