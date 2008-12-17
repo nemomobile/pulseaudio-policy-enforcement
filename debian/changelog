@@ -1,8 +1,19 @@
+pulseaudio-policy-enforcement (0.4) unstable; urgency=low
+
+  * filter subsequent, identical policy decisions 
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 17 Dec 2008 14:15:06 +0200
+
 pulseaudio-policy-enforcement (0.3) unstable; urgency=low
 
-  * 
+  * Postinst script was added to fix the pulseaudio system.pa file.
+  * Change pacakage version 0.9.13.
+  * Support for maintaining the 'mode' and 'accessory_hwid' properties on sinks.
+  * The type volume limit in D-Bus action message changed (uint32 -> int32) due.
+  * Fix for not failing for volume limit 0.
+  * The volume limit data type in the dbus action message is changed from.
 
- -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Fri, 28 Nov 2008 12:24:46 +0200
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Wed, 10 Dec 2008 15:14:48 +0200
 
 pulseaudio-policy-enforcement (0.2) unstable; urgency=low
 
