@@ -86,6 +86,7 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     pa_idxset         *idxset;
     struct pa_source  *source;
     char              *name;
+    pa_bool_t          current_mute;
 
     pa_assert(u);
     pa_assert(type);
@@ -95,11 +96,18 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
         if (pa_classify_is_source_typeof(u, source, type)) {
             name = pa_source_ext_get_name(source);
+            current_mute = pa_source_get_mute(source, 0);
 
-            pa_log_debug("%s() %smute source '%s' type '%s'",
-                         __FUNCTION__, mute ? "" : "un", name, type);
+            if ((current_mute && mute) || (!current_mute && !mute)) {
+                pa_log_debug("%s() source '%s' type '%s' is already %smuted",
+                             __FUNCTION__, name, type, mute ? "" : "un");
+            }
+            else {
+                pa_log_debug("%s() %smute source '%s' type '%s'",
+                             __FUNCTION__, mute ? "" : "un", name, type);
             
-            pa_source_set_mute(source, mute);
+                pa_source_set_mute(source, mute);
+            }
             
             return 0;
         }
