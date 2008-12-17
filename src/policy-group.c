@@ -623,8 +623,8 @@ int pa_policy_group_cork(struct userdata *u, char *name, int corked)
         if (!(grp->flags & PA_POLICY_GROUP_FLAG_CORK_STREAM))
             ret = 0;
         else {
-            grp->corked = corked;
             ret = cork_group(grp, corked);
+            grp->corked = corked;
         }
     }
 
@@ -658,6 +658,7 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
             pa_log_debug("%s: setting volume limit %d for group '%s'",
                          __FILE__, limit, group->name);
             ret = volset_group(group, limit);
+            group->limit = limit;
         }
     }
 
@@ -742,21 +743,27 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 
 
             /* move sink inputs to the sink */
-            for (sil = group->sinpls;    sil;   sil = sil->next) {
-                sinp = sil->sink_input;
+            if (sink == group->sink) {
+                pa_log_debug("group '%s' is aready routed to sink '%s'",
+                             group->name, pa_sink_ext_get_name(sink));
+            }
+            else {
+                for (sil = group->sinpls;    sil;   sil = sil->next) {
+                    sinp = sil->sink_input;
                 
-                pa_log_debug("move sink input '%s' to sink '%s'",
-                             pa_sink_input_ext_get_name(sinp),
-                             pa_sink_ext_get_name(sink));
+                    pa_log_debug("move sink input '%s' to sink '%s'",
+                                 pa_sink_input_ext_get_name(sinp),
+                                 pa_sink_ext_get_name(sink));
 
-                if (pa_sink_input_move_to(sinp, sink) < 0) {
-                    ret = -1;
+                    if (pa_sink_input_move_to(sinp, sink) < 0) {
+                        ret = -1;
                     
-                    pa_log("failed to move sink input '%s' to sink '%s'",
-                           pa_sink_input_ext_get_name(sinp),
-                           pa_sink_ext_get_name(sink));
-                }
-
+                        pa_log_debug("move sink input '%s' to sink '%s'",
+                                     pa_sink_input_ext_get_name(sinp),
+                                     pa_sink_ext_get_name(sink));
+                    
+                    }
+                } 
             }
 
             /* in case the sink properties changed announce it */
@@ -773,19 +780,25 @@ static int move_group(struct pa_policy_group *group, struct target *target)
             pl     = source->proplist;
 
             /* move source outputs to the source */
-            for (sol = group->soutls;    sol;    sol = sol->next) {
-                sout = sol->source_output;
-
-                pa_log_debug("move source output '%s' to source '%s'",
-                             pa_source_output_ext_get_name(sout),
-                             pa_source_ext_get_name(source));
-
-                if (pa_source_output_move_to(sout, source) < 0) {
-                    ret = -1;
+            if ((source = target->source) == group->source) {
+                pa_log_debug("group '%s' is aready routed to source '%s'",
+                             group->name, pa_source_ext_get_name(source));
+            }
+            else {
+                for (sol = group->soutls;    sol;    sol = sol->next) {
+                    sout = sol->source_output;
                     
-                    pa_log("failed to move source output '%s' to source '%s'",
-                           pa_source_output_ext_get_name(sout),
-                           pa_source_ext_get_name(source));
+                    pa_log_debug("move source output '%s' to source '%s'",
+                                 pa_source_output_ext_get_name(sout),
+                                 pa_source_ext_get_name(source));
+                    
+                    if (pa_source_output_move_to(sout, source) < 0) {
+                        ret = -1;
+                    
+                        pa_log("failed to move source output '%s' to source "
+                               "'%s'", pa_source_output_ext_get_name(sout),
+                               pa_source_ext_get_name(source));
+                    }
                 }
             }
             break;
@@ -809,18 +822,19 @@ static int volset_group(struct pa_policy_group *group, pa_volume_t limit)
 
     limit = ((limit > 100 ? 100 : limit) * PA_VOLUME_NORM) / 100;
 
-    if (limit != group->limit) {
-        group->limit = limit;
-
+    if (limit == group->limit) {
+        pa_log_debug("group '%s' volume limit is already %d",
+                     group->name, limit);
+    }
+    else {
         for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
             sinp = sl->sink_input;
 
-            if (pa_sink_input_ext_set_volume_limit(sinp, group->limit) < 0)
+            if (pa_sink_input_ext_set_volume_limit(sinp, limit) < 0)
                 ret = -1;
             else
                 pa_log_debug("set volume limit %d for stream '%s'",
-                             group->limit,
-                             pa_sink_input_ext_get_name(sinp));
+                             limit, pa_sink_input_ext_get_name(sinp));
         }
     }
 
@@ -834,14 +848,20 @@ static int cork_group(struct pa_policy_group *group, int corked)
     struct pa_sink_input *sinp;
 
 
-    for (sl = group->sinpls;    sl;   sl = sl->next) {
-        sinp = sl->sink_input;
-        
-        pa_sink_input_cork(sinp, corked);
-        
-        pa_log_debug("sink input '%s' %s",
-                     pa_sink_input_ext_get_name(sinp),
-                     corked?"corked":"uncorked");
+    if (corked == group->corked) {
+        pa_log_debug("group '%s' is already %s", group->name,
+                     corked ? "corked" : "uncorked");
+    }
+    else {
+        for (sl = group->sinpls;    sl;   sl = sl->next) {
+            sinp = sl->sink_input;
+            
+            pa_sink_input_cork(sinp, corked);
+            
+            pa_log_debug("sink input '%s' %s",
+                         pa_sink_input_ext_get_name(sinp),
+                         corked ? "corked" : "uncorked");
+        }
     }
 
     return 0;
