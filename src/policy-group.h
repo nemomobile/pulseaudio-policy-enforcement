@@ -88,7 +88,8 @@ void pa_policy_group_insert_source_output(struct userdata *, char *,
 void pa_policy_group_remove_source_output(struct userdata *, uint32_t);
 
 int  pa_policy_group_move_to(struct userdata *, char *,
-                             enum pa_policy_route_class, char *);
+                             enum pa_policy_route_class, char *,
+                             char *, char *);
 int  pa_policy_group_cork(struct userdata *u, char *, int);
 int  pa_policy_group_volume_limit(struct userdata *, char *, uint32_t);
 struct pa_policy_group *pa_policy_group_scan(struct pa_policy_groupset *,

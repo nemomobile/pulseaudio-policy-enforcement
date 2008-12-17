@@ -3,7 +3,7 @@ AC_PREREQ(2.61)
 
 m4_define(PA_MAJOR, [0])
 m4_define(PA_MINOR, [9])
-m4_define(PA_MICRO, [12])
+m4_define(PA_MICRO, [13])
 
 AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.PA_MICRO],[janos.f.kovacs@nokia.com])
 AC_CONFIG_SRCDIR([src/module-policy-enforcement.c])

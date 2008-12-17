@@ -19,6 +19,8 @@ struct target {
         struct pa_sink         *sink;
         struct pa_source       *source;
     };
+    char                       *mode;
+    char                       *hwid;
 };
 
 
@@ -537,7 +539,8 @@ void pa_policy_group_remove_source_output(struct userdata *u, uint32_t idx)
 }
 
 int pa_policy_group_move_to(struct userdata *u, char *name,
-                            enum pa_policy_route_class class, char *type)
+                            enum pa_policy_route_class class, char *type,
+                            char *mode, char *hwid)
 {
     struct pa_policy_group   *grp;
     struct target             target;
@@ -548,6 +551,8 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
     pa_assert(u);
 
     target.class = class;
+    target.mode  = mode ? mode : "";
+    target.hwid  = hwid ? hwid : "";
 
     switch (class) {
         
@@ -627,7 +632,7 @@ int pa_policy_group_cork(struct userdata *u, char *name, int corked)
 }
 
 
-int pa_policy_group_volume_limit(struct userdata *u, char *name, uint32_t limit)
+int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
@@ -696,44 +701,85 @@ struct pa_policy_group *pa_policy_group_scan(struct pa_policy_groupset *gset,
 
 static int move_group(struct pa_policy_group *group, struct target *target)
 {
+    static pa_subscription_event_type_t sinkev = PA_SUBSCRIPTION_EVENT_SINK |
+                                                 PA_SUBSCRIPTION_EVENT_CHANGE;
+    struct pa_core               *core;
     struct pa_sink               *sink;
     struct pa_source             *source;
     struct pa_sink_input_list    *sil;
     struct pa_source_output_list *sol;
     struct pa_sink_input         *sinp;
     struct pa_source_output      *sout;
+    pa_proplist                  *pl;
+    const char                   *old_mode;
+    const char                   *old_hwid;
+    int                           prop_changed;
     int                           ret = 0;
 
     if (group == NULL || target->any == NULL)
         ret = -1;
     else {
+
         switch (target->class) {
             
         case pa_policy_route_to_sink:
-            if ((sink = target->sink) == group->sink) {
+            sink = target->sink;
+            core = sink->core;
+            pl   = sink->proplist; 
+
+            /* update sink properties if needed */
+            old_mode = pa_proplist_gets(pl, PA_PROP_MAEMO_AUDIO_MODE);
+            old_hwid = pa_proplist_gets(pl, PA_PROP_MAEMO_ACCESSORY_HWID);
+
+            if (old_mode && !strcmp(target->mode, old_mode) &&
+                old_hwid && !strcmp(target->hwid, old_hwid)    )
+                prop_changed = FALSE;
+            else {
+                prop_changed = TRUE;
+
+                pa_proplist_sets(pl,PA_PROP_MAEMO_AUDIO_MODE    ,target->mode);
+                pa_proplist_sets(pl,PA_PROP_MAEMO_ACCESSORY_HWID,target->hwid);
+            }
+
+
+            /* move sink inputs to the sink */
+            if (sink == group->sink) {
                 pa_log_debug("group '%s' is aready routed to sink '%s'",
                              group->name, pa_sink_ext_get_name(sink));
             }
             else {
                 for (sil = group->sinpls;    sil;   sil = sil->next) {
                     sinp = sil->sink_input;
-                    
+                
                     pa_log_debug("move sink input '%s' to sink '%s'",
                                  pa_sink_input_ext_get_name(sinp),
                                  pa_sink_ext_get_name(sink));
-                    
+
                     if (pa_sink_input_move_to(sinp, sink) < 0) {
                         ret = -1;
-                        
-                        pa_log("failed to move sink input '%s' to sink '%s'",
-                               pa_sink_input_ext_get_name(sinp),
-                               pa_sink_ext_get_name(sink));
+                    
+                        pa_log_debug("move sink input '%s' to sink '%s'",
+                                     pa_sink_input_ext_get_name(sinp),
+                                     pa_sink_ext_get_name(sink));
+                    
                     }
-                }
+                } 
+            }
+
+            /* in case the sink properties changed announce it */
+            if (prop_changed) {
+                pa_subscription_post(sink->core, sinkev, sink->index);
+                pa_hook_fire(&core->hooks[PA_CORE_HOOK_SINK_PROPLIST_CHANGED],
+                             sink);
             }
             break;
             
         case pa_policy_route_to_source:
+            source = target->source;
+            core   = source->core;
+            pl     = source->proplist;
+
+            /* move source outputs to the source */
             if ((source = target->source) == group->source) {
                 pa_log_debug("group '%s' is aready routed to source '%s'",
                              group->name, pa_source_ext_get_name(source));
