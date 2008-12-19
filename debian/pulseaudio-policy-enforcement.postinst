@@ -1,11 +1,14 @@
 #!/bin/sh
 
 CMD=$1
+ORIG_SUFFIX=orig
 
 SYSTEM_PA=/etc/pulse/system.pa
-SYSTEM_PA_ORIG=${SYSTEM_PA}.orig
+SYSTEM_PA_ORIG=${SYSTEM_PA}.${ORIG_SUFFIX}
+APSTART=/etc/event.d/pulseaudio
+APSTART_ORIG=${APSTART}.${ORIG_SUFFIX}
 FILTER="^load-module[ \\t]*module-bluetooth-discover"
-
+PATTERN="exec /usr/bin/pulseaudio"
 
 case $CMD in
     abort-remove)
@@ -22,7 +25,12 @@ case $CMD in
 	    echo "load-module module-bluetooth-discover"  >> $SYSTEM_PA
 	    echo ".endif"                                 >> $SYSTEM_PA
 	fi
+	if [ -f $APSTART ] ; then
+	    mv $APSTART $APSTART_ORIG
 
+	    sed -e "s\\${PATTERN}\\${PATTERN} --no-cpu-limit=1 \\" \
+		$APSTART_ORIG > $APSTART
+	fi
 	;;
 
     *)
