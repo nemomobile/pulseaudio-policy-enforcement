@@ -28,7 +28,7 @@ case $CMD in
 	if [ -f $APSTART ] ; then
 	    mv $APSTART $APSTART_ORIG
 
-	    sed -e "s\\${PATTERN}\\${PATTERN} --no-cpu-limit=1 \\" \
+	    sed -e "s:${PATTERN}:${PATTERN} --no-cpu-limit=1 :" \
 		$APSTART_ORIG > $APSTART
 	fi
 	;;
