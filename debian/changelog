@@ -1,12 +1,18 @@
+pulseaudio-policy-enforcement (0.5.1) unstable; urgency=low
+
+  * Postinstall script fix for busybox.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 19 Dec 2008 20:10:13 +0200
+
 pulseaudio-policy-enforcement (0.5) unstable; urgency=low
 
-  * filter patch in --no-cpu-limit for pulseaudio startup
+  * Filter patch in --no-cpu-limit for pulseaudio startup.
 
  -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 19 Dec 2008 16:50:00 +0200
 
 pulseaudio-policy-enforcement (0.4) unstable; urgency=low
 
-  * filter subsequent, identical policy decisions 
+  * Filter subsequent, identical policy decisions.
 
  -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 17 Dec 2008 14:15:06 +0200
 
