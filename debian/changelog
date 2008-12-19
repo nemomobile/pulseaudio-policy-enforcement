@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5) unstable; urgency=low
+
+  * filter patch in --no-cpu-limit for pulseaudio startup
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 19 Dec 2008 16:50:00 +0200
+
 pulseaudio-policy-enforcement (0.4) unstable; urgency=low
 
   * filter subsequent, identical policy decisions 
