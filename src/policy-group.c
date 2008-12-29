@@ -405,6 +405,8 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
     struct pa_sink_input_list *sl;
+    char                      *sinp_name;
+    char                      *sink_name;
 
 
     pa_assert(u);
@@ -427,10 +429,23 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
         group->sinpls = sl;
 
         if (group->sink != NULL) {
+            sinp_name = pa_sink_input_ext_get_name(si);
+            sink_name = pa_sink_ext_get_name(group->sink);
+
+            pa_log_debug("move sink input '%s' to sink '%s'",
+                         sinp_name, sink_name);
+
             pa_sink_input_move_to(si, group->sink);
 
-            if (group->corked)
+            if (group->corked) {
+                pa_log_debug("sink input '%s' %s", sinp_name,
+                             group->corked ? "corked" : "uncorked");
+
                 pa_sink_input_cork(si, group->corked);
+            }
+
+            pa_log_debug("set volume limit %d for sink input '%s'",
+                         (group->limit * 100) / PA_VOLUME_NORM, sinp_name);
 
             pa_sink_input_ext_set_volume_limit(si, group->limit);
         }
@@ -658,7 +673,7 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
             pa_log_debug("%s: setting volume limit %d for group '%s'",
                          __FILE__, limit, group->name);
             ret = volset_group(group, limit);
-            group->limit = limit;
+            group->limit = ((limit > 100 ? 100:limit) * PA_VOLUME_NORM) / 100;
         }
     }
 
@@ -833,7 +848,7 @@ static int volset_group(struct pa_policy_group *group, pa_volume_t limit)
             if (pa_sink_input_ext_set_volume_limit(sinp, limit) < 0)
                 ret = -1;
             else
-                pa_log_debug("set volume limit %d for stream '%s'",
+                pa_log_debug("set volume limit %d for sink input '%s'",
                              limit, pa_sink_input_ext_get_name(sinp));
         }
     }

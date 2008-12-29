@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.2) unstable; urgency=low
+
+  * Fix for zero volume in case of new streams
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 29 Dec 2008 14:45:01 +0200
+
 pulseaudio-policy-enforcement (0.5.1) unstable; urgency=low
 
   * Postinstall script fix for busybox.
