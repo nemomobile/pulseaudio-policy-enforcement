@@ -25,7 +25,7 @@
 #define POLICY_DBUS_PDNAME          "org.freedesktop.ohm"
 
 #define POLICY_DECISION             "decision"
-#define POLICY_INFO                 "info"
+#define POLICY_STREAM_INFO          "stream_info"
 #define POLICY_ACTIONS              "actions"
 #define POLICY_STATUS               "status"
 
@@ -278,7 +278,7 @@ static DBusHandlerResult filter(DBusConnection *conn, DBusMessage *msg,
     }
 
 
-    if (dbus_message_is_signal(msg, POLICY_DBUS_INTERFACE, POLICY_INFO)) {
+    if (dbus_message_is_signal(msg, POLICY_DBUS_INTERFACE, POLICY_STREAM_INFO)) {
         handle_info_message(u, msg);
         return DBUS_HANDLER_RESULT_HANDLED;
     }
