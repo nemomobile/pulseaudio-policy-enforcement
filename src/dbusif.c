@@ -447,9 +447,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
                     break;
             }
                                     
-            if (act->parser == NULL)
-                success &= FALSE;
-            else
+            if (act->parser != NULL)
                 success &= act->parser(u, &actit);
 
         } while (dbus_message_iter_next(&entit));
