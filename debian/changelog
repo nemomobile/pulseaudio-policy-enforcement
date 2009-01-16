@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.4) unstable; urgency=low
+
+  * Support for video routing action (i.e. silently ignore them
+    instead of failing)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 16 Jan 2009 12:15:00 +0200
+
 pulseaudio-policy-enforcement (0.5.3) unstable; urgency=low
 
   * Renamed the incoming "info" signal to "command" (the outgoing "info"
