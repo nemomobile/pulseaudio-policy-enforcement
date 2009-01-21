@@ -3,7 +3,7 @@ AC_PREREQ(2.61)
 
 m4_define(PA_MAJOR, [0])
 m4_define(PA_MINOR, [9])
-m4_define(PA_MICRO, [13])
+m4_define(PA_MICRO, [15])
 
 AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.PA_MICRO],[janos.f.kovacs@nokia.com])
 AC_CONFIG_SRCDIR([src/module-policy-enforcement.c])
@@ -15,7 +15,8 @@ AS_IF([test x${exec_prefix} = xNONE], [LIBDIR=$ac_default_prefix/lib], [LIBDIR=$
 AC_SUBST(LIBDIR)
 
 
-AC_SUBST(PA_MAJORMINOR, "PA_MAJOR.PA_MINOR")
+AC_SUBST(PA_MAJORMINOR, "PA_MAJOR.PA_MINOR.PA_MICRO")
+
 
 AC_PROG_MKDIR_P
 AC_PROG_CC

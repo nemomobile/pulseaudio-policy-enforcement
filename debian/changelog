@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.5) unstable; urgency=low
+
+  * support for pulseaudio 0.9.15
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 21 Jan 2009 17:10:00 +0200
+
 pulseaudio-policy-enforcement (0.5.4) unstable; urgency=low
 
   * Support for video routing action (i.e. silently ignore them
