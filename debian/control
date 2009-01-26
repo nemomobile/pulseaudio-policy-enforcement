@@ -1,7 +1,7 @@
 Source: pulseaudio-policy-enforcement
 Priority: optional
 Maintainer: Janos Kovacs <janos.f.kovacs@nokia.com>
-Build-Depends: debhelper (>= 5.0.0), cdbs, libglib2.0-dev, libdbus-1-dev, pulseaudio-dev, libpulse-dev, libatomic-ops-dev, libltdl3-dev
+Build-Depends: debhelper (>= 5.0.0), cdbs, libglib2.0-dev, libdbus-1-dev, pulseaudio-dev, libpulse-dev, libltdl3-dev
 Standards-Version: 3.7.2.2
 Section: sound
 
