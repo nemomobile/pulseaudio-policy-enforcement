@@ -104,7 +104,7 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
      */
 
     if (defsink == NULL) {
-        defsink = pa_namereg_get(u->core, NULL, PA_NAMEREG_SINK, FALSE);
+        defsink = pa_namereg_get(u->core, NULL, PA_NAMEREG_SINK);
 
         if (defsink != NULL) {
             defsinkname = pa_sink_ext_get_name(defsink);
