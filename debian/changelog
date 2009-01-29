@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.7) unstable; urgency=low
+
+  * cope with embeded stream creation (i.e. a stream redirect would create
+    another stream before the redirection ends)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 29 Jan 2009 10:51:00 +0200
+
 pulseaudio-policy-enforcement (0.5.6) unstable; urgency=low
 
   * mutes output streams if the volume limit is zero. (better co-existence
