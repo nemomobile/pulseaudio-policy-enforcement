@@ -592,31 +592,17 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
             if ((grp = find_group_by_name(u->groups, name, NULL)) != NULL) {
                 if (!(grp->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO))
                     ret = 0;
-                else {
-                    if ((ret = move_group(grp, &target)) >= 0) {
-                        if (target_is_sink)
-                            grp->sink = target.sink;
-                        else
-                            grp->source = target.source;
-                    }
-                }
+                else
+                    ret = move_group(grp, &target);
             }
         }
         else {                  /* move all groups */
             ret = 0;
 
             for (curs = NULL; (grp = pa_policy_group_scan(u->groups, &curs));){
-                if (!(grp->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO))
-                    ret = 0;
-                else {
+                if ((grp->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO)) {
                     if (move_group(grp, &target) < 0)
                         ret = -1;
-                    else {
-                        if (target_is_sink)
-                            grp->sink = target.sink;
-                        else
-                            grp->source = target.source;
-                    }
                 }
             }
         }
@@ -637,17 +623,16 @@ int pa_policy_group_cork(struct userdata *u, char *name, int corked)
     else {
         if (!(grp->flags & PA_POLICY_GROUP_FLAG_CORK_STREAM))
             ret = 0;
-        else {
+        else
             ret = cork_group(grp, corked);
-            grp->corked = corked;
-        }
     }
 
     return ret;
 }
 
 
-int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
+int pa_policy_group_volume_limit(struct userdata *u, char *name,
+                                 uint32_t percent)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
@@ -669,12 +654,8 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,uint32_t limit)
     else {
         if (!(group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME))
             ret = 0;
-        else {
-            pa_log_debug("%s: setting volume limit %d for group '%s'",
-                         __FILE__, limit, group->name);
-            ret = volset_group(group, limit);
-            group->limit = ((limit > 100 ? 100:limit) * PA_VOLUME_NORM) / 100;
-        }
+        else
+            ret = volset_group(group, percent);
     }
 
     return ret;
@@ -763,6 +744,8 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                              group->name, pa_sink_ext_get_name(sink));
             }
             else {
+                group->sink = sink;
+
                 for (sil = group->sinpls;    sil;   sil = sil->next) {
                     sinp = sil->sink_input;
                 
@@ -800,6 +783,8 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                              group->name, pa_source_ext_get_name(source));
             }
             else {
+                group->source = source;
+
                 for (sol = group->soutls;    sol;    sol = sol->next) {
                     sout = sol->source_output;
                     
@@ -828,20 +813,23 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 }
 
 
-static int volset_group(struct pa_policy_group *group, pa_volume_t limit)
+static int volset_group(struct pa_policy_group *group, pa_volume_t percent)
 {
+    pa_volume_t limit;
     struct pa_sink_input_list *sl;
     struct pa_sink_input *sinp;
     int ret = 0;
 
 
-    limit = ((limit > 100 ? 100 : limit) * PA_VOLUME_NORM) / 100;
+    limit = ((percent > 100 ? 100 : percent) * PA_VOLUME_NORM) / 100;
 
     if (limit == group->limit) {
         pa_log_debug("group '%s' volume limit is already %d",
-                     group->name, limit);
+                     group->name, percent);
     }
     else {
+        group->limit = limit;
+
         for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
             sinp = sl->sink_input;
 
@@ -849,7 +837,7 @@ static int volset_group(struct pa_policy_group *group, pa_volume_t limit)
                 ret = -1;
             else
                 pa_log_debug("set volume limit %d for sink input '%s'",
-                             limit, pa_sink_input_ext_get_name(sinp));
+                             percent, pa_sink_input_ext_get_name(sinp));
         }
     }
 
@@ -868,6 +856,8 @@ static int cork_group(struct pa_policy_group *group, int corked)
                      corked ? "corked" : "uncorked");
     }
     else {
+        group->corked = corked;
+
         for (sl = group->sinpls;    sl;   sl = sl->next) {
             sinp = sl->sink_input;
             
