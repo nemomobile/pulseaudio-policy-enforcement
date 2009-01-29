@@ -1,16 +1,10 @@
-pulseaudio-policy-enforcement (0.5.7-0elmarco1) unstable; urgency=low
-
-  * Remove postinst.
-  * Remove libatomic-ops.
-
- -- Maemo Multimedia <multimedia@maemo.org>  Mon, 26 Jan 2009 11:45:20 +0200
-
 pulseaudio-policy-enforcement (0.5.7) unstable; urgency=low
 
   * cope with embeded stream creation (i.e. a stream redirect would create
     another stream before the redirection ends)
+  * Remove libatomic-ops dependency.
 
- -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 29 Jan 2009 10:51:00 +0200
+ -- Maemo Multimedia <multimedia@maemo.org>  Thu, 29 Jan 2009 18:41:23 +0200
 
 pulseaudio-policy-enforcement (0.5.6) unstable; urgency=low
 
