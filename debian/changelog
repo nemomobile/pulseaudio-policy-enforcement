@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.6) unstable; urgency=low
+
+  * mutes output streams if the volume limit is zero. (better co-existence
+    with module-flat-volume)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sun, 25 Jan 2009 13:30:00 +0200
+
 pulseaudio-policy-enforcement (0.5.5) unstable; urgency=low
 
   * support for pulseaudio 0.9.15
