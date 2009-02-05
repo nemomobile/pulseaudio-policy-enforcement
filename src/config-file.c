@@ -176,6 +176,11 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     section_close(u, &section);
     endpwent();
 
+    if (fclose(f) != 0) {
+        pa_log("%s: Can't close config file '%s': %s",
+               __FILE__, cfgpath, strerror(errno));
+    }
+
     return sts;
 }
 
@@ -489,7 +494,7 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
     int            sts;
     char          *user;
     struct passwd *pwd;
-    uid_t          uid;
+    int            uid;
     char          *end;
 
     if (strdef == NULL)
@@ -525,7 +530,7 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
                 }
             }
 
-            strdef->uid = uid;
+            strdef->uid = (uid_t) uid;
         }
         else if (!strncmp(line, "exe=", 4)) {
             strdef->exe = pa_xstrdup(line+4);

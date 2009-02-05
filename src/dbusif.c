@@ -89,6 +89,7 @@ static void handle_action_message(struct userdata *, DBusMessage *);
 static void registration_cb(DBusPendingCall *, void *);
 static int  register_to_pdp(struct pa_policy_dbusif *, struct userdata *);
 static int  signal_status(struct userdata *, uint32_t, uint32_t);
+static void pa_policy_free_dbusif(struct pa_policy_dbusif *, struct userdata *);
 
 
 
@@ -182,22 +183,23 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     return dbusif;
 
  fail:
-    pa_policy_dbusif_done(u);
+    pa_policy_free_dbusif(dbusif, u);
     dbus_error_free(&error);
     return NULL;
 }
 
-
-void pa_policy_dbusif_done(struct userdata *u)
+static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif, struct userdata *u)
 {
-    struct pa_policy_dbusif *dbusif;    
     DBusConnection          *dbusconn;
-    
-    if (u && (dbusif = u->dbusif)) {
+
+    if (dbusif) {
+
         if (dbusif->conn) {
             dbusconn = pa_dbus_connection_get(dbusif->conn);
 
-            dbus_connection_remove_filter(dbusconn, filter,u);
+            if (u)
+                dbus_connection_remove_filter(dbusconn, filter,u);
+
             dbus_bus_remove_match(dbusconn, dbusif->admrule, NULL);
             dbus_bus_remove_match(dbusconn, dbusif->polrule, NULL);
 
@@ -212,6 +214,13 @@ void pa_policy_dbusif_done(struct userdata *u)
         pa_xfree(dbusif->polrule);
 
         pa_xfree(dbusif);
+    }
+}
+
+void pa_policy_dbusif_done(struct userdata *u)
+{
+    if (u) {
+        pa_policy_free_dbusif(u->dbusif, u);
     }
 }
 
