@@ -130,14 +130,14 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
     pa_assert((sink = sinp->sink));
 
     if (limit == 0)
-        pa_sink_input_set_mute(sinp, TRUE);
+        pa_sink_input_set_mute(sinp, TRUE, TRUE);
     else {
-        pa_sink_input_set_mute(sinp, FALSE);
+        pa_sink_input_set_mute(sinp, FALSE, TRUE);
 
         if (limit > PA_VOLUME_NORM)
             limit = PA_VOLUME_NORM;
 
-        vol = pa_xnewdup(struct pa_cvolume, &sinp->volume, 1);
+        vol = pa_xnewdup(struct pa_cvolume, &sinp->virtual_volume, 1);
         
         pa_assert(vol->channels <= PA_CHANNELS_MAX);
         
@@ -146,9 +146,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
                 vol->values[i] = limit;
         }
         
-        pa_asyncmsgq_post(sink->asyncmsgq, PA_MSGOBJECT(sinp),
-                          PA_SINK_INPUT_MESSAGE_SET_VOLUME, vol,
-                          0,NULL, pa_xfree);
+        pa_sink_input_set_volume(sinp, vol, TRUE);
     }
 
     return 0;

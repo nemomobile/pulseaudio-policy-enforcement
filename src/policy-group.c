@@ -435,7 +435,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
             pa_log_debug("move sink input '%s' to sink '%s'",
                          sinp_name, sink_name);
 
-            pa_sink_input_move_to(si, group->sink);
+            pa_sink_input_move_to(si, group->sink, TRUE);
 
             if (group->corked) {
                 pa_log_debug("sink input '%s' %s", sinp_name,
@@ -512,7 +512,7 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
         group->soutls = sl;
 
         if (group->source != NULL) {
-            pa_source_output_move_to(so, group->source);
+            pa_source_output_move_to(so, group->source, TRUE);
         }
 
        pa_log_debug("source output '%s' added to group '%s'",
@@ -753,7 +753,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                                  pa_sink_input_ext_get_name(sinp),
                                  pa_sink_ext_get_name(sink));
 
-                    if (pa_sink_input_move_to(sinp, sink) < 0) {
+                    if (pa_sink_input_move_to(sinp, sink, TRUE) < 0) {
                         ret = -1;
                     
                         pa_log_debug("move sink input '%s' to sink '%s'",
@@ -792,7 +792,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                                  pa_source_output_ext_get_name(sout),
                                  pa_source_ext_get_name(source));
                     
-                    if (pa_source_output_move_to(sout, source) < 0) {
+                    if (pa_source_output_move_to(sout, source, TRUE) < 0) {
                         ret = -1;
                     
                         pa_log("failed to move source output '%s' to source "
