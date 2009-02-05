@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.9.15.0-0maemo1) unstable; urgency=low
+
+  * Updated to work with PulseAudio 0.9.15-test1.
+
+ -- Maemo Multimedia <multimedia@maemo.org>  Thu, 05 Feb 2009 14:31:51 +0200
+
 pulseaudio-policy-enforcement (0.5.7) unstable; urgency=low
 
   * cope with embeded stream creation (i.e. a stream redirect would create
