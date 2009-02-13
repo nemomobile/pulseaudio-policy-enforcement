@@ -1,4 +1,4 @@
-pulseaudio-policy-enforcement (0.9.15.0-0maemo1) unstable; urgency=low
+pulseaudio-policy-enforcement (0.9.15.0-0maemo1) UNRELEASED; urgency=low
 
   * Updated to work with PulseAudio 0.9.15-test1.
 
