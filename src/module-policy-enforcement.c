@@ -106,7 +106,9 @@ int pa__init(pa_module *m) {
     
     m->userdata = u;
     
-    if (u->scl == NULL || u->ssnk == NULL || u->ssi == NULL)
+    if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL ||
+        u->ssi == NULL || u->sso == NULL || u->groups == NULL ||
+        u->classify == NULL || u->dbusif == NULL)
         goto fail;
 
     pa_sink_ext_discover(u);
@@ -132,7 +134,7 @@ int pa__init(pa_module *m) {
 
 void pa__done(pa_module *m) {
     struct userdata *u;
-    
+
     pa_assert(m);
     
     if (!(u = m->userdata))

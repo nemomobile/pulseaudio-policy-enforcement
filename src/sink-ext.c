@@ -116,7 +116,7 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
         idx  = sink->index;
 
         if (pa_classify_sink(u, sink, buf, sizeof(buf)) <= 0)
-                pa_log_debug("new sink '%s' (idx=%d)", name, idx);
+            pa_log_debug("new sink '%s' (idx=%d)", name?name:"<null>", idx);
         else {
             ret = pa_proplist_sets(sink->proplist,
                                    PA_PROP_POLICY_DEVTYPELIST, buf);

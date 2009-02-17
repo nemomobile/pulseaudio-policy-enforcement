@@ -131,8 +131,6 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     }
 #endif
  
-    return NULL;
-
     if (!dbus_connection_add_filter(dbusconn, filter,u, NULL)) {
         pa_log("%s: failed to add filter function", __FILE__);
         goto fail;
