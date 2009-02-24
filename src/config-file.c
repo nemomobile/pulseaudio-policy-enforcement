@@ -29,6 +29,7 @@ enum section_type {
     section_unknown = 0,
     section_group,
     section_device,
+    section_card,
     section_stream,
     section_max
 };
@@ -56,6 +57,14 @@ struct devicedef {
     uint32_t                 flags;
 };
 
+struct carddef {
+    char                    *type;
+    enum pa_classify_method  method;
+    char                    *arg;
+    char                    *profile;
+    uint32_t                 flags;
+};
+
 struct streamdef {
     char                    *stnam; /* stream name */
     char                    *clnam; /* client's name in pulse audio */
@@ -70,6 +79,7 @@ struct section {
         void             *any;
         struct groupdef  *group;
         struct devicedef *device;
+        struct carddef   *card;
         struct streamdef *stream;
     }                        def;
 };
@@ -83,9 +93,12 @@ static int section_close(struct userdata *, struct section *);
 
 static int groupdef_parse(int, char *, struct groupdef *);
 static int devicedef_parse(int, char *, struct devicedef *);
+static int carddef_parse(int, char *, struct carddef *);
 static int streamdef_parse(int, char *, struct streamdef *);
 
-static int deviceprop_parse(int, enum device_class,char *, struct devicedef *);
+static int deviceprop_parse(int, enum device_class,char *,struct devicedef *);
+static int cardname_parse(int, char *, struct carddef *);
+static int flags_parse(int lineno, char *, uint32_t *);
 static int valid_label(int, char *);
 
 
@@ -102,6 +115,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     struct section     section;
     struct groupdef   *grdef;
     struct devicedef  *devdef;
+    struct carddef    *carddef;
     struct streamdef  *strdef;
     int                sts;
 
@@ -154,6 +168,14 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 devdef = section.def.device;
 
                 if (devicedef_parse(lineno, line, devdef) < 0)
+                    sts = 0;
+
+                break;
+
+            case section_card:
+                carddef = section.def.card;
+
+                if (carddef_parse(lineno, line, carddef) < 0)
                     sts = 0;
 
                 break;
@@ -231,6 +253,8 @@ static int section_header(int lineno, char *line, enum section_type *type)
             *type = section_group;
         else if (!strcmp(line,"[device]"))
             *type = section_device;
+        else if (!strcmp(line,"[card]"))
+            *type = section_card;
         else if (!strcmp(line, "[stream]"))
             *type = section_stream;
         else {
@@ -263,6 +287,11 @@ static int section_open(struct userdata *u, enum section_type type,
             status = 0;
             break;
 
+        case section_card:
+            sec->def.card = pa_xnew0(struct carddef, 1);
+            status = 0;
+            break;
+
         case section_stream:
             sec->def.stream = pa_xnew0(struct streamdef, 1);
             sec->def.stream->uid = -1;
@@ -286,6 +315,7 @@ static int section_close(struct userdata *u, struct section *sec)
 {
     struct groupdef  *grdef;
     struct devicedef *devdef;
+    struct carddef   *carddef;
     struct streamdef *strdef;
     int               status;
 
@@ -334,6 +364,21 @@ static int section_close(struct userdata *u, struct section *sec)
             pa_xfree(devdef->prop);
             pa_xfree(devdef->arg);
             pa_xfree(devdef);
+
+            break;
+
+        case section_card:
+            status = 0;
+            carddef = sec->def.card;
+
+            pa_classify_add_card(u, carddef->type, carddef->method, 
+                                 carddef->arg, carddef->profile,
+                                 carddef->flags);
+            
+            pa_xfree(carddef->type);
+            pa_xfree(carddef->arg);
+            pa_xfree(carddef->profile);
+            pa_xfree(carddef);
 
             break;
 
@@ -472,6 +517,48 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
         else if (!strncmp(line, "source=", 7)) {
             sts = deviceprop_parse(lineno, device_source, line+7, devdef);
         }
+        else if (!strncmp(line, "flags=", 6)) {
+            sts = flags_parse(lineno, line+6, &devdef->flags);
+        }
+        else {
+            if ((end = strchr(line, '=')) == NULL) {
+                pa_log("%s: invalid definition '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            else {
+                *end = '\0';
+                pa_log("%s: invalid key value '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            sts = -1;
+        }
+    }
+
+    return sts;
+}
+
+static int carddef_parse(int lineno, char *line, struct carddef *carddef)
+{
+    int   sts;
+    char *end;
+
+    if (carddef == NULL)
+        sts = -1;
+    else {
+        sts = 0;
+
+        if (!strncmp(line, "type=", 5)) {
+            carddef->type = pa_xstrdup(line+5);
+        }
+        else if (!strncmp(line, "name=", 5)) {
+            sts = cardname_parse(lineno, line+5, carddef);
+        }
+        else if (!strncmp(line, "profile=", 8)) {
+            carddef->profile = pa_xstrdup(line+8);
+        }
+        else if (!strncmp(line, "flags=", 6)) {
+            sts = flags_parse(lineno, line+6, &carddef->flags);
+        }
         else {
             if ((end = strchr(line, '=')) == NULL) {
                 pa_log("%s: invalid definition '%s' in line %d",
@@ -555,8 +642,8 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
     return sts;
 }
 
-static int deviceprop_parse(int lineno, enum device_class class, char *propdef,
-                            struct devicedef *devdef)
+static int deviceprop_parse(int lineno, enum device_class class,
+                            char *propdef, struct devicedef *devdef)
 {
     char *colon;
     char *at;
@@ -599,6 +686,69 @@ static int deviceprop_parse(int lineno, enum device_class class, char *propdef,
     devdef->prop  = pa_xstrdup(prop);
     devdef->arg   = pa_xstrdup(arg);
     
+    return 0;
+}
+
+static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
+{
+    char *colon;
+    char *method;
+    char *arg;
+
+    if ((colon = strchr(namedef, ':')) == NULL) {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, namedef, lineno);
+        return -1;
+    }
+
+    *colon = '\0';
+    method = namedef;
+    arg    = colon + 1;
+
+    if (!strcmp(method, "equals"))
+        carddef->method = pa_method_equals;
+    else if (!strcmp(method, "startswith"))
+        carddef->method = pa_method_startswith;
+    else if (!strcmp(method, "matches"))
+        carddef->method = pa_method_matches;
+    else {
+        pa_log("%s: invalid method '%s' in line %d",
+               __FILE__, method, lineno);
+        return -1;
+    }
+    
+    carddef->arg   = pa_xstrdup(arg);
+    
+    return 0;
+}
+
+static int flags_parse(int lineno, char *flagdef, uint32_t *flags_ret)
+{
+    char     *comma;
+    char     *flagname;
+    uint32_t  flags;
+
+    flags = 0;
+
+    while (*(flagname = flagdef) != '\0') {
+        if ((comma = strchr(flagdef, ',')) == NULL)
+            flagdef += strlen(flagdef);
+        else {
+            *comma = '\0';
+            flagdef = comma + 1;
+        }
+
+        if (!strcmp(flagname, "disable_notify"))
+            flags |= PA_POLICY_DISABLE_NOTIFY;
+        else {
+            pa_log("%s: invalid flag '%s' in line %d",
+                   __FILE__, flagname, lineno);
+            return -1;
+        }
+    }
+
+    *flags_ret = flags;
+
     return 0;
 }
 

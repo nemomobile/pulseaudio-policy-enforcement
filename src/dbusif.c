@@ -11,6 +11,7 @@
 #include "classify.h"
 #include "policy-group.h"
 #include "source-ext.h"
+#include "card-ext.h"
 
 #define ADMIN_DBUS_MANAGER          "org.freedesktop.DBus"
 #define ADMIN_DBUS_PATH             "/org/freedesktop/DBus"
@@ -89,7 +90,7 @@ static void handle_action_message(struct userdata *, DBusMessage *);
 static void registration_cb(DBusPendingCall *, void *);
 static int  register_to_pdp(struct pa_policy_dbusif *, struct userdata *);
 static int  signal_status(struct userdata *, uint32_t, uint32_t);
-static void pa_policy_free_dbusif(struct pa_policy_dbusif *, struct userdata *);
+static void pa_policy_free_dbusif(struct pa_policy_dbusif *,struct userdata *);
 
 
 
@@ -188,7 +189,8 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     return NULL;
 }
 
-static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif, struct userdata *u)
+static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif,
+                                  struct userdata *u)
 {
     DBusConnection          *dbusconn;
 
@@ -197,8 +199,9 @@ static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif, struct userda
         if (dbusif->conn) {
             dbusconn = pa_dbus_connection_get(dbusif->conn);
 
-            if (u)
+            if (u) {
                 dbus_connection_remove_filter(dbusconn, filter,u);
+            }
 
             dbus_bus_remove_match(dbusconn, dbusif->admrule, NULL);
             dbus_bus_remove_match(dbusconn, dbusif->polrule, NULL);
@@ -287,7 +290,7 @@ static DBusHandlerResult filter(DBusConnection *conn, DBusMessage *msg,
     }
 
 
-    if (dbus_message_is_signal(msg, POLICY_DBUS_INTERFACE, POLICY_STREAM_INFO)) {
+    if (dbus_message_is_signal(msg, POLICY_DBUS_INTERFACE,POLICY_STREAM_INFO)){
         handle_info_message(u, msg);
         return DBUS_HANDLER_RESULT_HANDLED;
     }
@@ -561,7 +564,9 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
         pa_log_debug("%s: route %s to %s (%s|%s)", __FILE__,
                      args.type, target, mode, hwid);
 
-        if (pa_policy_group_move_to(u, NULL, class, target, mode, hwid) < 0) {
+        if (pa_card_ext_set_profile(u, target) < 0 ||
+            pa_policy_group_move_to(u, NULL, class, target, mode, hwid) < 0)
+        {
             pa_log("%s: can't route to %s %s", __FILE__, args.type, target);
             return FALSE;
         }

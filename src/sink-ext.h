@@ -15,6 +15,8 @@ void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
 void  pa_sink_ext_discover(struct userdata *);
 char *pa_sink_ext_get_name(struct pa_sink *);
 
+void pa_policy_send_device_state(struct userdata *, const char *, char *);
+
 #endif /* foosinkextfoo */
 
 /*

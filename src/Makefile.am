@@ -7,6 +7,7 @@ module_policy_enforcement_la_SOURCES = \
 			sink-ext.c \
 			source-ext.c \
 			sink-input-ext.c \
+			card-ext.c \
 			source-output-ext.c \
 			classify.c \
 			policy-group.c \

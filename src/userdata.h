@@ -10,6 +10,7 @@
 #define PA_PROP_APPLICATION_PROCESS_ARGS "application.process.args"
 #define PA_PROP_POLICY_GROUP             "policy.group"
 #define PA_PROP_POLICY_DEVTYPELIST       "policy.device.typelist"
+#define PA_PROP_POLICY_CARDTYPELIST      "policy.card.typelist"
 #define PA_PROP_MAEMO_AUDIO_MODE         "x-maemo.mode"
 #define PA_PROP_MAEMO_ACCESSORY_HWID     "x-maemo.accessory_hwid"
 
@@ -18,6 +19,7 @@ struct pa_sink_evsubscr;
 struct pa_source_evsubscr;
 struct pa_sinp_evsubscr;
 struct pa_sout_evsubscr;
+struct pa_card_evsubscr;
 struct pa_policy_groupset;
 struct pa_classify;
 struct pa_policy_dbusif;
@@ -30,6 +32,7 @@ struct userdata {
     struct pa_source_evsubscr *ssrc;     /* source event subscription */
     struct pa_sinp_evsubscr   *ssi;      /* sink input event susbscription */
     struct pa_sout_evsubscr   *sso;      /* source output event susbscription*/
+    struct pa_card_evsubscr   *scrd;     /* card event subscription */
     struct pa_policy_groupset *groups;   /* policy groups */
     struct pa_classify        *classify; /* rules for classification */
     struct pa_policy_dbusif   *dbusif;

@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.8) unstable; urgency=low
+
+  * support for the new BT routing in Pulse Audio 0.9.15
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Tue, 24 Feb 2009 16:43:00 +0200
+
 pulseaudio-policy-enforcement (0.9.15.0-0maemo1) UNRELEASED; urgency=low
 
   * Updated to work with PulseAudio 0.9.15-test1.

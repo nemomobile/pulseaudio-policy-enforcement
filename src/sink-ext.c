@@ -20,8 +20,6 @@ static pa_hook_result_t sink_unlink(void *, void *, void *);
 static void handle_new_sink(struct userdata *, struct pa_sink *);
 static void handle_removed_sink(struct userdata *, struct pa_sink *);
 
-static void send_device_state(struct userdata *, const char *, char *);
-
 
 struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *u)
 {
@@ -81,7 +79,7 @@ char *pa_sink_ext_get_name(struct pa_sink *sink)
 }
 
 static pa_hook_result_t sink_put(void *hook_data, void *call_data,
-                                       void *slot_data)
+                                 void *slot_data)
 {
     struct pa_sink  *sink = (struct pa_sink *)call_data;
     struct userdata *u    = (struct userdata *)slot_data;
@@ -93,7 +91,7 @@ static pa_hook_result_t sink_put(void *hook_data, void *call_data,
 
 
 static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
-                                          void *slot_data)
+                                    void *slot_data)
 {
     struct pa_sink  *sink = (struct pa_sink *)call_data;
     struct userdata *u    = (struct userdata *)slot_data;
@@ -106,17 +104,19 @@ static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
 
 static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
 {
-    char            *name;
-    uint32_t         idx;
-    char             buf[1024];
-    int              ret;
+    char     *name;
+    uint32_t  idx;
+    char      buf[1024];
+    int       len;
+    int       ret;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);
         idx  = sink->index;
+        len  = pa_classify_sink(u, sink, 0,0, buf, sizeof(buf));
 
-        if (pa_classify_sink(u, sink, buf, sizeof(buf)) <= 0)
-            pa_log_debug("new sink '%s' (idx=%d)", name?name:"<null>", idx);
+        if (len <= 0)
+            pa_log_debug("new sink '%s' (idx=%d)", name, idx);
         else {
             ret = pa_proplist_sets(sink->proplist,
                                    PA_PROP_POLICY_DEVTYPELIST, buf);
@@ -128,9 +128,15 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
             else {
                 pa_log_debug("new sink '%s' (idx=%d) (type %s)",
                              name, idx, buf);
+
                 pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
                 pa_policy_groupset_register_sink(u, sink);
-                send_device_state(u, PA_POLICY_CONNECTED, buf);
+
+                len = pa_classify_sink(u, sink, PA_POLICY_DISABLE_NOTIFY,0,
+                                       buf, sizeof(buf));
+                if (len > 0) {
+                    pa_policy_send_device_state(u, PA_POLICY_CONNECTED, buf);
+                }
             }
         }
     }
@@ -141,27 +147,34 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
     char            *name;
     uint32_t         idx;
     char             buf[1024];
+    int              len;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);
         idx  = sink->index;
+        len  = pa_classify_sink(u, sink, 0,0, buf, sizeof(buf));
 
-        if (pa_classify_sink(u, sink, buf, sizeof(buf)) <= 0)
+        if (len <= 0)
             pa_log_debug("remove sink '%s' (idx=%d)", name, idx);
         else {
-            pa_log_debug("remove sink '%s' (idx=%d, type=%s)", name, idx, buf);
+            pa_log_debug("remove sink '%s' (idx=%d, type=%s)", name,idx, buf);
             
             pa_policy_groupset_update_default_sink(u, idx);
             pa_policy_groupset_unregister_sink(u, idx);
 
-            send_device_state(u, PA_POLICY_DISCONNECTED, buf);
+            len = pa_classify_sink(u, sink, PA_POLICY_DISABLE_NOTIFY,0,
+                                   buf, sizeof(buf));
+            
+            if (len > 0) {
+                pa_policy_send_device_state(u, PA_POLICY_DISCONNECTED, buf);
+            }
         }
     }
 }
 
 
-static void send_device_state(struct userdata *u, const char *state,
-                              char *typelist) 
+void pa_policy_send_device_state(struct userdata *u, const char *state,
+                                 char *typelist) 
 {
 #define MAX_TYPE 256
 

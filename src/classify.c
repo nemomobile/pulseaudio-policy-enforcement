@@ -11,6 +11,7 @@
 #include "client-ext.h"
 #include "sink-ext.h"
 #include "source-ext.h"
+#include "card-ext.h"
 #include "sink-input-ext.h"
 #include "source-output-ext.h"
 
@@ -45,10 +46,19 @@ static struct pa_classify_stream_def
 static void devices_free(struct pa_classify_device *);
 static void devices_add(struct pa_classify_device **, char *,
                         char *,  enum pa_classify_method, char *, uint32_t);
-static int devices_classify(struct pa_classify_device_def *, 
-                            pa_proplist *, char *, char *, int);
+static int devices_classify(struct pa_classify_device_def *, pa_proplist *,
+                            char *, uint32_t, uint32_t, char *, int);
 static int devices_is_typeof(struct pa_classify_device_def *, pa_proplist *,
-                             char *, char *);
+                             char *, char *,struct pa_classify_device_data **);
+
+static void cards_free(struct pa_classify_card *);
+static void cards_add(struct pa_classify_card **, char *,
+                      enum pa_classify_method, char *, char *, uint32_t);
+static int  cards_classify(struct pa_classify_card_def *, char *,
+                           uint32_t,uint32_t, char *,int);
+static int card_is_typeof(struct pa_classify_card_def *, char *,
+                          char *, struct pa_classify_card_data **);
+
 
 char *get_property(char *, pa_proplist *, char *);
 
@@ -65,6 +75,7 @@ struct pa_classify *pa_classify_new(struct userdata *u)
 
     cl->sinks   = pa_xnew0(struct pa_classify_device, 1);
     cl->sources = pa_xnew0(struct pa_classify_device, 1);
+    cl->cards   = pa_xnew0(struct pa_classify_card, 1);
 
     return cl;
 }
@@ -76,6 +87,7 @@ void pa_classify_free(struct pa_classify *cl)
         streams_free(cl->streams.defs);
         devices_free(cl->sinks);
         devices_free(cl->sources);
+        cards_free(cl->cards);
 
         pa_xfree(cl);
     }
@@ -112,6 +124,22 @@ void pa_classify_add_source(struct userdata *u, char *type, char *prop,
 
     devices_add(&classify->sources, type, prop, method, arg, flags);
 }
+
+void pa_classify_add_card(struct userdata *u, char *type,
+                          enum pa_classify_method method, char *arg,
+                          char *profile, uint32_t flags)
+{
+    struct pa_classify *classify;
+
+    pa_assert(u);
+    pa_assert((classify = u->classify));
+    pa_assert(classify->cards);
+    pa_assert(type);
+    pa_assert(arg);
+
+    cards_add(&classify->cards, type, method, arg, profile, flags);
+}
+
 
 void pa_classify_add_stream(struct userdata *u, char *clnam, uid_t uid,
                             char *exe, char *stnam, char *group)
@@ -185,6 +213,7 @@ char *pa_classify_source_output(struct userdata *u,
 }
 
 int pa_classify_sink(struct userdata *u, struct pa_sink *sink,
+                     uint32_t flag_mask, uint32_t flag_value,
                      char *buf, int len)
 {
     struct pa_classify *classify;
@@ -198,10 +227,12 @@ int pa_classify_sink(struct userdata *u, struct pa_sink *sink,
 
     name = pa_sink_ext_get_name(sink);
 
-    return devices_classify(defs, sink->proplist, name, buf, len);
+    return devices_classify(defs, sink->proplist, name,
+                            flag_mask, flag_value, buf, len);
 }
 
 int pa_classify_source(struct userdata *u, struct pa_source *source,
+                       uint32_t flag_mask, uint32_t flag_value,
                        char *buf, int len)
 {
     struct pa_classify *classify;
@@ -215,11 +246,30 @@ int pa_classify_source(struct userdata *u, struct pa_source *source,
 
     name = pa_source_ext_get_name(source);
 
-    return devices_classify(defs, source->proplist, name, buf, len);
+    return devices_classify(defs, source->proplist, name,
+                            flag_mask, flag_value, buf, len);
+}
+
+int pa_classify_card(struct userdata *u, struct pa_card *card,
+                     uint32_t flag_mask, uint32_t flag_value,
+                     char *buf, int len)
+{
+    struct pa_classify *classify;
+    struct pa_classify_card_def *defs;
+    char *name;
+
+    pa_assert(u);
+    pa_assert((classify = u->classify));
+    pa_assert(classify->cards);
+    pa_assert((defs = classify->cards->defs));
+
+    name = pa_card_ext_get_name(card);
+
+    return cards_classify(defs, name, flag_mask,flag_value, buf,len);
 }
 
 int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
-                               char *type)
+                               char *type, struct pa_classify_device_data **d)
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
@@ -235,12 +285,12 @@ int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
 
     name = pa_sink_ext_get_name(sink);
 
-    return devices_is_typeof(defs, sink->proplist, name, type);
+    return devices_is_typeof(defs, sink->proplist, name, type, d);
 }
 
 
 int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
-                                 char *type)
+                                 char *type,struct pa_classify_device_data **d)
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
@@ -256,7 +306,28 @@ int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
 
     name = pa_source_ext_get_name(source);
 
-    return devices_is_typeof(defs, source->proplist, name, type);
+    return devices_is_typeof(defs, source->proplist, name, type, d);
+}
+
+
+int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
+                               char *type, struct pa_classify_card_data **d)
+{
+    struct pa_classify *classify;
+    struct pa_classify_card_def *defs;
+    char *name;
+
+    pa_assert(u);
+    pa_assert((classify = u->classify));
+    pa_assert(classify->cards);
+    pa_assert((defs = classify->cards->defs));
+
+    if (!card || !type)
+        return FALSE;
+
+    name = pa_card_ext_get_name(card);
+
+    return card_is_typeof(defs, name, type, d);
 }
 
 
@@ -548,6 +619,8 @@ static void devices_free(struct pa_classify_device *sinks)
 
     if (sinks) {
         for (d = sinks->defs;  d->type;  d++) {
+            pa_xfree((void *)d->type);
+
             if (d->method == method_matches)
                 regfree(&d->arg.rexp);
             else
@@ -580,7 +653,8 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
     d->type  = pa_xstrdup(type);
     d->prop  = pa_xstrdup(prop);
-    d->flags = flags;
+
+    d->data.flags = flags;
 
     switch (method) {
 
@@ -613,11 +687,12 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
     devs->ndef++;
 
     pa_log_info("device '%s' added (%s|%s|%s|0x%04x)",
-                type, d->prop, method_name, arg, d->flags);
+                type, d->prop, method_name, arg, d->data.flags);
 }
 
 static int devices_classify(struct pa_classify_device_def *defs,
                             pa_proplist *proplist, char *name,
+                            uint32_t flag_mask, uint32_t flag_value,
                             char *buf, int len)
 {
     struct pa_classify_device_def *d;
@@ -637,16 +712,18 @@ static int devices_classify(struct pa_classify_device_def *defs,
     for (d = defs, i = 0;  d->type;  d++) {
         propval = get_property(d->prop, proplist, name);
 
-        if ((d->method(propval, &d->arg))) {
-            p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
-            s  = " ";
-            
-            if (p > e) {
-                pa_log("%s: %s() buffer overflow", __FILE__, __FUNCTION__);
-                *buf = '\0';
-                p = e;
-                break;
-            }            
+        if (d->method(propval, &d->arg)) {
+            if ((d->data.flags & flag_mask) == flag_value) {
+                p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
+                s  = " ";
+                
+                if (p > e) {
+                    pa_log("%s: %s() buffer overflow", __FILE__, __FUNCTION__);
+                    *buf = '\0';
+                    p = e;
+                    break;
+                }
+            }
         }
     }
 
@@ -654,7 +731,8 @@ static int devices_classify(struct pa_classify_device_def *defs,
 }
 
 static int devices_is_typeof(struct pa_classify_device_def *defs,
-                             pa_proplist *proplist, char *name, char *type)
+                             pa_proplist *proplist, char *name, char *type,
+                             struct pa_classify_device_data **data)
 {
     struct pa_classify_device_def *d;
     char *propval;
@@ -663,8 +741,145 @@ static int devices_is_typeof(struct pa_classify_device_def *defs,
         if (!strcmp(type, d->type)) {
             propval = get_property(d->prop, proplist, name);
 
-            if (d->method(propval, &d->arg))
+            if (d->method(propval, &d->arg)) {
+                if (data != NULL)
+                    *data = &d->data;
+
                 return TRUE;
+            }
+        }
+    }
+
+    return FALSE;
+}
+
+static void cards_free(struct pa_classify_card *cards)
+{
+    struct pa_classify_card_def *d;
+
+    if (cards) {
+        for (d = cards->defs;  d->type;  d++) {
+            pa_xfree((void *)d->type);
+            pa_xfree((void *)d->data.profile);
+
+            if (d->method == method_matches)
+                regfree(&d->arg.rexp);
+            else
+                pa_xfree((void *)d->arg.string);
+        }
+
+        pa_xfree(cards);
+    }
+}
+
+static void cards_add(struct pa_classify_card **p_cards, char *type,
+                      enum pa_classify_method method, char *arg,
+                      char *profile, uint32_t flags)
+{
+    struct pa_classify_card *cards;
+    struct pa_classify_card_def *d;
+    size_t newsize;
+    char *method_name;
+
+    pa_assert(p_cards);
+    pa_assert((cards = *p_cards));
+
+    newsize = sizeof(*cards) + sizeof(cards->defs[0]) * (cards->ndef + 1);
+
+    cards = *p_cards = pa_xrealloc(cards, newsize);
+
+    d = cards->defs + cards->ndef;
+
+    memset(d+1, 0, sizeof(cards->defs[0]));
+
+    d->type    = pa_xstrdup(type);
+
+    d->data.profile = profile ? pa_xstrdup(profile) : NULL;
+    d->data.flags   = flags;
+
+    switch (method) {
+
+    case pa_method_equals:
+        method_name = "equals";
+        d->method = method_equals;
+        d->arg.string = pa_xstrdup(arg);
+        break;
+
+    case pa_method_startswith:
+        method_name = "startswidth";
+        d->method = method_startswith;
+        d->arg.string = pa_xstrdup(arg);
+        break;
+
+    case pa_method_matches:
+        method_name = "matches";
+        if (regcomp(&d->arg.rexp, arg, 0) == 0) {
+            d->method = method_matches;
+            break;
+        }
+        /* intentional fall trough */
+
+    default:
+        pa_log("%s: invalid card definition %s", __FUNCTION__, type);
+        memset(d, 0, sizeof(*d));
+        return;
+    }
+
+    cards->ndef++;
+
+    pa_log_info("card '%s' added (%s|%s|%s|0x%04x)", type, method_name, arg,
+                d->data.profile?d->data.profile:"", d->data.flags);
+}
+
+static int cards_classify(struct pa_classify_card_def *defs, char *name,
+                          uint32_t flag_mask, uint32_t flag_value,
+                          char *buf, int len)
+{
+    struct pa_classify_card_def *d;
+    int         i;
+    char       *p;
+    char       *e;
+    const char *s;
+
+    pa_assert(buf);
+    pa_assert(len > 0);
+
+    e = (p = buf) + len;
+    p[0] = '\0';
+    s = "";
+        
+    for (d = defs, i = 0;  d->type;  d++) {
+        if (d->method(name, &d->arg)) {
+            if ((d->data.flags & flag_mask) == flag_value) {
+                p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
+                s  = " ";
+                
+                if (p > e) {
+                    pa_log("%s: %s() buffer overflow", __FILE__, __FUNCTION__);
+                    *buf = '\0';
+                    p = e;
+                    break;
+                }
+            }
+        }
+    }
+
+    return (e - p);
+}
+
+static int card_is_typeof(struct pa_classify_card_def *defs, char *name,
+                          char *type, struct pa_classify_card_data **data)
+{
+    struct pa_classify_card_def *d;
+
+    for (d = defs;  d->type;  d++) {
+        if (!strcmp(type, d->type)) {
+            if (d->method(name, &d->arg)) {
+                if (data != NULL)
+                    *data = &d->data;
+
+                return TRUE;
+            }
         }
     }
 

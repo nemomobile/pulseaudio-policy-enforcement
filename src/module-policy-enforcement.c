@@ -35,6 +35,7 @@
 #include "source-ext.h"
 #include "sink-input-ext.h"
 #include "source-output-ext.h"
+#include "card-ext.h"
 #include "dbusif.h"
 
 #ifndef PA_DEFAULT_CONFIG_DIR
@@ -94,6 +95,7 @@ int pa__init(pa_module *m) {
     u->ssrc     = pa_source_ext_subscription(u);
     u->ssi      = pa_sink_input_ext_subscription(u);
     u->sso      = pa_source_output_ext_subscription(u);
+    u->scrd     = pa_card_ext_subscription(u);
     u->groups   = pa_policy_groupset_new(u);
     u->classify = pa_classify_new(u);
     u->dbusif   = pa_policy_dbusif_init(u, ifnam, mypath, pdpath, pdnam);
@@ -116,6 +118,7 @@ int pa__init(pa_module *m) {
     pa_client_ext_discover(u);
     pa_sink_input_ext_discover(u);
     pa_source_output_ext_discover(u);
+    pa_card_ext_discover(u);
 
     pa_modargs_free(ma);
 
@@ -147,7 +150,8 @@ void pa__done(pa_module *m) {
     pa_source_ext_subscription_free(u->ssrc);
     pa_sink_input_ext_subscription_free(u->ssi);
     pa_source_output_ext_subscription_free(u->sso);
-    
+    pa_card_ext_subscription_free(u->scrd);
+
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);
     

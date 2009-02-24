@@ -13,6 +13,7 @@
 #include "policy-group.h"
 #include "dbusif.h"
 
+
 /* hooks */
 static pa_hook_result_t source_put(void *, void *, void *);
 static pa_hook_result_t source_unlink(void *, void *, void *);
@@ -20,7 +21,6 @@ static pa_hook_result_t source_unlink(void *, void *, void *);
 static void handle_new_source(struct userdata *, struct pa_source *);
 static void handle_removed_source(struct userdata *, struct pa_source *);
 
-static void send_device_state(struct userdata *, const char *, char *);
 
 
 struct pa_source_evsubscr *pa_source_ext_subscription(struct userdata *u)
@@ -94,7 +94,7 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     pa_assert((idxset = u->core->sources));
 
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
-        if (pa_classify_is_source_typeof(u, source, type)) {
+        if (pa_classify_is_source_typeof(u, source, type, NULL)) {
             name = pa_source_ext_get_name(source);
             current_mute = pa_source_get_mute(source, 0);
 
@@ -146,13 +146,16 @@ static void handle_new_source(struct userdata *u, struct pa_source *source)
     char            *name;
     uint32_t         idx;
     char             buf[1024];
+    int              len;
     int              ret;
 
     if (source && u) {
         name = pa_source_ext_get_name(source);
         idx  = source->index;
+        len  = pa_classify_source(u, source, 0,0, buf, sizeof(buf));
 
-        if (pa_classify_source(u, source, buf, sizeof(buf)) <= 0)
+
+        if (len <= 0)
                 pa_log_debug("new source '%s' (idx=%d)", name, idx);
         else {
             ret = pa_proplist_sets(source->proplist,
@@ -169,7 +172,12 @@ static void handle_new_source(struct userdata *u, struct pa_source *source)
                 pa_policy_groupset_update_default_source(u, PA_IDXSET_INVALID);
 #endif
                 pa_policy_groupset_register_source(u, source);
-                send_device_state(u, PA_POLICY_CONNECTED, buf);
+
+                len = pa_classify_source(u, source, PA_POLICY_DISABLE_NOTIFY,0,
+                                         buf, sizeof(buf));
+                if (len > 0) {
+                    pa_policy_send_device_state(u, PA_POLICY_CONNECTED, buf);
+                }
             }
         }
     }
@@ -180,12 +188,14 @@ static void handle_removed_source(struct userdata *u, struct pa_source *source)
     char            *name;
     uint32_t         idx;
     char             buf[1024];
+    int              len;
 
     if (source && u) {
         name = pa_source_ext_get_name(source);
         idx  = source->index;
+        len  = pa_classify_source(u, source, 0,0, buf, sizeof(buf));
 
-        if (pa_classify_source(u, source, buf, sizeof(buf)) <= 0)
+        if (len <= 0)
             pa_log_debug("remove source '%s' (idx=%d)", name, idx);
         else {
             pa_log_debug("remove source '%s' (idx=%d, type=%s)", name,idx,buf);
@@ -194,56 +204,17 @@ static void handle_removed_source(struct userdata *u, struct pa_source *source)
             pa_policy_groupset_update_default_source(u, idx);
 #endif
             pa_policy_groupset_unregister_source(u, idx);
-            send_device_state(u, PA_POLICY_DISCONNECTED, buf);
+
+            len = pa_classify_source(u, source, PA_POLICY_DISABLE_NOTIFY,0,
+                                     buf, sizeof(buf));
+            if (len > 0) {
+                pa_policy_send_device_state(u, PA_POLICY_DISCONNECTED, buf);
+            }
         }
     }
 }
 
 
-static void send_device_state(struct userdata *u, const char *state,
-                              char *typelist) 
-{
-#define MAX_TYPE 256
-
-    char *types[MAX_TYPE];
-    int   ntype;
-    char  buf[1024];
-    char *p, *q, c;
-
-    if (typelist && typelist[0]) {
-        ntype = 0;
-
-        p = typelist - 1;
-        q = buf;
-        
-        do {
-            p++;
-            
-            if (ntype < MAX_TYPE)
-                types[ntype] = q;
-            else {
-                pa_log("%s() list overflow", __FUNCTION__);
-                return;
-            }
-            
-            while ((c = *p) != ' ' && c != '\0') {
-                if (q < buf + sizeof(buf)-1)
-                    *q++ = *p++;
-                else {
-                    pa_log("%s() buffer overflow", __FUNCTION__);
-                    return;
-                }
-            }
-            *q++ = '\0';
-            ntype++;
-            
-        } while (*p);
-        
-        pa_policy_dbusif_send_device_state(u, (char *)state, types, ntype);
-    }
-
-#undef MAX_TYPE
-}
 
 
 /*
