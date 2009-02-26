@@ -729,7 +729,7 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
         goto failed;
     }
 
-    success = dbus_connection_send_with_reply(conn, msg, &pend, 1000);
+    success = dbus_connection_send_with_reply(conn, msg, &pend, 10000);
     if (!success) {
         pa_log("%s: Failed to register", __FILE__);
         goto failed;
