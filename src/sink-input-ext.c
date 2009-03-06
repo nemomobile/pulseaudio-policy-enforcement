@@ -146,7 +146,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
                 vol->values[i] = limit;
         }
         
-        pa_sink_input_set_volume(sinp, vol, TRUE);
+        pa_sink_input_set_volume(sinp, vol, FALSE);
     }
 
     return 0;
