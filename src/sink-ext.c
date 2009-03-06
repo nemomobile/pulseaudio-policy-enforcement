@@ -30,7 +30,7 @@ struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *u)
     pa_hook_slot            *unlink;
     
     pa_assert(u);
-    pa_assert((core = u->core));
+    pa_assert_se((core = u->core));
 
     hooks  = core->hooks;
     
@@ -66,7 +66,7 @@ void pa_sink_ext_discover(struct userdata *u)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->sinks));
+    pa_assert_se((idxset = u->core->sinks));
 
     while ((sink = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_sink(u, sink);

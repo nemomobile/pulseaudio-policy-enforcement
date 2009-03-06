@@ -100,7 +100,7 @@ void pa_classify_add_sink(struct userdata *u, char *type, char *prop,
     struct pa_classify *classify;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->sinks);
     pa_assert(type);
     pa_assert(prop);
@@ -116,7 +116,7 @@ void pa_classify_add_source(struct userdata *u, char *type, char *prop,
     struct pa_classify *classify;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->sources);
     pa_assert(type);
     pa_assert(prop);
@@ -132,7 +132,7 @@ void pa_classify_add_card(struct userdata *u, char *type,
     struct pa_classify *classify;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->cards);
     pa_assert(type);
     pa_assert(arg);
@@ -147,7 +147,7 @@ void pa_classify_add_stream(struct userdata *u, char *clnam, uid_t uid,
     struct pa_classify *classify;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
 
     if ((stnam || clnam || uid != (uid_t)-1 || exe) && group) {
         streams_add(&classify->streams.defs, clnam, uid, exe, stnam, group);
@@ -160,7 +160,7 @@ void pa_classify_register_pid(struct userdata *u, pid_t pid, char *stnam,
     struct pa_classify *classify;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
 
     if (pid && group) {
         pid_hash_insert(classify->streams.pid_hash, pid, stnam, group);
@@ -172,7 +172,7 @@ void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *stnam)
     struct pa_classify *classify;
     
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
 
     if (pid) {
         pid_hash_remove(classify->streams.pid_hash, pid, stnam);
@@ -221,9 +221,9 @@ int pa_classify_sink(struct userdata *u, struct pa_sink *sink,
     char *name;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->sinks);
-    pa_assert((defs = classify->sinks->defs));
+    pa_assert_se((defs = classify->sinks->defs));
 
     name = pa_sink_ext_get_name(sink);
 
@@ -240,9 +240,9 @@ int pa_classify_source(struct userdata *u, struct pa_source *source,
     char *name;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->sources);
-    pa_assert((defs = classify->sources->defs));
+    pa_assert_se((defs = classify->sources->defs));
 
     name = pa_source_ext_get_name(source);
 
@@ -259,9 +259,9 @@ int pa_classify_card(struct userdata *u, struct pa_card *card,
     char *name;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->cards);
-    pa_assert((defs = classify->cards->defs));
+    pa_assert_se((defs = classify->cards->defs));
 
     name = pa_card_ext_get_name(card);
 
@@ -276,9 +276,9 @@ int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
     char *name;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->sinks);
-    pa_assert((defs = classify->sinks->defs));
+    pa_assert_se((defs = classify->sinks->defs));
 
     if (!sink || !type)
         return FALSE;
@@ -297,9 +297,9 @@ int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
     char *name;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->sources);
-    pa_assert((defs = classify->sources->defs));
+    pa_assert_se((defs = classify->sources->defs));
 
     if (!source || !type)
         return FALSE;
@@ -318,9 +318,9 @@ int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
     char *name;
 
     pa_assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
     pa_assert(classify->cards);
-    pa_assert((defs = classify->cards->defs));
+    pa_assert_se((defs = classify->cards->defs));
 
     if (!card || !type)
         return FALSE;
@@ -345,7 +345,7 @@ static char *find_group_for_client(struct userdata  *u,
     char    *group = NULL;
 
     assert(u);
-    pa_assert((classify = u->classify));
+    pa_assert_se((classify = u->classify));
 
     hash = classify->streams.pid_hash;
     defs = &classify->streams.defs;
@@ -641,7 +641,7 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
     char *method_name;
 
     pa_assert(p_devices);
-    pa_assert((devs = *p_devices));
+    pa_assert_se((devs = *p_devices));
 
     newsize = sizeof(*devs) + sizeof(devs->defs[0]) * (devs->ndef + 1);
 
@@ -782,7 +782,7 @@ static void cards_add(struct pa_classify_card **p_cards, char *type,
     char *method_name;
 
     pa_assert(p_cards);
-    pa_assert((cards = *p_cards));
+    pa_assert_se((cards = *p_cards));
 
     newsize = sizeof(*cards) + sizeof(cards->defs[0]) * (cards->ndef + 1);
 

@@ -32,7 +32,7 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
     pa_hook_slot            *unlink;
     
     pa_assert(u);
-    pa_assert((core = u->core));
+    pa_assert_se((core = u->core));
 
     hooks  = core->hooks;
     
@@ -68,7 +68,7 @@ void pa_sink_input_ext_discover(struct userdata *u)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->sink_inputs));
+    pa_assert_se((idxset = u->core->sink_inputs));
 
     while ((sinp = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_sink_input(u, sinp);
@@ -127,7 +127,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
     int         i;
 
     pa_assert(sinp);
-    pa_assert((sink = sinp->sink));
+    pa_assert_se((sink = sinp->sink));
 
     if (limit == 0)
         pa_sink_input_set_mute(sinp, TRUE, TRUE);

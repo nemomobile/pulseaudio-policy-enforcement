@@ -57,7 +57,7 @@ void pa_client_ext_discover(struct userdata *u)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->clients));
+    pa_assert_se((idxset = u->core->clients));
 
     while ((client = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_or_modified_client(u, client);

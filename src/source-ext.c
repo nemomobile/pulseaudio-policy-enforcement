@@ -32,7 +32,7 @@ struct pa_source_evsubscr *pa_source_ext_subscription(struct userdata *u)
     pa_hook_slot              *unlink;
     
     pa_assert(u);
-    pa_assert((core = u->core));
+    pa_assert_se((core = u->core));
 
     hooks  = core->hooks;
     
@@ -68,7 +68,7 @@ void pa_source_ext_discover(struct userdata *u)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->sources));
+    pa_assert_se((idxset = u->core->sources));
 
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_source(u, source);
@@ -91,7 +91,7 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     pa_assert(u);
     pa_assert(type);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->sources));
+    pa_assert_se((idxset = u->core->sources));
 
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
         if (pa_classify_is_source_typeof(u, source, type, NULL)) {

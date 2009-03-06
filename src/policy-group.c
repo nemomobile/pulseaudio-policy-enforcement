@@ -74,7 +74,7 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
     int                        i;
 
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     /*
      * Remove the sink from all groups if idx were specified
@@ -140,7 +140,7 @@ void pa_policy_groupset_register_sink(struct userdata *u, struct pa_sink *sink)
 
     pa_assert(u);
     pa_assert(sink);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     sinkname = pa_sink_ext_get_name(sink);
     sinkidx  = sink->index;
@@ -171,7 +171,7 @@ void pa_policy_groupset_unregister_sink(struct userdata *u, uint32_t sinkidx)
     int                        i;
 
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     pa_log_debug("Unregister sink (idx=%d)", sinkidx);
         
@@ -201,7 +201,7 @@ void pa_policy_groupset_register_source(struct userdata *u,
 
     pa_assert(u);
     pa_assert(source);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     srcname = pa_source_ext_get_name(source);
     srcidx  = source->index;
@@ -232,7 +232,7 @@ void pa_policy_groupset_unregister_source(struct userdata *u, uint32_t srcidx)
     int                        i;
 
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     pa_log_debug("Unregister source (idx=%d)", srcidx);
         
@@ -259,7 +259,7 @@ void pa_policy_groupset_create_default_group(struct userdata *u)
     struct pa_policy_groupset *gset;
     
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     gset->dflt = pa_policy_group_new(u, name, NULL, NULL, flags);
 }
@@ -275,7 +275,7 @@ struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name,
     uint32_t                   idx;
 
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     if ((group = find_group_by_name(gset, name, &idx)) != NULL)
         return group;
@@ -410,7 +410,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
 
 
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
     pa_assert(si);
 
     if (name == NULL)
@@ -498,7 +498,7 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
 
     pa_assert(u);
     pa_assert(name);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
     pa_assert(so);
 
     if ((group = find_group_by_name(gset, name, NULL)) != NULL) {
@@ -639,7 +639,7 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,
     int                        ret;
 
     pa_assert(u);
-    pa_assert((gset = u->groups));
+    pa_assert_se((gset = u->groups));
 
     if (name == NULL)
         group = gset->dflt;
@@ -903,7 +903,7 @@ static struct pa_sink *find_sink_by_type(struct userdata *u, char *type)
     pa_assert(u);
     pa_assert(type);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->sinks));
+    pa_assert_se((idxset = u->core->sinks));
 
     while ((sink = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
         if (pa_classify_is_sink_typeof(u, sink, type, NULL))
@@ -922,7 +922,7 @@ static struct pa_source *find_source_by_type(struct userdata *u, char *type)
     pa_assert(u);
     pa_assert(type);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->sources));
+    pa_assert_se((idxset = u->core->sources));
 
     while ((source = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
         if (pa_classify_is_source_typeof(u, source, type, NULL))

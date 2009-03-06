@@ -35,7 +35,7 @@ struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
     pa_hook_slot            *unlink;
     
     pa_assert(u);
-    pa_assert((core = u->core));
+    pa_assert_se((core = u->core));
 
     hooks  = core->hooks;
     
@@ -71,7 +71,7 @@ void pa_source_output_ext_discover(struct userdata *u)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->source_outputs));
+    pa_assert_se((idxset = u->core->source_outputs));
 
     while ((sout = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_source_output(u, sout);

@@ -312,7 +312,7 @@ static void handle_admin_message(struct userdata *u, DBusMessage *msg)
     int                      success;
 
     pa_assert(u);
-    pa_assert((dbusif = u->dbusif));
+    pa_assert_se((dbusif = u->dbusif));
 
     success = dbus_message_get_args(msg, NULL,
                                     DBUS_TYPE_STRING, &name,

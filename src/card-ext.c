@@ -24,7 +24,7 @@ struct pa_card_evsubscr *pa_card_ext_subscription(struct userdata *u)
     pa_hook_slot            *unlink;
 
     pa_assert(u);
-    pa_assert((core = u->core));
+    pa_assert_se((core = u->core));
 
     hooks  = core->hooks;
     
@@ -62,7 +62,7 @@ void pa_card_ext_discover(struct userdata *u)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->cards));
+    pa_assert_se((idxset = u->core->cards));
 
     while ((card = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_card(u, card);
@@ -86,7 +86,7 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
 
     pa_assert(u);
     pa_assert(u->core);
-    pa_assert((idxset = u->core->cards));
+    pa_assert_se((idxset = u->core->cards));
 
     sts = 0;
 
