@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.9) unstable; urgency=low
+
+  * Don't save forced volumes in sinks.
+  * Change pa_assert to pa_assert_se where appropriate (Fixes: NB#103904).
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Fri, 06 Mar 2009 18:30:33 +0200
+
 pulseaudio-policy-enforcement (0.5.8) unstable; urgency=low
 
   * support for the new BT routing in Pulse Audio 0.9.15
