@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.10) unstable; urgency=low
+
+  * Revert input volume setting to pa_asyncmsgq_post.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Mon, 09 Mar 2009 18:04:09 +0200
+
 pulseaudio-policy-enforcement (0.5.9) unstable; urgency=low
 
   * Don't save forced volumes in sinks.
