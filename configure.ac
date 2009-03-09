@@ -6,6 +6,9 @@ m4_define(PA_MINOR, [9])
 m4_define(PA_MICRO, [15])
 
 AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.PA_MICRO],[janos.f.kovacs@nokia.com])
+
+DOC_SUPPORT_INIT()
+
 AC_CONFIG_SRCDIR([src/module-policy-enforcement.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([foreign 1.8.5 -Wall])
@@ -91,6 +94,7 @@ AC_SUBST(LIBDBUSUTIL_LIBS)
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile
+	doc/Makefile
 ])
 AC_OUTPUT
 
@@ -110,4 +114,5 @@ echo "
     LIBDBUSUTIL_LIBS:    ${LIBDBUSUTIL_LIBS}
     DBUS_CFLAGS:         ${DBUS_CFLAGS}
     DBUS_LIBS:           ${DBUS_LIBS}
+    PD_SUPPORT:          ${PD_SUPPORT}
 "
