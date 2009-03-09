@@ -146,7 +146,9 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
                 vol->values[i] = limit;
         }
         
-        pa_sink_input_set_volume(sinp, vol, FALSE);
+        pa_asyncmsgq_post(sink->asyncmsgq, PA_MSGOBJECT(sinp),
+                          PA_SINK_INPUT_MESSAGE_SET_SOFT_VOLUME,
+                          vol, 0,NULL, pa_xfree);
     }
 
     return 0;
