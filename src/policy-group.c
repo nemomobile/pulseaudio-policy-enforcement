@@ -287,11 +287,11 @@ struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name,
     group->name     = pa_xstrdup(name);
     group->limit    = PA_VOLUME_NORM;
     group->sinkname = sinkname ? pa_xstrdup(sinkname) : NULL;
-    group->sink     = sinkname ? defsink : NULL;
-    group->sinkidx  = sinkname ? defsinkidx : PA_IDXSET_INVALID;
+    group->sink     = sinkname ? NULL : defsink;
+    group->sinkidx  = sinkname ? PA_IDXSET_INVALID : defsinkidx;
     group->srcname  = srcname  ? pa_xstrdup(srcname) : NULL;
-    group->source   = srcname  ? defsource : NULL;
-    group->srcidx   = srcname  ? defsrcidx : PA_IDXSET_INVALID;
+    group->source   = srcname  ? NULL : defsource;
+    group->srcidx   = srcname  ? PA_IDXSET_INVALID : defsrcidx;
 
     gset->hash_tbl[idx] = group;
 
@@ -432,22 +432,31 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
             sinp_name = pa_sink_input_ext_get_name(si);
             sink_name = pa_sink_ext_get_name(group->sink);
 
-            pa_log_debug("move sink input '%s' to sink '%s'",
-                         sinp_name, sink_name);
 
-            pa_sink_input_move_to(si, group->sink, TRUE);
+            if (group->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO) {
+                pa_log_debug("move sink input '%s' to sink '%s'",
+                             sinp_name, sink_name);
 
-            if (group->corked) {
-                pa_log_debug("sink input '%s' %s", sinp_name,
-                             group->corked ? "corked" : "uncorked");
-
-                pa_sink_input_cork(si, group->corked);
+                pa_sink_input_move_to(si, group->sink, TRUE);
             }
 
-            pa_log_debug("set volume limit %d for sink input '%s'",
-                         (group->limit * 100) / PA_VOLUME_NORM, sinp_name);
 
-            pa_sink_input_ext_set_volume_limit(si, group->limit);
+            if (group->flags & PA_POLICY_GROUP_FLAG_CORK_STREAM) {
+                if (group->corked) {
+                    pa_log_debug("sink input '%s' %s", sinp_name,
+                                 group->corked ? "corked" : "uncorked");
+                    
+                    pa_sink_input_cork(si, group->corked);
+                }
+            }
+
+
+            if (group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME) {
+                pa_log_debug("set volume limit %d for sink input '%s'",
+                             (group->limit * 100) / PA_VOLUME_NORM, sinp_name);
+
+                pa_sink_input_ext_set_volume_limit(si, group->limit);
+            }
         }
 
         pa_log_debug("sink input '%s' added to group '%s'",
@@ -494,6 +503,8 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
     struct pa_policy_groupset    *gset;
     struct pa_policy_group       *group;
     struct pa_source_output_list *sl;
+    char                         *sout_name;
+    char                         *src_name;
 
 
     pa_assert(u);
@@ -512,7 +523,15 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
         group->soutls = sl;
 
         if (group->source != NULL) {
-            pa_source_output_move_to(so, group->source, TRUE);
+            sout_name = pa_source_output_ext_get_name(so);
+            src_name  = pa_source_ext_get_name(group->source);
+
+            if (group->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO) {
+                pa_log_debug("move source output '%s' to source '%s'",
+                             sout_name, src_name);
+
+                pa_source_output_move_to(so, group->source, TRUE);
+            }
         }
 
        pa_log_debug("source output '%s' added to group '%s'",
@@ -710,6 +729,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
     const char                   *old_mode;
     const char                   *old_hwid;
     int                           prop_changed;
+    char                         *sinkname;
     int                           ret = 0;
 
     if (group == NULL || target->any == NULL)
@@ -739,27 +759,30 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 
 
             /* move sink inputs to the sink */
+            sinkname = pa_sink_ext_get_name(sink);
+
             if (sink == group->sink) {
                 pa_log_debug("group '%s' is aready routed to sink '%s'",
-                             group->name, pa_sink_ext_get_name(sink));
+                             group->name, sinkname);
             }
             else {
+                pa_xfree(group->sinkname);
+                group->sinkname = pa_xstrdup(sinkname);
                 group->sink = sink;
+                group->sinkidx = sink->index;
 
                 for (sil = group->sinpls;    sil;   sil = sil->next) {
                     sinp = sil->sink_input;
                 
                     pa_log_debug("move sink input '%s' to sink '%s'",
-                                 pa_sink_input_ext_get_name(sinp),
-                                 pa_sink_ext_get_name(sink));
+                                 pa_sink_input_ext_get_name(sinp), sinkname);
 
                     if (pa_sink_input_move_to(sinp, sink, TRUE) < 0) {
                         ret = -1;
                     
                         pa_log_debug("move sink input '%s' to sink '%s'",
                                      pa_sink_input_ext_get_name(sinp),
-                                     pa_sink_ext_get_name(sink));
-                    
+                                     sinkname);
                     }
                 } 
             }
