@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.11) unstable; urgency=low
+
+  * adjust to the ever changing Pulse Audio bluetooth naming convention
+  * fixes to stream classification
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 18 Mar 2009 20:33:00 +0200
+
 pulseaudio-policy-enforcement (0.5.10) unstable; urgency=low
 
   * Revert input volume setting to pa_asyncmsgq_post.
