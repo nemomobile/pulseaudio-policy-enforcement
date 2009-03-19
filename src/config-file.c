@@ -66,11 +66,13 @@ struct carddef {
 };
 
 struct streamdef {
-    char                    *stnam; /* stream name */
-    char                    *clnam; /* client's name in pulse audio */
-    uid_t                    uid;   /* client's user id */
-    char                    *exe;   /* the executable name (i.e. argv[0]) */
-    char                    *group; /* group name the stream belong to */
+    char                    *prop;   /* stream property to classify it */
+    enum pa_classify_method  method; /* property based classification method */
+    char                    *arg;    /* param for prop.based classification */
+    char                    *clnam;  /* client's name in pulse audio */
+    uid_t                    uid;    /* client's user id */
+    char                    *exe;    /* the executable name (i.e. argv[0]) */
+    char                    *group;  /* group name the stream belong to */
 };
 
 struct section {
@@ -97,6 +99,7 @@ static int carddef_parse(int, char *, struct carddef *);
 static int streamdef_parse(int, char *, struct streamdef *);
 
 static int deviceprop_parse(int, enum device_class,char *,struct devicedef *);
+static int streamprop_parse(int, char *, struct streamdef *);
 static int cardname_parse(int, char *, struct carddef *);
 static int flags_parse(int lineno, char *, uint32_t *);
 static int valid_label(int, char *);
@@ -386,10 +389,12 @@ static int section_close(struct userdata *u, struct section *sec)
             status = 0;
             strdef = sec->def.stream;
 
-            pa_classify_add_stream(u, strdef->clnam, strdef->uid, strdef->exe,
-                                   strdef->stnam, strdef->group);
+            pa_classify_add_stream(u, strdef->prop,strdef->method,strdef->arg,
+                                   strdef->clnam, strdef->uid, strdef->exe,
+                                   strdef->group);
 
-            pa_xfree(strdef->stnam);
+            pa_xfree(strdef->prop);
+            pa_xfree(strdef->arg);
             pa_xfree(strdef->clnam);
             pa_xfree(strdef->exe);
             pa_xfree(strdef->group);
@@ -590,7 +595,12 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
         sts = 0;
 
         if (!strncmp(line, "name=", 5)) {
-            strdef->stnam = pa_xstrdup(line+5);
+            strdef->prop   = pa_xstrdup(PA_PROP_MEDIA_NAME);
+            strdef->method = pa_method_equals;
+            strdef->arg = pa_xstrdup(line+5);
+        }
+        else if (!strncmp(line, "property=", 9)) {
+            sts = streamprop_parse(lineno, line+9, strdef);
         }
         else if (!strncmp(line, "client=", 7)) {
             strdef->clnam = pa_xstrdup(line+7);
@@ -685,6 +695,51 @@ static int deviceprop_parse(int lineno, enum device_class class,
     devdef->class = class;
     devdef->prop  = pa_xstrdup(prop);
     devdef->arg   = pa_xstrdup(arg);
+    
+    return 0;
+}
+
+static int streamprop_parse(int lineno, char *propdef,struct streamdef *strdef)
+{
+    char *colon;
+    char *at;
+    char *prop;
+    char *method;
+    char *arg;
+
+    if ((colon = strchr(propdef, ':')) == NULL) {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, propdef, lineno);
+        return -1;
+    }
+
+    *colon = '\0';
+    arg    = colon + 1;
+
+    if ((at = strchr(propdef, '@')) == NULL) {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, propdef, lineno);
+        return -1;
+    }
+
+    *at    = '\0';
+    prop   = propdef;
+    method = at + 1;
+    
+    if (!strcmp(method, "equals"))
+        strdef->method = pa_method_equals;
+    else if (!strcmp(method, "startswith"))
+        strdef->method = pa_method_startswith;
+    else if (!strcmp(method, "matches"))
+        strdef->method = pa_method_matches;
+    else {
+        pa_log("%s: invalid method '%s' in line %d",
+               __FILE__, method, lineno);
+        return -1;
+    }
+    
+    strdef->prop  = pa_xstrdup(prop);
+    strdef->arg   = pa_xstrdup(arg);
     
     return 0;
 }

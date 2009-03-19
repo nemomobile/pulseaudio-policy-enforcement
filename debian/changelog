@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.12) unstable; urgency=low
+
+  * allowing any stream (ie. sink-input/source/output) property to use
+    for group classification purposes.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 19 Mar 2009 20:48:00 +0200
+
 pulseaudio-policy-enforcement (0.5.11) unstable; urgency=low
 
   * adjust to the ever changing Pulse Audio bluetooth naming convention

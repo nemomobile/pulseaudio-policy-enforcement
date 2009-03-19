@@ -18,29 +18,9 @@ struct pa_source;
 struct pa_sink_input;
 struct pa_card;
 
-struct pa_classify_pid_hash {
-    struct pa_classify_pid_hash *next;
-    pid_t                        pid;   /* process id (or parent process id)*/
-    char                        *stnam; /* stream's name, if any */
-    char                        *group; /* policy group name */
-};
-
-struct pa_classify_stream_def {
-    struct pa_classify_stream_def *next;
-    uid_t                          uid;   /* user id, if any */
-    char                          *exe;   /* exe name, if any */
-    char                          *clnam; /* client name, if any */
-    char                          *stnam; /* stream's name if any */
-    char                          *group; /* policy group name */
-};
-
-struct pa_classify_stream {
-    struct pa_classify_pid_hash   *pid_hash[PA_POLICY_PID_HASH_MAX];
-    struct pa_classify_stream_def *defs;
-};
-
 enum pa_classify_method {
     pa_method_unknown = 0,
+    pa_method_min = pa_method_unknown,
     pa_method_equals,
     pa_method_startswith,
     pa_method_matches,
@@ -50,6 +30,31 @@ enum pa_classify_method {
 union pa_classify_arg {
     const char *string;
     regex_t     rexp;
+};
+
+struct pa_classify_pid_hash {
+    struct pa_classify_pid_hash *next;
+    pid_t                        pid;   /* process id (or parent process id)*/
+    char                        *stnam; /* stream's name, if any */
+    char                        *group; /* policy group name */
+};
+
+struct pa_classify_stream_def {
+    struct pa_classify_stream_def *next;
+                                          /* for stream classification */
+    char                          *prop;  /*   stream property */
+    int                          (*method)(const char *,
+                                           union pa_classify_arg *);
+    union pa_classify_arg          arg;   /*   argument */
+    uid_t                          uid;   /* user id, if any */
+    char                          *exe;   /* exe name, if any */
+    char                          *clnam; /* client name, if any */
+    char                          *group; /* policy group name */
+};
+
+struct pa_classify_stream {
+    struct pa_classify_pid_hash   *pid_hash[PA_POLICY_PID_HASH_MAX];
+    struct pa_classify_stream_def *defs;
 };
 
 struct pa_classify_device_data {
@@ -104,8 +109,8 @@ void  pa_classify_add_source(struct userdata *, char *, char *,
                              enum pa_classify_method, char *, uint32_t);
 void  pa_classify_add_card(struct userdata *, char *,
                            enum pa_classify_method, char *, char *, uint32_t);
-void  pa_classify_add_stream(struct userdata *, char *, uid_t, char *,
-                             char *, char *);
+void pa_classify_add_stream(struct userdata *, char *, enum pa_classify_method,
+                            char *, char *, uid_t, char *, char *);
 
 void  pa_classify_register_pid(struct userdata *, pid_t, char *, char *);
 void  pa_classify_unregister_pid(struct userdata *, pid_t, char *);
