@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.14) unstable; urgency=low
+
+  * introducing the 'set_sink' flag for initial, static routing (eg. for
+    routing system sounds directly to sink.voice.raw)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 30 Mar 2009 15:12:00 +0200
+
 pulseaudio-policy-enforcement (0.5.13) unstable; urgency=low
 
   * version placeholder for possible pulseaudio release.
