@@ -466,6 +466,8 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
                             len = (comma - flname) + 1;
                         }
 
+                        if (!strcmp(flname, "set_sink"))
+                            flags |= PA_POLICY_GROUP_FLAG_SET_SINK;
                         if (!strcmp(flname, "route_audio"))
                             flags |= PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
                         else if (!strcmp(flname, "limit_volume"))

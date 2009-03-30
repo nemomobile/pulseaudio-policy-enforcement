@@ -402,6 +402,9 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
                                        char                 *name,
                                        struct pa_sink_input *si)
 {
+    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
+                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
     struct pa_sink_input_list *sl;
@@ -433,7 +436,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
             sink_name = pa_sink_ext_get_name(group->sink);
 
 
-            if (group->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO) {
+            if (group->flags & route_flags) {
                 pa_log_debug("move sink input '%s' to sink '%s'",
                              sinp_name, sink_name);
 
