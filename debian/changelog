@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.15) unstable; urgency=low
+
+  * changes for the new PA
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Tue, 02 Apr 2009 15:09:00 +0200
+
 pulseaudio-policy-enforcement (0.5.14) unstable; urgency=low
 
   * introducing the 'set_sink' flag for initial, static routing (eg. for
