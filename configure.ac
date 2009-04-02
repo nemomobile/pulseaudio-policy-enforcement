@@ -84,13 +84,6 @@ AC_ARG_WITH(
 
 AC_SUBST(modlibexecdir)
 
-AC_CHECK_FILE(
-	[${modlibexecdir}/libdbus-util.so],
-	[LIBDBUSUTIL_LIBS="-L${modlibexecdir} -ldbus-util"],
-	[AC_MSG_ERROR([Can't find libdbus-util.so])])
-AC_SUBST(LIBDBUSUTIL_LIBS)
-
-
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile
@@ -111,7 +104,6 @@ echo "
     LIBPULSE_LIBS:       ${LIBPULSE_LIBS}
     LIBPULSECORE_CFLAGS: ${LIBPULSECORE_CFLAGS}
     LIBPULSECORE_LIBS:   ${LIBPULSECORE_LIBS}
-    LIBDBUSUTIL_LIBS:    ${LIBDBUSUTIL_LIBS}
     DBUS_CFLAGS:         ${DBUS_CFLAGS}
     DBUS_LIBS:           ${DBUS_LIBS}
     PD_SUPPORT:          ${PD_SUPPORT}

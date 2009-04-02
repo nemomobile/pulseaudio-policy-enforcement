@@ -4,9 +4,9 @@
 #include <sys/stat.h>
 
 #include <pulsecore/pulsecore-config.h>
+#include <pulsecore/dbus-shared.h>
 
 #include "userdata.h"
-#include "dbus-util.h"
 #include "dbusif.h"
 #include "classify.h"
 #include "policy-group.h"
