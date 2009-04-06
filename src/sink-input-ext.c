@@ -16,6 +16,7 @@
 #include "classify.h"
 
 /* hooks */
+static pa_hook_result_t sink_input_neew(void *, void *, void *);
 static pa_hook_result_t sink_input_put(void *, void *, void *);
 static pa_hook_result_t sink_input_unlink(void *, void *, void *);
 
@@ -28,6 +29,7 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
     pa_core                 *core;
     pa_hook                 *hooks;
     struct pa_sinp_evsubscr *subscr;
+    pa_hook_slot            *neew;
     pa_hook_slot            *put;
     pa_hook_slot            *unlink;
     
@@ -36,6 +38,8 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
 
     hooks  = core->hooks;
     
+    neew   = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_NEW,
+                             PA_HOOK_EARLY, sink_input_neew, (void *)u);
     put    = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_PUT,
                              PA_HOOK_LATE, sink_input_put, (void *)u);
     unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_UNLINK,
@@ -44,6 +48,7 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
 
     subscr = pa_xnew0(struct pa_sinp_evsubscr, 1);
     
+    subscr->neew   = neew;
     subscr->put    = put;
     subscr->unlink = unlink;
 
@@ -53,6 +58,7 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
 void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *subscr)
 {
     if (subscr != NULL) {
+        pa_hook_slot_free(subscr->neew);
         pa_hook_slot_free(subscr->put);
         pa_hook_slot_free(subscr->unlink);
         
@@ -156,6 +162,40 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
 
 
  
+static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
+                                       void *slot_data)
+{
+    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
+                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+
+    struct pa_sink_input_new_data
+                           *data = (struct pa_sink_input_new_data *)call_data;
+    struct userdata        *u    = (struct userdata *)slot_data;
+    char                   *group_name;
+    char                   *sinp_name;
+    char                   *sink_name;
+    struct pa_policy_group *group;
+
+    if ((group_name = pa_classify_sink_input_by_data(u, data)) != NULL &&
+        (group      = pa_policy_group_find(u, group_name)    ) != NULL    ) {
+
+        if (group->sink != NULL && (group->flags & route_flags)) {
+            sinp_name = pa_proplist_gets(data->proplist, PA_PROP_MEDIA_NAME);
+            sink_name = pa_sink_ext_get_name(group->sink);
+
+            pa_log_debug("force sink input '%s' to sink '%s'",
+                         sinp_name ? sinp_name : "<unknown>", sink_name); 
+
+            data->sink = group->sink;
+        }
+
+    }
+
+
+    return PA_HOOK_OK;
+}
+
+
 static pa_hook_result_t sink_input_put(void *hook_data, void *call_data,
                                        void *slot_data)
 {

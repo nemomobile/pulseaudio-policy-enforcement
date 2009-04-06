@@ -197,6 +197,21 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
     return group;
 }
 
+char *pa_classify_sink_input_by_data(struct userdata *u,
+                                     struct pa_sink_input_new_data *data)
+{
+    struct pa_client     *client;
+    char                 *group;
+
+    pa_assert(u);
+    pa_assert(data);
+
+    client = data->client;
+    group  = find_group_for_client(u, client, data->proplist);
+
+    return group;
+}
+
 char *pa_classify_source_output(struct userdata *u,
                                 struct pa_source_output *sout)
 {

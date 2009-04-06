@@ -16,6 +16,7 @@
 struct pa_sink;
 struct pa_source;
 struct pa_sink_input;
+struct pa_sink_input_new_data;
 struct pa_card;
 
 enum pa_classify_method {
@@ -116,6 +117,8 @@ void  pa_classify_register_pid(struct userdata *, pid_t, char *, char *);
 void  pa_classify_unregister_pid(struct userdata *, pid_t, char *);
 
 char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *);
+char *pa_classify_sink_input_by_data(struct userdata *,
+                                     struct pa_sink_input_new_data *);
 char *pa_classify_source_output(struct userdata *, struct pa_source_output *);
 
 int   pa_classify_sink(struct userdata *, struct pa_sink *,

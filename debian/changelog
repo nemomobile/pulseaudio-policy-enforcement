@@ -1,3 +1,11 @@
+pulseaudio-policy-enforcement (0.5.16) unstable; urgency=low
+
+  * directing streams to the right sink in pre-hook instead of post-hook.
+    This eliminates a possible stream moving between sinks, eg. between
+    sink.music and sink.voice.raw
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 06 Apr 2009 17:10:00 +0200
+
 pulseaudio-policy-enforcement (0.5.15) unstable; urgency=low
 
   * changes for the new PA

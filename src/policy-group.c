@@ -900,7 +900,7 @@ static int cork_group(struct pa_policy_group *group, int corked)
 
 
 static struct pa_policy_group *
-find_group_by_name(struct pa_policy_groupset *gset, char *name, uint32_t *ridx)
+find_group_by_name(struct pa_policy_groupset *gset, char *name,uint32_t *ridx)
 {
     struct pa_policy_group *group = NULL;
     uint32_t                idx   = hash_value(name);
@@ -908,7 +908,7 @@ find_group_by_name(struct pa_policy_groupset *gset, char *name, uint32_t *ridx)
     pa_assert(gset);
     pa_assert(name);
 
-    for (group = gset->hash_tbl[idx];   group != NULL;   group = group->next) {
+    for (group = gset->hash_tbl[idx];   group != NULL;  group = group->next) {
         if (!strcmp(name, group->name))
             break;
     }    
