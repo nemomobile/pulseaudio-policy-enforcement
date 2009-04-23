@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.18) unstable; urgency=low
+
+  * Bumped version for the latest pulseaudio co-release.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 23 Apr 2009 15:55:00 +0200
+
 pulseaudio-policy-enforcement (0.5.17) unstable; urgency=low
 
   * Bumped version for the latest pulseaudio co-release.
