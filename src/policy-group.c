@@ -456,7 +456,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
 
             if (group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME) {
                 pa_log_debug("set volume limit %d for sink input '%s'",
-                             (group->limit * 100) / PA_VOLUME_NORM, sinp_name);
+                             (group->limit * 100) / PA_VOLUME_NORM,sinp_name);
 
                 pa_sink_input_ext_set_volume_limit(si, group->limit);
             }
@@ -503,6 +503,9 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
                                           char                    *name,
                                           struct pa_source_output *so)
 {
+    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SOURCE |
+                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+
     struct pa_policy_groupset    *gset;
     struct pa_policy_group       *group;
     struct pa_source_output_list *sl;
@@ -511,11 +514,15 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
 
 
     pa_assert(u);
-    pa_assert(name);
     pa_assert_se((gset = u->groups));
     pa_assert(so);
 
-    if ((group = find_group_by_name(gset, name, NULL)) != NULL) {
+    if (name == NULL)
+        group = gset->dflt;
+    else
+        group = find_group_by_name(gset, name, NULL);
+
+    if (group != NULL) {
         pa_source_output_ext_set_policy_group(so, group->name);
 
         sl = pa_xnew0(struct pa_source_output_list, 1);

@@ -227,6 +227,22 @@ char *pa_classify_source_output(struct userdata *u,
     return group;
 }
 
+char *
+pa_classify_source_output_by_data(struct userdata *u,
+                                  struct pa_source_output_new_data *data)
+{
+    struct pa_client     *client;
+    char                 *group;
+
+    pa_assert(u);
+    pa_assert(data);
+
+    client = data->client;
+    group  = find_group_for_client(u, client, data->proplist);
+
+    return group;
+}
+
 int pa_classify_sink(struct userdata *u, struct pa_sink *sink,
                      uint32_t flag_mask, uint32_t flag_value,
                      char *buf, int len)

@@ -120,6 +120,8 @@ char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *);
 char *pa_classify_sink_input_by_data(struct userdata *,
                                      struct pa_sink_input_new_data *);
 char *pa_classify_source_output(struct userdata *, struct pa_source_output *);
+char *pa_classify_source_output_by_data(struct userdata *,
+                                        struct pa_source_output_new_data *);
 
 int   pa_classify_sink(struct userdata *, struct pa_sink *,
                        uint32_t, uint32_t, char *, int);

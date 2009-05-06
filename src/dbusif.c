@@ -368,18 +368,17 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
     if (!strcmp(oper, "register")) {
 
         if (pa_policy_group_find(u, group) == NULL) {
-            pa_log_debug("%s: register client (%s|%u) failed: unknown group",
-                         __FILE__, group, pid);
+            pa_log_debug("register client (%s|%u) failed: unknown group",
+                         group, pid);
         }
         else {
-            pa_log_debug("%s: register client (%s|%u|%s)",
-                         __FILE__, group, pid, stnam);
+            pa_log_debug("register client (%s|%u|%s)", group, pid, stnam);
             pa_classify_register_pid(u, (pid_t)pid, stnam, group);
         }
         
     }
     else if (!strcmp(oper, "unregister")) {
-        pa_log_debug("%s: unregister client (%s|%u)", __FILE__, group, pid);
+        pa_log_debug("unregister client (%s|%u)", group, pid);
         pa_classify_unregister_pid(u, (pid_t)pid, stnam);
     }
     else {
@@ -406,7 +405,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
     DBusMessageIter  actit;
     int              success = TRUE;
 
-    pa_log_debug("%s: got policy actions", __FILE__);
+    pa_log_debug("got policy actions");
 
     dbus_message_iter_init(msg, &msgit);
 
@@ -415,7 +414,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
 
     dbus_message_iter_get_basic(&msgit, (void *)&txid);
 
-    pa_log_debug("%s: got actions (txid:%d)", __FILE__, txid);
+    pa_log_debug("got actions (txid:%d)", txid);
 
     if (!dbus_message_iter_next(&msgit) ||
         dbus_message_iter_get_arg_type(&msgit) != DBUS_TYPE_ARRAY) {
@@ -561,8 +560,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
         mode   = (args.mode && strcmp(args.mode, "na")) ? args.mode : ""; 
         hwid   = (args.hwid && strcmp(args.hwid, "na")) ? args.hwid : "";
 
-        pa_log_debug("%s: route %s to %s (%s|%s)", __FILE__,
-                     args.type, target, mode, hwid);
+        pa_log_debug("route %s to %s (%s|%s)", args.type, target, mode, hwid);
 
         if (pa_card_ext_set_profile(u, target) < 0 ||
             pa_policy_group_move_to(u, NULL, class, target, mode, hwid) < 0)
@@ -593,8 +591,7 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
         if (args.group == NULL || args.limit < 0 || args.limit > 100)
             return FALSE;
 
-        pa_log_debug("%s: volume limit (%s|%d)", __FILE__,
-                     args.group, args.limit); 
+        pa_log_debug("volume limit (%s|%d)", args.group, args.limit); 
 
         pa_policy_group_volume_limit(u, args.group, (uint32_t)args.limit);
 
@@ -631,7 +628,7 @@ static int audio_cork_parser(struct userdata *u, DBusMessageIter *actit)
         else
             return FALSE;
         
-        pa_log_debug("%s: cork stream (%s|%d)", __FILE__, grp, val);
+        pa_log_debug("cork stream (%s|%d)", grp, val);
         pa_policy_group_cork(u, grp, val);
 
     } while (dbus_message_iter_next(actit));
@@ -667,7 +664,7 @@ static int audio_mute_parser(struct userdata *u, DBusMessageIter *actit)
         else
             return FALSE;
         
-        pa_log_debug("%s: mute device (%s|%d)", __FILE__, device, val);
+        pa_log_debug("mute device (%s|%d)", device, val);
         pa_source_ext_set_mute(u, device, val);
 
     } while (dbus_message_iter_next(actit));
@@ -757,8 +754,8 @@ static int signal_status(struct userdata *u, uint32_t txid, uint32_t status)
 
     snprintf(path, sizeof(path), "%s/%s", dbusif->pdpath, POLICY_DECISION);
 
-    pa_log_debug("%s: sending signal to: path='%s', if='%s' member='%s' "
-                 "content: txid=%d status=%d", __FILE__, path, dbusif->ifnam,
+    pa_log_debug("sending signal to: path='%s', if='%s' member='%s' "
+                 "content: txid=%d status=%d", path, dbusif->ifnam,
                  POLICY_STATUS, txid, status);
 
     msg = dbus_message_new_signal(path, dbusif->ifnam, POLICY_STATUS);

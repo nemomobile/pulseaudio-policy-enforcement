@@ -17,6 +17,7 @@
 
 
 /* hooks */
+static pa_hook_result_t source_output_neew(void *, void *, void *);
 static pa_hook_result_t source_output_put(void *, void *, void *);
 static pa_hook_result_t source_output_unlink(void *, void *, void *);
 
@@ -31,6 +32,7 @@ struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
     pa_core                 *core;
     pa_hook                 *hooks;
     struct pa_sout_evsubscr *subscr;
+    pa_hook_slot            *neew;
     pa_hook_slot            *put;
     pa_hook_slot            *unlink;
     
@@ -39,6 +41,8 @@ struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
 
     hooks  = core->hooks;
     
+    neew   = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_OUTPUT_NEW,
+                             PA_HOOK_EARLY, source_output_neew, (void *)u);
     put    = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_OUTPUT_PUT,
                              PA_HOOK_LATE, source_output_put, (void *)u);
     unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SOURCE_OUTPUT_UNLINK,
@@ -46,6 +50,7 @@ struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
 
     subscr = pa_xnew0(struct pa_sout_evsubscr, 1);
     
+    subscr->neew   = neew;
     subscr->put    = put;
     subscr->unlink = unlink;
 
@@ -56,6 +61,7 @@ struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *u)
 void  pa_source_output_ext_subscription_free(struct pa_sout_evsubscr *subscr)
 {
     if (subscr != NULL) {
+        pa_hook_slot_free(subscr->neew);
         pa_hook_slot_free(subscr->put);
         pa_hook_slot_free(subscr->unlink);
         
@@ -118,6 +124,40 @@ char *pa_source_output_ext_get_name(struct pa_source_output *sout)
         name = "<unknown>";
     
     return (char *)name;
+}
+
+
+static pa_hook_result_t source_output_neew(void *hook_data, void *call_data,
+                                       void *slot_data)
+{
+    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SOURCE |
+                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+
+    struct pa_source_output_new_data
+                     *data = (struct pa_source_output_new_data *)call_data;
+    struct userdata  *u    = (struct userdata *)slot_data;
+    char             *group_name;
+    char             *sout_name;
+    char             *source_name;
+    struct pa_policy_group *group;
+
+    if ((group_name = pa_classify_source_output_by_data(u, data)) != NULL &&
+        (group      = pa_policy_group_find(u, group_name)       ) != NULL   ){
+
+        if (group->source != NULL && (group->flags & route_flags)) {
+            sout_name = pa_proplist_gets(data->proplist, PA_PROP_MEDIA_NAME);
+            source_name = pa_source_ext_get_name(group->source);
+
+            pa_log_debug("force source output '%s' to source '%s'",
+                         sout_name ? sout_name : "<unknown>", source_name); 
+
+            data->source = group->source;
+        }
+
+    }
+
+
+    return PA_HOOK_OK;
 }
 
 

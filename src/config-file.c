@@ -468,6 +468,8 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
 
                         if (!strcmp(flname, "set_sink"))
                             flags |= PA_POLICY_GROUP_FLAG_SET_SINK;
+                        else if (!strcmp(flname, "set_source"))
+                            flags |= PA_POLICY_GROUP_FLAG_SET_SOURCE;
                         else if (!strcmp(flname, "route_audio"))
                             flags |= PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
                         else if (!strcmp(flname, "limit_volume"))
@@ -701,7 +703,7 @@ static int deviceprop_parse(int lineno, enum device_class class,
     return 0;
 }
 
-static int streamprop_parse(int lineno, char *propdef,struct streamdef *strdef)
+static int streamprop_parse(int lineno,char *propdef,struct streamdef *strdef)
 {
     char *colon;
     char *at;
