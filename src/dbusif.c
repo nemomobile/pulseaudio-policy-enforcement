@@ -752,6 +752,15 @@ static int signal_status(struct userdata *u, uint32_t txid, uint32_t status)
     char                     path[256];
     int                      ret;
 
+    if (txid == 0) {
+    
+        /* When transaction ID is 0, the policy manager does not expect
+         * a response. */
+        
+        pa_log_debug("Not sending status message since transaction ID is 0");
+        return 0;
+    }
+
     snprintf(path, sizeof(path), "%s/%s", dbusif->pdpath, POLICY_DECISION);
 
     pa_log_debug("sending signal to: path='%s', if='%s' member='%s' "
