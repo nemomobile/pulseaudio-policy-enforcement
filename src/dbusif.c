@@ -270,11 +270,50 @@ void pa_policy_dbusif_send_device_state(struct userdata *u, char *state,
     sts = dbus_connection_send(conn, msg, NULL);
 
     if (!sts) {
-        pa_log("%s: Can't send status message: out of memory", __FILE__);
+        pa_log("%s: Can't send info message: out of memory", __FILE__);
     }
 
  fail:
     dbus_message_unref(msg);    /* should cope with NULL msg */
+}
+
+void pa_policy_dbusif_send_media_status(struct userdata *u, const char *media,
+                                        const char *group, int active)
+{
+    static char             *path = (char *)"/com/nokia/policy/info";
+    static const char       *type = "media";
+
+    struct pa_policy_dbusif *dbusif = u->dbusif;
+    DBusConnection          *conn   = pa_dbus_connection_get(dbusif->conn);
+    DBusMessage             *msg;
+    const char              *state;
+    int                      success;
+
+    msg = dbus_message_new_signal(path, dbusif->ifnam, "info");
+
+    if (msg == NULL)
+        pa_log("%s: failed to make new info message", __FILE__);
+    else {
+        state = active ? "active" : "inactive";
+
+        success = dbus_message_append_args(msg,
+                                           DBUS_TYPE_STRING, &type,
+                                           DBUS_TYPE_STRING, &media,
+                                           DBUS_TYPE_STRING, &group,
+                                           DBUS_TYPE_STRING, &state,
+                                           DBUS_TYPE_INVALID);
+        
+        if (!success)
+            dbus_message_unref(msg);
+        else {
+            success = dbus_connection_send(conn, msg, NULL);
+            
+            if (!success) {
+                pa_log("%s: Can't send info message: out of memory", __FILE__);
+                dbus_message_unref(msg);
+            }
+        }
+    }
 }
 
 static DBusHandlerResult filter(DBusConnection *conn, DBusMessage *msg,

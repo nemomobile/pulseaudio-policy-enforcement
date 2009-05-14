@@ -254,7 +254,8 @@ void pa_policy_groupset_unregister_source(struct userdata *u, uint32_t srcidx)
 void pa_policy_groupset_create_default_group(struct userdata *u)
 {
     static char     *name = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
-    static uint32_t flags = PA_POLICY_GROUP_FLAGS_CLIENT;
+    static uint32_t flags = PA_POLICY_GROUP_FLAGS_CLIENT |
+                            PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY;
 
     struct pa_policy_groupset *gset;
     
@@ -402,8 +403,9 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
                                        char                 *name,
                                        struct pa_sink_input *si)
 {
-    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
-                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+    static const char *media      = "audio_playback";
+    static uint32_t   route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
+                                    PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
 
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
@@ -462,6 +464,17 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
             }
         }
 
+        group->sinpcnt++;
+
+        if ((group->flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) &&
+            group->sinpcnt == 1)
+        {
+            pa_log_debug("media notification: group '%s' media '%s' "
+                         "state 'active'", group->name, media);
+
+            pa_policy_dbusif_send_media_status(u, media, group->name, 1);
+        }
+
         pa_log_debug("sink input '%s' added to group '%s'",
                      pa_sink_input_ext_get_name(si), group->name);
     }
@@ -470,6 +483,8 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
 
 void pa_policy_group_remove_sink_input(struct userdata *u, uint32_t idx)
 {
+    static const char         *media = "audio_playback";
+
     struct pa_policy_group    *group;
     struct pa_sink_input_list *prev;
     struct pa_sink_input_list *sl;
@@ -484,6 +499,20 @@ void pa_policy_group_remove_sink_input(struct userdata *u, uint32_t idx)
              prev = prev->next)
         {
             if ((sl = prev->next) != NULL && idx == sl->index) {
+
+                group->sinpcnt--;
+
+                if ((group->flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) &&
+                    group->sinpcnt < 1)
+                {
+                    group->sinpcnt = 0;
+
+                    pa_log_debug("media notification: group '%s' media '%s' "
+                                 "state 'inactive'", group->name, media);
+
+                    pa_policy_dbusif_send_media_status(u, media,group->name,0);
+                }
+
                 prev->next = sl->next;
 
                 pa_xfree(sl);
@@ -503,8 +532,9 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
                                           char                    *name,
                                           struct pa_source_output *so)
 {
-    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SOURCE |
-                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+    static const char  *media       = "audio_recording";
+    static uint32_t     route_flags = PA_POLICY_GROUP_FLAG_SET_SOURCE |
+                                      PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
 
     struct pa_policy_groupset    *gset;
     struct pa_policy_group       *group;
@@ -544,7 +574,18 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
             }
         }
 
-       pa_log_debug("source output '%s' added to group '%s'",
+        group->soutcnt++;
+
+        if ((group->flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) &&
+            group->soutcnt == 1)
+        {
+            pa_log_debug("media notification: group '%s' media '%s' "
+                         "state 'active'", group->name, media);
+            
+            pa_policy_dbusif_send_media_status(u, media, group->name, 1);
+        }
+
+        pa_log_debug("source output '%s' added to group '%s'",
                      pa_source_output_ext_get_name(so), group->name);
     }
 }
@@ -552,6 +593,8 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
 
 void pa_policy_group_remove_source_output(struct userdata *u, uint32_t idx)
 {
+    static const char  *media       = "audio_recording";
+
     struct pa_policy_group       *group;
     struct pa_source_output_list *prev;
     struct pa_source_output_list *sl;
@@ -566,6 +609,19 @@ void pa_policy_group_remove_source_output(struct userdata *u, uint32_t idx)
              prev = prev->next)
         {
             if ((sl = prev->next) != NULL && idx == sl->index) {
+                group->soutcnt--;
+
+                if ((group->flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) &&
+                    group->soutcnt < 1)
+                {
+                    group->soutcnt = 0;
+
+                    pa_log_debug("media notification: group '%s' media '%s' "
+                                 "state 'inactive'", group->name, media);
+
+                    pa_policy_dbusif_send_media_status(u, media,group->name,0);
+                }
+
                 prev->next = sl->next;
 
                 pa_xfree(sl);
