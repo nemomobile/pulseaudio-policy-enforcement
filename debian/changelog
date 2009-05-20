@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.22) unstable; urgency=low
+
+  * Added support for maemo-launche(r)d process classification.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Thu, 14 May 2009 19:33:31 +0300
+
 pulseaudio-policy-enforcement (0.5.21) unstable; urgency=low
 
   * media active/inactive notification in othermedia group

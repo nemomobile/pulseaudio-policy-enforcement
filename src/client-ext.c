@@ -20,6 +20,7 @@ static void handle_removed_client(struct userdata *, uint32_t);
 
 static char *client_ext_dump(struct pa_client *, char *, int);
 
+static void client_ext_set_arg0(struct pa_client *client);
 
 struct pa_client_evsubscr *pa_client_ext_subscription(struct userdata *u)
 {
@@ -151,6 +152,22 @@ char *pa_client_ext_args(struct pa_client *client)
     return (char *)args;
 }
 
+
+char *pa_client_ext_arg0(struct pa_client *client)
+{
+    const char *arg0;
+
+    assert(client);
+
+    arg0 = pa_proplist_gets(client->proplist, PA_PROP_APPLICATION_PROCESS_ARG0);
+    
+    if (arg0 == NULL)
+        client_ext_set_arg0(client);
+    
+    return (char *)arg0;
+}
+
+
 static void handle_client_events(pa_core *c,pa_subscription_event_type_t t,
 				 uint32_t idx, void *userdata)
 {
@@ -199,6 +216,42 @@ static void handle_removed_client(struct userdata *u, uint32_t idx)
 {
     pa_log_debug("client removed (idx=%d)", idx);
 }
+
+
+static void client_ext_set_arg0(struct pa_client *client)
+{
+    char  path[256], arg0[1024];
+    int   fd, len;
+    pid_t pid;
+
+    pid = pa_client_ext_pid(client);
+    snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
+    
+    if ((fd = open(path, O_RDONLY)) < 0) {
+        pa_log("%s: Can't obtain command line", __FILE__);
+        return;
+    }
+    
+    
+    for (;;) {
+        if ((len = read(fd, arg0, sizeof(arg0)-1)) < 0) {
+            if (errno == EINTR)
+                continue;
+            else {
+                arg0[0] = '\0';
+                break;
+            }
+        }
+        
+        arg0[len] = '\0';
+        break;
+    }
+
+    close(fd);
+
+    pa_proplist_sets(client->proplist, PA_PROP_APPLICATION_PROCESS_ARG0, arg0);
+}
+
 
 #if 0
 static void client_ext_set_args(struct pa_client *client)
@@ -263,7 +316,7 @@ static char *client_ext_dump(struct pa_client *client, char *buf, int len)
     pid_t        pid;
     uid_t        uid;
     const char  *exe;
-    const char  *args;
+    const char  *args, *arg0;
 
     if (client == NULL)
         *buf = '\0';
@@ -274,13 +327,16 @@ static char *client_ext_dump(struct pa_client *client, char *buf, int len)
         uid  = pa_client_ext_uid(client);
         exe  = pa_client_ext_exe(client);
         args = pa_client_ext_args(client);
+        arg0 = pa_client_ext_arg0(client);
 
         if (!name)  name = "<noname>";
         if ( !id )  id   = "<noid>";
         if (!exe )  exe  = "<noexe>";
         if (!args)  args = "<noargs>";
-     
-        snprintf(buf, len, "(%s|%s|%d|%d|%s|%s)", name,id, pid, uid, exe,args);
+        if (!arg0)  arg0 = "<noarg>";
+
+        snprintf(buf, len,
+                 "(%s|%s|%d|%d|%s|%s|%s)", name,id, pid, uid, exe,arg0,args);
     }
     
     return buf;
