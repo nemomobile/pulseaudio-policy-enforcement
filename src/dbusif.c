@@ -747,6 +747,8 @@ static void registration_cb(DBusPendingCall *pend, void *data)
 
 static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
 {
+    static const char *name = "pulseaudio";
+
     DBusConnection  *conn   = pa_dbus_connection_get(dbusif->conn);
     DBusMessage     *msg;
     DBusPendingCall *pend;
@@ -759,11 +761,19 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
                                        dbusif->ifnam, "register");
 
     if (msg == NULL) {
-        pa_log("%s: Failed to create D-Dbus message to register",
-               __FILE__);
+        pa_log("%s: Failed to create D-Bus message to register", __FILE__);
         success = FALSE;
         goto failed;
     }
+
+    success = dbus_message_append_args(msg,
+                DBUS_TYPE_STRING, &name,
+                DBUS_TYPE_INVALID);
+    if (!success) {
+        pa_log("%s: Failed to build D-Bus message to register", __FILE__);
+        goto failed;
+    }
+
 
     success = dbus_connection_send_with_reply(conn, msg, &pend, 10000);
     if (!success) {

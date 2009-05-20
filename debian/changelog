@@ -1,6 +1,7 @@
 pulseaudio-policy-enforcement (0.5.21) unstable; urgency=low
 
   * media active/inactive notification in othermedia group
+  * name field in the registration message
 
  -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 14 May 2009 16:00:00 +0300
 
