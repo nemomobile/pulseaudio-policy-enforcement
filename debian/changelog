@@ -1,6 +1,7 @@
 pulseaudio-policy-enforcement (0.5.22) unstable; urgency=low
 
   * Added support for maemo-launche(r)d process classification.
+  * narrowing the scope of NameOwnerChanged D-Bus signal to org.freedesktop.ohm
 
  -- Krisztian Litkey <krisztian.litkey@nokia.com>  Thu, 14 May 2009 19:33:31 +0300
 

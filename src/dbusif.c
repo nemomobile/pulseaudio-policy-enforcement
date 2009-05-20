@@ -150,8 +150,9 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
         pdnam = POLICY_DBUS_PDNAME;
 
     snprintf(admrule, sizeof(admrule), "type='signal',sender='%s',path='%s',"
-             "interface='%s',member='%s'", ADMIN_DBUS_MANAGER,
-             ADMIN_DBUS_PATH, ADMIN_DBUS_INTERFACE, ADMIN_NAME_OWNER_CHANGED);
+             "interface='%s',member='%s',arg0='%s'", ADMIN_DBUS_MANAGER,
+             ADMIN_DBUS_PATH, ADMIN_DBUS_INTERFACE, ADMIN_NAME_OWNER_CHANGED,
+             pdnam);
     dbus_bus_add_match(dbusconn, admrule, &error);
 
     if (dbus_error_is_set(&error)) {
