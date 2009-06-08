@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.24) unstable; urgency=low
+
+  * Bumping version number for a new PA release
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 08 Jun 2009 16:00:00 +0300
+
 pulseaudio-policy-enforcement (0.5.23) unstable; urgency=low
 
   * Disabling volume limit setting (just muting/unmuting)
