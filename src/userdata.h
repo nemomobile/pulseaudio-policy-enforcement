@@ -28,6 +28,7 @@ struct pa_policy_dbusif;
 struct userdata {
     pa_core                   *core;
     pa_module                 *module;
+    struct pa_null_sink       *nullsink;
     struct pa_client_evsubscr *scl;      /* client event susbscription */
     struct pa_sink_evsubscr   *ssnk;     /* sink event subscription */
     struct pa_source_evsubscr *ssrc;     /* source event subscription */

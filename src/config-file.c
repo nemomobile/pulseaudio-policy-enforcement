@@ -476,6 +476,8 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
                             flags |= PA_POLICY_GROUP_FLAG_LIMIT_VOLUME;
                         else if (!strcmp(flname, "cork_stream"))
                             flags |= PA_POLICY_GROUP_FLAG_CORK_STREAM;
+                        else if (!strcmp(flname, "mute_by_route"))
+                            flags |= PA_POLICY_GROUP_FLAG_MUTE_BY_ROUTE;
                         else {
                             pa_log("%s: invalid flag '%s' in line %d",
                                    __FILE__, flname, lineno);

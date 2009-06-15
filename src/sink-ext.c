@@ -21,6 +21,29 @@ static void handle_new_sink(struct userdata *, struct pa_sink *);
 static void handle_removed_sink(struct userdata *, struct pa_sink *);
 
 
+struct pa_null_sink *pa_sink_ext_init_null_sink(char *name)
+{
+    struct pa_null_sink *null_sink;
+
+    if ((null_sink = malloc(sizeof(*null_sink))) != NULL) {
+        memset(null_sink, 0, sizeof(*null_sink));
+
+        null_sink->name = pa_xstrdup(name ? name : "null");
+        null_sink->sink = NULL;
+    }
+
+    return null_sink;
+}
+
+void pa_sink_ext_null_sink_free(struct pa_null_sink *null_sink)
+{
+    if (null_sink != NULL) {
+        pa_xfree(null_sink->name);
+
+        pa_xfree(null_sink);
+    }
+}
+
 struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *u)
 {
     pa_core                 *core;
@@ -109,14 +132,28 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
     char      buf[1024];
     int       len;
     int       ret;
+    int       is_null_sink;
+    struct pa_null_sink *ns;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);
         idx  = sink->index;
         len  = pa_classify_sink(u, sink, 0,0, buf, sizeof(buf));
+        ns   = u->nullsink;
 
-        if (len <= 0)
-            pa_log_debug("new sink '%s' (idx=%d)", name, idx);
+        if (strcmp(name, ns->name))
+            is_null_sink = FALSE;
+        else {
+            ns->sink = sink;
+            pa_log_debug("new sink '%s' (idx=%d) will be used to "
+                         "mute-by-route", name, idx);
+            is_null_sink = TRUE;
+        }
+
+        if (len <= 0) {
+            if (!is_null_sink)
+                pa_log_debug("new sink '%s' (idx=%d)", name, idx);
+        }
         else {
             ret = pa_proplist_sets(sink->proplist,
                                    PA_PROP_POLICY_DEVTYPELIST, buf);
@@ -144,15 +181,27 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
 
 static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
 {
-    char            *name;
-    uint32_t         idx;
-    char             buf[1024];
-    int              len;
+    char                *name;
+    uint32_t             idx;
+    char                 buf[1024];
+    int                  len;
+    struct pa_null_sink *ns;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);
         idx  = sink->index;
         len  = pa_classify_sink(u, sink, 0,0, buf, sizeof(buf));
+        ns   = u->nullsink;
+
+        if (ns->sink == sink) {
+            pa_log_debug("cease to use sink '%s' (idx=%d) to mute-by-route",
+                         name, idx);
+
+            /* TODO: move back the streams of this sink to their
+               original place */
+
+            ns->sink = NULL;
+        }
 
         if (len <= 0)
             pa_log_debug("remove sink '%s' (idx=%d)", name, idx);

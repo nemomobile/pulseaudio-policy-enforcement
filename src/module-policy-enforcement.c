@@ -52,6 +52,7 @@ PA_MODULE_USAGE(
     "dbus_my_path=<our path> "
     "dbus_policyd_path=<policy daemon's path>"
     "dbus_policyd_name=<policy daemon's name>"
+    "null_sink_name=<name of the null sink>"
 );
 
 static const char* const valid_modargs[] = {
@@ -60,6 +61,7 @@ static const char* const valid_modargs[] = {
     "dbus_my_path",
     "dbus_policyd_path",
     "dbus_policyd_name",
+    "null_sink_name",
     NULL
 };
 
@@ -72,6 +74,7 @@ int pa__init(pa_module *m) {
     const char      *mypath;
     const char      *pdpath;
     const char      *pdnam;
+    const char      *nsnam;
     
     pa_assert(m);
     
@@ -85,11 +88,13 @@ int pa__init(pa_module *m) {
     mypath  = pa_modargs_get_value(ma, "dbus_my_path", NULL);
     pdpath  = pa_modargs_get_value(ma, "dbus_policyd_path", NULL);
     pdnam   = pa_modargs_get_value(ma, "dbus_policyd_name", NULL);
+    nsnam   = pa_modargs_get_value(ma, "null_sink_name", NULL);
 
     
     u = pa_xnew0(struct userdata, 1);
     u->core     = m->core;
     u->module   = m;
+    u->nullsink = pa_sink_ext_init_null_sink(nsnam);
     u->scl      = pa_client_ext_subscription(u);
     u->ssnk     = pa_sink_ext_subscription(u);
     u->ssrc     = pa_source_ext_subscription(u);
@@ -110,7 +115,7 @@ int pa__init(pa_module *m) {
     
     if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL ||
         u->ssi == NULL || u->sso == NULL || u->groups == NULL ||
-        u->classify == NULL || u->dbusif == NULL)
+        u->nullsink == NULL || u->classify == NULL || u->dbusif == NULL)
         goto fail;
 
     pa_sink_ext_discover(u);
@@ -154,6 +159,7 @@ void pa__done(pa_module *m) {
 
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);
+    pa_sink_ext_null_sink_free(u->nullsink);
     
     pa_xfree(u);
 }

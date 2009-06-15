@@ -5,11 +5,18 @@
 
 struct pa_sink;
 
+struct pa_null_sink {
+    char            *name;
+    struct pa_sink  *sink;
+};
+
 struct pa_sink_evsubscr {
     pa_hook_slot    *put;
     pa_hook_slot    *unlink;
 };
 
+struct pa_null_sink *pa_sink_ext_init_null_sink(char *);
+void pa_sink_ext_null_sink_free(struct pa_null_sink *);
 struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *);
 void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
 void  pa_sink_ext_discover(struct userdata *);

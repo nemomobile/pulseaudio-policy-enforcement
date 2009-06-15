@@ -19,6 +19,7 @@
 #define PA_POLICY_GROUP_FLAG_LIMIT_VOLUME  PA_POLICY_GROUP_BIT(3)
 #define PA_POLICY_GROUP_FLAG_CORK_STREAM   PA_POLICY_GROUP_BIT(4)
 #define PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY  PA_POLICY_GROUP_BIT(5)
+#define PA_POLICY_GROUP_FLAG_MUTE_BY_ROUTE PA_POLICY_GROUP_BIT(6)
 
 #define PA_POLICY_GROUP_FLAGS_CLIENT      (PA_POLICY_GROUP_FLAG_LIMIT_VOLUME |\
                                            PA_POLICY_GROUP_FLAG_CORK_STREAM  )
@@ -49,6 +50,7 @@ struct pa_policy_group {
     uint32_t                      srcidx;   /* index of the default source */
     pa_volume_t                   limit;    /* volume limit for the group */
     int                           corked;
+    int                           mutebyrt; /* muted by routing to null sink */
     struct pa_sink_input_list    *sinpls;   /* sink input list */
     struct pa_source_output_list *soutls;   /* source output list */
     int                           sinpcnt;  /* sink input counter */

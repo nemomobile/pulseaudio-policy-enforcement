@@ -11,8 +11,10 @@
 #include <pulsecore/sink.h>
 #include <pulsecore/sink-input.h>
 
+#include "userdata.h"
 #include "policy-group.h"
 #include "sink-input-ext.h"
+#include "sink-ext.h"
 #include "classify.h"
 
 /* hooks */
@@ -176,21 +178,40 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                            *data = (struct pa_sink_input_new_data *)call_data;
     struct userdata        *u    = (struct userdata *)slot_data;
     char                   *group_name;
-    char                   *sinp_name;
+    const char             *sinp_name;
     char                   *sink_name;
     struct pa_policy_group *group;
+
+    pa_assert(u);
+    pa_assert(data);
 
     if ((group_name = pa_classify_sink_input_by_data(u, data)) != NULL &&
         (group      = pa_policy_group_find(u, group_name)    ) != NULL    ) {
 
-        if (group->sink != NULL && (group->flags & route_flags)) {
+        if (group->sink != NULL) {
             sinp_name = pa_proplist_gets(data->proplist, PA_PROP_MEDIA_NAME);
-            sink_name = pa_sink_ext_get_name(group->sink);
 
-            pa_log_debug("force sink input '%s' to sink '%s'",
-                         sinp_name ? sinp_name : "<unknown>", sink_name); 
+            if (!sinp_name)
+                sinp_name = "<unknown>";
 
-            data->sink = group->sink;
+            pa_log_debug("**** mutebyrt %d ****", group->mutebyrt);
+
+            if (group->mutebyrt) {
+                sink_name = u->nullsink->name;
+
+                pa_log_debug("force sink input '%s' to sink '%s' due to "
+                             "mute-by-route", sinp_name, sink_name);
+
+                data->sink = u->nullsink->sink;
+            }
+            else if (group->flags & route_flags) {
+                sink_name = pa_sink_ext_get_name(group->sink);
+
+                pa_log_debug("force sink input '%s' to sink '%s'",
+                             sinp_name, sink_name); 
+
+                data->sink = group->sink;
+            }
         }
 
     }

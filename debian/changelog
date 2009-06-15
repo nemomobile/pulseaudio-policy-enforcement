@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (0.5.25) unstable; urgency=low
+
+  * Support for null sink routing instead of muting when volume limit is zero 
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fr, 12 Jun 2009 16:00:00 +0300
+
 pulseaudio-policy-enforcement (0.5.24) unstable; urgency=low
 
   * Bumping version number for a new PA release
