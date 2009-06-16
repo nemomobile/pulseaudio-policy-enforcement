@@ -28,7 +28,8 @@ struct pa_null_sink *pa_sink_ext_init_null_sink(char *name)
     if ((null_sink = malloc(sizeof(*null_sink))) != NULL) {
         memset(null_sink, 0, sizeof(*null_sink));
 
-        null_sink->name = pa_xstrdup(name ? name : "null");
+        /* sink.null is temporary to de-couple PA releases from ours */
+        null_sink->name = pa_xstrdup(name ? name : /* "null" */ "sink.null");
         null_sink->sink = NULL;
     }
 
