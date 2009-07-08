@@ -305,15 +305,14 @@ void pa_policy_dbusif_send_media_status(struct userdata *u, const char *media,
                                            DBUS_TYPE_INVALID);
         
         if (!success)
-            dbus_message_unref(msg);
+            pa_log("%s: Can't build D-Bus info message", __FILE__);
         else {
-            success = dbus_connection_send(conn, msg, NULL);
-            
-            if (!success) {
+            if (!dbus_connection_send(conn, msg, NULL)) {
                 pa_log("%s: Can't send info message: out of memory", __FILE__);
-                dbus_message_unref(msg);
             }
         }
+
+        dbus_message_unref(msg);
     }
 }
 

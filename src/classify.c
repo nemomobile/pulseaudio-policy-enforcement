@@ -56,7 +56,7 @@ static int devices_is_typeof(struct pa_classify_device_def *, pa_proplist *,
 static void cards_free(struct pa_classify_card *);
 static void cards_add(struct pa_classify_card **, char *,
                       enum pa_classify_method, char *, char *, uint32_t);
-static int  cards_classify(struct pa_classify_card_def *, char *,
+static int  cards_classify(struct pa_classify_card_def *, char *, char **,
                            uint32_t,uint32_t, char *,int);
 static int card_is_typeof(struct pa_classify_card_def *, char *,
                           char *, struct pa_classify_card_data **);
@@ -283,20 +283,27 @@ int pa_classify_source(struct userdata *u, struct pa_source *source,
 
 int pa_classify_card(struct userdata *u, struct pa_card *card,
                      uint32_t flag_mask, uint32_t flag_value,
-                     char *buf, int len)
+                     char *buf, int size)
 {
     struct pa_classify *classify;
     struct pa_classify_card_def *defs;
-    char *name;
+    char  *name;
+    char **profs;
+    int    len;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
     pa_assert(classify->cards);
     pa_assert_se((defs = classify->cards->defs));
 
-    name = pa_card_ext_get_name(card);
+    name  = pa_card_ext_get_name(card);
+    profs = pa_card_ext_get_profiles(card);
 
-    return cards_classify(defs, name, flag_mask,flag_value, buf,len);
+    len = cards_classify(defs, name,profs, flag_mask,flag_value, buf,size);
+
+    pa_xfree(profs);
+
+    return len;
 }
 
 int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
@@ -949,15 +956,17 @@ static void cards_add(struct pa_classify_card **p_cards, char *type,
                 d->data.profile?d->data.profile:"", d->data.flags);
 }
 
-static int cards_classify(struct pa_classify_card_def *defs, char *name,
+static int cards_classify(struct pa_classify_card_def *defs,
+                          char *name, char **profiles,
                           uint32_t flag_mask, uint32_t flag_value,
                           char *buf, int len)
 {
     struct pa_classify_card_def *d;
-    int         i;
+    int         i,j;
     char       *p;
     char       *e;
     const char *s;
+    int         supports_profile;
 
     pa_assert(buf);
     pa_assert(len > 0);
@@ -968,7 +977,18 @@ static int cards_classify(struct pa_classify_card_def *defs, char *name,
         
     for (d = defs, i = 0;  d->type;  d++) {
         if (d->method(name, &d->arg)) {
-            if ((d->data.flags & flag_mask) == flag_value) {
+            if (d->data.profile == NULL)
+                supports_profile = TRUE;
+            else {
+                for (j = 0, supports_profile = FALSE;    profiles[j];    j++) {
+                    if (!strcmp(d->data.profile, profiles[j])) {
+                        supports_profile  = TRUE;
+                        break;
+                    }
+                }
+            }
+
+            if (supports_profile && (d->data.flags & flag_mask) == flag_value){
                 p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
                 s  = " ";
                 

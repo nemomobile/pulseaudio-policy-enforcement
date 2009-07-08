@@ -10,6 +10,7 @@
 #include "sink-input-ext.h"
 #include "source-output-ext.h"
 #include "classify.h"
+#include "dbusif.h"
 
 
 struct target {

@@ -6,6 +6,10 @@
 #include "card-ext.h"
 #include "classify.h"
 
+/* this included for the sake of pa_policy_send_device_state()
+   which is temporarily hosted by sink-ext.c*/
+#include "sink-ext.h"
+
 
 /* hooks */
 static pa_hook_result_t card_put(void *, void *, void *);
@@ -71,6 +75,33 @@ void pa_card_ext_discover(struct userdata *u)
 char *pa_card_ext_get_name(struct pa_card *card)
 {
     return card->name ? card->name : (char *)"<unknown>";
+}
+
+char **pa_card_ext_get_profiles(struct pa_card *card)
+{
+#define MAX_PROF 16
+
+    pa_card_profile  *p;
+    char            **plist = NULL;
+    int               size  = sizeof(char *) * MAX_PROF;
+    void             *st;
+    int               l;
+
+    if (card->profiles && (plist = pa_xmalloc(size)) != NULL) {
+        memset(plist, 0, size);
+
+        for (l = 0, st = NULL;
+             (p = pa_hashmap_iterate(card->profiles,&st,NULL)) && l < MAX_PROF;
+             l++)
+        {
+            plist[l] = p->name;
+        }
+        
+    }
+
+    return plist;
+
+#undef MAX_PROF
 }
 
 int pa_card_ext_set_profile(struct userdata *u, char *type)

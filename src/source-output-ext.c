@@ -11,6 +11,7 @@
 #include <pulsecore/sink-input.h>
 
 #include "policy-group.h"
+#include "source-ext.h"
 #include "source-output-ext.h"
 #include "classify.h"
 
@@ -137,7 +138,7 @@ static pa_hook_result_t source_output_neew(void *hook_data, void *call_data,
                      *data = (struct pa_source_output_new_data *)call_data;
     struct userdata  *u    = (struct userdata *)slot_data;
     char             *group_name;
-    char             *sout_name;
+    const char       *sout_name;
     char             *source_name;
     struct pa_policy_group *group;
 
