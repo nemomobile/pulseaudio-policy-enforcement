@@ -635,8 +635,8 @@ static void register_object(struct pa_policy_object *object,
                    type_str, name, lineno);
         }
         else {
-            pa_log_debug("registering %s '%s' (line %d in config file)",
-                         type_str, name, lineno);
+            pa_log_debug("registering context-rule for %s '%s' "
+                         "(line %d in config file)", type_str, name, lineno);
 
             object->ptr = ptr;
         }
@@ -648,7 +648,8 @@ static void unregister_object(struct pa_policy_object *object,
 {
     if (ptr == object->ptr) {
 
-        pa_log_debug("unregistering %s '%s' (line %d in config file)",
+        pa_log_debug("unregistering context-rule for %s '%s' "
+                     "(line %d in config file)",
                      object_type_str(object->type), name, lineno);
 
         object->ptr = NULL;
