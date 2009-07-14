@@ -8,6 +8,7 @@ enum pa_policy_action_type {
     pa_policy_action_min = pa_policy_action_unknown,
 
     pa_policy_set_property,
+    pa_policy_delete_property,
 
     pa_policy_action_max
 };
@@ -16,6 +17,8 @@ enum pa_policy_object_type {
     pa_policy_object_unknown = 0,
     pa_policy_object_min = pa_policy_object_unknown,
 
+    pa_policy_object_module,
+    pa_policy_object_card,
     pa_policy_object_sink,
     pa_policy_object_source,
     pa_policy_object_sink_input,
@@ -78,9 +81,16 @@ struct pa_policy_set_property {
     union pa_policy_value               value;
 };
 
+struct pa_policy_del_property {
+    PA_POLICY_CONTEXT_ACTION_COMMON;
+    struct pa_policy_object             object;
+    char                               *property;
+};
+
 union pa_policy_context_action {
     struct pa_policy_context_action_any any;
     struct pa_policy_set_property       setprop;
+    struct pa_policy_del_property       delprop;
 };
 
 struct pa_policy_context_rule {
@@ -118,6 +128,12 @@ void pa_policy_context_add_property_action(struct pa_policy_context_rule *,int,
                                            enum pa_classify_method, char *,
                                            char *,
                                            enum pa_policy_value_type, ...);
+
+void pa_policy_context_delete_property_action(struct pa_policy_context_rule *,
+                                              int,
+                                              enum pa_policy_object_type,
+                                              enum pa_classify_method,
+                                              char *, char *);
 
 int pa_policy_context_variable_changed(struct userdata *, char *, char *);
 

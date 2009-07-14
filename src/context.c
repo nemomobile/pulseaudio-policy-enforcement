@@ -1,6 +1,9 @@
 #include <stdarg.h>
 
 #include "context.h"
+#include "card-ext.h"
+#include "sink-ext.h"
+#include "source-ext.h"
 #include "sink-input-ext.h"
 #include "source-output-ext.h"
 
@@ -34,10 +37,10 @@ static void register_object(struct pa_policy_object *,
                             const char *, void *, int);
 static void unregister_object(struct pa_policy_object *,
                               const char *, void *, int);
-static const char *get_object_property(struct pa_policy_object *,
-                                       const char *);
+static const char *get_object_property(struct pa_policy_object *,const char *);
 static void set_object_property(struct pa_policy_object *,
                                 const char *, const char *);
+static void delete_object_property(struct pa_policy_object *, const char *);
 static pa_proplist *get_object_proplist(struct pa_policy_object *);
 static const char *object_name(struct pa_policy_object *);
 
@@ -72,6 +75,7 @@ void pa_policy_context_register(struct userdata *u,
     struct pa_policy_context_rule     *rule;
     union  pa_policy_context_action   *actn;
     struct pa_policy_set_property     *setprop;
+    struct pa_policy_del_property     *delprop;
     struct pa_policy_object           *object;
     int                                lineno;
 
@@ -85,6 +89,12 @@ void pa_policy_context_register(struct userdata *u,
                     setprop = &actn->setprop;
                     lineno  = setprop->lineno;
                     object  = &setprop->object;
+                    break;
+
+                case pa_policy_delete_property:
+                    delprop = &actn->delprop;
+                    lineno  = delprop->lineno;
+                    object  = &delprop->object;
                     break;
 
                 default:
@@ -106,6 +116,7 @@ void pa_policy_context_unregister(struct userdata *u,
     struct pa_policy_context_rule     *rule;
     union  pa_policy_context_action   *actn;
     struct pa_policy_set_property     *setprop;
+    struct pa_policy_del_property     *delprop;
     struct pa_policy_object           *object;
     int                                lineno;
 
@@ -119,6 +130,12 @@ void pa_policy_context_unregister(struct userdata *u,
                     setprop = &actn->setprop; 
                     lineno  = setprop->lineno;
                     object  = &setprop->object;
+                    break;
+
+                case pa_policy_delete_property:
+                    delprop = &actn->delprop;
+                    lineno  = delprop->lineno;
+                    object  = &delprop->object;
                     break;
 
                 default:
@@ -173,6 +190,31 @@ pa_policy_context_add_property_action(struct pa_policy_context_rule *rule,
     va_start(value_arg, value_type);
     value_setup(&setprop->value, value_type, value_arg);
     va_end(value_arg);
+
+    append_action(rule, action);
+}
+
+void
+pa_policy_context_delete_property_action(struct pa_policy_context_rule *rule,
+                                         int                      lineno,
+                                         enum pa_policy_object_type obj_type,
+                                         enum pa_classify_method  obj_classify,
+                                         char                    *obj_name,
+                                         char                    *prop_name)
+{
+    union pa_policy_context_action *action;
+    struct pa_policy_del_property  *delprop;
+
+    action  = pa_xmalloc0(sizeof(*action));
+    delprop = &action->delprop; 
+
+    delprop->type   = pa_policy_delete_property;
+    delprop->lineno = lineno;
+
+    delprop->object.type = obj_type;
+    match_setup(&delprop->object.match, obj_classify, obj_name, NULL);
+
+    delprop->property = pa_xstrdup(prop_name);
 
     append_action(rule, action);
 }
@@ -386,6 +428,7 @@ static int perform_action(union pa_policy_context_action *action,
                           char *var_value)
 {
     struct pa_policy_set_property *setprop;
+    struct pa_policy_del_property *delprop;
     struct pa_policy_object       *object;
     const char                    *old_value;
     const char                    *prop_value;
@@ -436,6 +479,22 @@ static int perform_action(union pa_policy_context_action *action,
                 set_object_property(object, setprop->property, prop_value);
             }
         }
+
+        break;
+
+    case pa_policy_delete_property:
+        success = TRUE;
+
+        delprop = &action->delprop;
+        object  = &delprop->object;
+
+        objname = object_name(object);
+        objtype = object_type_str(object->type);
+
+        pa_log_debug("deleting %s '%s' property '%s'",
+                     objtype, objname, delprop->property);
+
+        delete_object_property(object, delprop->property);
 
         break;
 
@@ -628,8 +687,18 @@ static void set_object_property(struct pa_policy_object *object,
             pa_proplist_sets(proplist, property, value);
         }
     }
+}
 
-    return;
+static void delete_object_property(struct pa_policy_object *object,
+                                   const char *property)
+{
+    pa_proplist *proplist;
+
+    if (object->ptr != NULL) {
+        if ((proplist = get_object_proplist(object)) != NULL) {
+            pa_proplist_unset(proplist, property);
+        }
+    }
 }
 
 static pa_proplist *get_object_proplist(struct pa_policy_object *object)
@@ -637,6 +706,14 @@ static pa_proplist *get_object_proplist(struct pa_policy_object *object)
     pa_proplist *proplist;
 
     switch (object->type) {
+
+    case pa_policy_object_module:
+        proplist = ((struct pa_module *)object->ptr)->proplist;
+        break;
+
+    case pa_policy_object_card:
+        proplist = ((struct pa_card *)object->ptr)->proplist;
+        break;
 
     case pa_policy_object_sink:
         proplist = ((struct pa_sink *)object->ptr)->proplist;
@@ -668,12 +745,18 @@ static const char *object_name(struct pa_policy_object *object)
 
     switch (object->type) {
 
+    case pa_policy_object_module:
+        name = ((struct pa_module *)object->ptr)->name;
+
+    case pa_policy_object_card:
+        name = pa_card_ext_get_name((struct pa_card *)object->ptr);
+
     case pa_policy_object_sink:
-        name = ((struct pa_sink *)object->ptr)->name;
+        name = pa_sink_ext_get_name((struct pa_sink *)object->ptr);
         break;
         
     case pa_policy_object_source:
-        name = ((struct pa_source *)object->ptr)->name;
+        name = pa_source_ext_get_name((struct pa_source *)object->ptr);
         break;
         
     case pa_policy_object_sink_input:
@@ -697,6 +780,8 @@ static const char *object_name(struct pa_policy_object *object)
 static const char *object_type_str(enum pa_policy_object_type type)
 {
     switch (type) {
+    case pa_policy_object_module:         return "module";
+    case pa_policy_object_card:           return "card";
     case pa_policy_object_sink:           return "sink";
     case pa_policy_object_source:         return "source";
     case pa_policy_object_sink_input:     return "sink-input";

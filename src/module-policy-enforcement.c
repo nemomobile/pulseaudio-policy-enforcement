@@ -113,24 +113,6 @@ int pa__init(pa_module *m) {
     if (!pa_policy_parse_config_file(u, cfgfile))
         goto fail;
 
-    /*********** temporary **************/
-    {
-        struct pa_policy_context_rule *rule;
-
-        rule = pa_policy_context_add_property_rule(u, "call",
-                                                   pa_method_equals, "active");
-        pa_policy_context_add_property_action(rule, -1, pa_policy_object_sink,
-                                              pa_method_equals, "sink.hw1",
-                                              "foo",pa_policy_value_constant,
-                                              "bar");
-        rule = pa_policy_context_add_property_rule(u, "call",
-                                                   pa_method_true, NULL);
-        pa_policy_context_add_property_action(rule, -2, pa_policy_object_sink,
-                                              pa_method_equals, "sink.hw1",
-                                              "kakukk",pa_policy_value_copy);
-    }
-    /********* end of temporary *********/
-    
     m->userdata = u;
     
     if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL   ||

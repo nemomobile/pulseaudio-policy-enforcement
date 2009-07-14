@@ -5,6 +5,7 @@
 
 #include "card-ext.h"
 #include "classify.h"
+#include "context.h"
 
 /* this included for the sake of pa_policy_send_device_state()
    which is temporarily hosted by sink-ext.c*/
@@ -183,6 +184,8 @@ static void handle_new_card(struct userdata *u, struct pa_card *card)
         idx  = card->index;
         len  = pa_classify_card(u, card, 0,0, buf, sizeof(buf));
 
+        pa_policy_context_register(u, pa_policy_object_card, name, card);
+
         if (len <= 0)
             pa_log_debug("new card '%s' (idx=%d)", name, idx);
         else {
@@ -218,6 +221,8 @@ static void handle_removed_card(struct userdata *u, struct pa_card *card)
         name = pa_card_ext_get_name(card);
         idx  = card->index;
         len  = pa_classify_card(u, card, 0,0, buf, sizeof(buf));
+
+        pa_policy_context_unregister(u, name, card);
 
         if (len <= 0)
             pa_log_debug("remove card '%s' (idx=%d)", name, idx);

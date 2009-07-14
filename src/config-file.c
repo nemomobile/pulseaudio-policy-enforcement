@@ -22,6 +22,7 @@
 #include "config-file.h"
 #include "policy-group.h"
 #include "classify.h"
+#include "context.h"
 
 #define DEFAULT_CONFIG_FILE "policy.conf"
 
@@ -31,6 +32,7 @@ enum section_type {
     section_device,
     section_card,
     section_stream,
+    section_context,
     section_max
 };
 
@@ -40,6 +42,39 @@ enum device_class {
     device_source,
     device_max
 };
+
+
+#define PROPERTY_ACTION_COMMON                                                \
+    enum pa_policy_object_type objtype; /* eg. sink, source, sink-input etc */\
+    enum pa_classify_method    method;  /* obj.name based classif. method   */\
+    char                      *arg;     /* obj.name based classif. argument */\
+    char                      *propnam  /* name of property                 */
+
+struct anyprop {
+    PROPERTY_ACTION_COMMON;
+};
+
+struct setprop {                         /* set property of a PA object */
+    PROPERTY_ACTION_COMMON;
+    enum pa_policy_value_type  valtype;  /* type of prop.value to be set */
+    char                      *valarg;   /* arg for value setting, if any */
+};
+
+struct delprop {                         /* delete property of a PA object */
+    PROPERTY_ACTION_COMMON;
+};
+
+
+struct ctxact {                          /* context rule actions */
+    enum pa_policy_action_type type;     /* context action type */
+    int                        lineno;   /* reference to config file */
+    union {
+        struct anyprop         anyprop;  /* common for all prop.operation */
+        struct setprop         setprop;  /* setting property of an object */
+        struct delprop         delprop;  /* deleting property of an object */
+    };
+};
+
 
 struct groupdef {
     char                    *name;
@@ -75,14 +110,24 @@ struct streamdef {
     char                    *group;  /* group name the stream belong to */
 };
 
+
+struct contextdef {
+    char                    *varnam; /* context variable name */
+    enum pa_classify_method  method; /* context value based classification */
+    char                    *arg;    /* param for ctx.value classification */
+    int                      nact;   /* number of actions */
+    struct ctxact           *acts;   /* array of actions */
+};
+
 struct section {
     enum section_type        type;
     union {
-        void             *any;
-        struct groupdef  *group;
-        struct devicedef *device;
-        struct carddef   *card;
-        struct streamdef *stream;
+        void              *any;
+        struct groupdef   *group;
+        struct devicedef  *device;
+        struct carddef    *card;
+        struct streamdef  *stream;
+        struct contextdef *context;
     }                        def;
 };
 
@@ -97,9 +142,14 @@ static int groupdef_parse(int, char *, struct groupdef *);
 static int devicedef_parse(int, char *, struct devicedef *);
 static int carddef_parse(int, char *, struct carddef *);
 static int streamdef_parse(int, char *, struct streamdef *);
+static int contextdef_parse(int, char *, struct contextdef *);
 
 static int deviceprop_parse(int, enum device_class,char *,struct devicedef *);
 static int streamprop_parse(int, char *, struct streamdef *);
+static int contextval_parse(int, char *, struct contextdef *);
+static int contextsetprop_parse(int, char *, struct contextdef *);
+static int contextdelprop_parse(int, char *, struct contextdef *);
+static int contextanyprop_parse(int, char *, char *, struct anyprop *);
 static int cardname_parse(int, char *, struct carddef *);
 static int flags_parse(int lineno, char *, uint32_t *);
 static int valid_label(int, char *);
@@ -120,7 +170,8 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     struct devicedef  *devdef;
     struct carddef    *carddef;
     struct streamdef  *strdef;
-    int                sts;
+    struct contextdef *ctxdef;
+    int                success;
 
     pa_assert(u);
 
@@ -136,7 +187,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
         return 0;
     }
 
-    sts = 1;                    /* assume successful operation */
+    success = TRUE;                    /* assume successful operation */
 
     memset(&section, 0, sizeof(section));
 
@@ -149,12 +200,12 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 
         if (section_header(lineno, line, &newsect)) {
             if (section_close(u, &section) < 0)
-                sts = 0;
+                success = FALSE;
 
             section.type = newsect;
 
             if (section_open(u, newsect, &section) < 0)
-                sts = 0;
+                success = FALSE;
         }
         else {
             switch (section.type) {
@@ -163,7 +214,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 grdef = section.def.group;
 
                 if (groupdef_parse(lineno, line, grdef) < 0)
-                    sts = 0;
+                    success = FALSE;
 
                 break;
 
@@ -171,7 +222,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 devdef = section.def.device;
 
                 if (devicedef_parse(lineno, line, devdef) < 0)
-                    sts = 0;
+                    success = FALSE;
 
                 break;
 
@@ -179,7 +230,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 carddef = section.def.card;
 
                 if (carddef_parse(lineno, line, carddef) < 0)
-                    sts = 0;
+                    success = FALSE;
 
                 break;
 
@@ -187,8 +238,16 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 strdef = section.def.stream;
 
                 if (streamdef_parse(lineno, line, strdef) < 0)
-                    sts = 0;
+                    success = FALSE;
                 
+                break;
+
+            case section_context:
+                ctxdef = section.def.context;
+
+                if (contextdef_parse(lineno, line, ctxdef) < 0)
+                    success = FALSE;
+
                 break;
                 
             default:
@@ -206,20 +265,20 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                __FILE__, cfgpath, strerror(errno));
     }
 
-    return sts;
+    return success;
 }
 
 static int preprocess_buffer(int lineno, char *inbuf, char *outbuf)
 {
-    char           c, *p, *q;
-    int             quote;
-    int             sts = 0;
+    char c, *p, *q;
+    int  quote;
+    int  sts = 0;
 
     for (quote = 0, p = inbuf, q = outbuf;   (c = *p) != '\0';   p++) {
         if (!quote && isblank(c))
             continue;
         
-        if (c == '\n' || c == '#')
+        if (c == '\n' || (!quote && c == '#'))
             break;
         
         if (c == '"') {
@@ -238,6 +297,11 @@ static int preprocess_buffer(int lineno, char *inbuf, char *outbuf)
         *q++ = c;
     }
     *q = '\0';
+
+    if (quote) {
+        pa_log("%s: unterminated quoted string '%s' in line %d",
+               __FILE__, inbuf, lineno);
+    }
 
     return sts;
 }
@@ -260,6 +324,8 @@ static int section_header(int lineno, char *line, enum section_type *type)
             *type = section_card;
         else if (!strcmp(line, "[stream]"))
             *type = section_stream;
+        else if (!strcmp(line, "[context-rule]"))
+            *type = section_context;
         else {
             *type = section_unknown;
             pa_log("%s: Invalid section type '%s' in line %d",
@@ -300,6 +366,12 @@ static int section_open(struct userdata *u, enum section_type type,
             sec->def.stream->uid = -1;
             status = 0;
             break;
+
+        case section_context:
+            sec->def.context = pa_xnew0(struct contextdef, 1);
+            sec->def.context->method = pa_method_true;
+            status = 0;
+            break;
             
         default:
             type = section_unknown;
@@ -316,11 +388,17 @@ static int section_open(struct userdata *u, enum section_type type,
 
 static int section_close(struct userdata *u, struct section *sec)
 {
-    struct groupdef  *grdef;
-    struct devicedef *devdef;
-    struct carddef   *carddef;
-    struct streamdef *strdef;
-    int               status;
+    struct groupdef   *grdef;
+    struct devicedef  *devdef;
+    struct carddef    *carddef;
+    struct streamdef  *strdef;
+    struct contextdef *ctxdef;
+    struct ctxact     *act;
+    struct pa_policy_context_rule *rule;
+    struct setprop    *setprop;
+    struct delprop    *delprop;
+    int                i;
+    int                status;
 
     if (sec == NULL)
         status = -1;
@@ -399,6 +477,70 @@ static int section_close(struct userdata *u, struct section *sec)
             pa_xfree(strdef->exe);
             pa_xfree(strdef->group);
             pa_xfree(strdef);
+
+            break;
+
+        case section_context:
+            status = 0;
+            ctxdef = sec->def.context;
+
+            rule = pa_policy_context_add_property_rule(u, ctxdef->varnam,
+                                                       ctxdef->method,
+                                                       ctxdef->arg);
+
+            for (i = 0;  i < ctxdef->nact;  i++) {
+                act = ctxdef->acts + i;
+
+                switch (act->type) {
+
+                case pa_policy_set_property:
+                    setprop = &act->setprop;
+
+                    if (rule != NULL) {
+                        pa_policy_context_add_property_action(
+                                          rule, act->lineno,
+                                          setprop->objtype,
+                                          setprop->method,
+                                          setprop->arg,
+                                          setprop->propnam,
+                                          setprop->valtype,
+                                          setprop->valarg
+                        );
+                    }
+
+                    pa_xfree(setprop->arg);
+                    pa_xfree(setprop->propnam);
+                    pa_xfree(setprop->valarg);
+
+                    break;
+
+                case pa_policy_delete_property:
+                    delprop = &act->delprop;
+
+                    if (rule != NULL) {
+                        pa_policy_context_delete_property_action(
+                                          rule, act->lineno,
+                                          delprop->objtype,
+                                          delprop->method,
+                                          delprop->arg,
+                                          delprop->propnam
+                        );
+                    }
+
+                    pa_xfree(delprop->arg);
+                    pa_xfree(delprop->propnam);
+
+                    break;
+
+                default:
+                    break;
+                }
+            }
+
+            pa_xfree(ctxdef->varnam);
+            pa_xfree(ctxdef->arg);
+            pa_xfree(ctxdef->acts);
+            pa_xfree(ctxdef);
 
             break;
             
@@ -658,6 +800,45 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
     return sts;
 }
 
+static int contextdef_parse(int lineno, char *line, struct contextdef *ctxdef)
+{
+    int   sts;
+    char *end;
+
+    if (ctxdef == NULL)
+        sts = -1;
+    else {
+        sts = 0;
+
+        if (!strncmp(line, "variable=", 9)) {
+            ctxdef->varnam = pa_xstrdup(line+9);
+        }
+        else if (!strncmp(line, "value=", 6)) {
+            sts = contextval_parse(lineno, line+6, ctxdef);
+        }
+        else if (!strncmp(line, "set-property=", 13)) {
+            sts = contextsetprop_parse(lineno, line+13, ctxdef);
+        }
+        else if (!strncmp(line, "delete-property=", 16)) { 
+            sts = contextdelprop_parse(lineno, line+16, ctxdef);
+        }
+        else {
+            if ((end = strchr(line, '=')) == NULL) {
+                pa_log("%s: invalid definition '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            else {
+                *end = '\0';
+                pa_log("%s: invalid key value '%s' in line %d",
+                       __FILE__, line, lineno);
+            }
+            sts = -1;
+        }
+    }
+
+    return sts;
+}
+
 static int deviceprop_parse(int lineno, enum device_class class,
                             char *propdef, struct devicedef *devdef)
 {
@@ -750,6 +931,223 @@ static int streamprop_parse(int lineno,char *propdef,struct streamdef *strdef)
     return 0;
 }
 
+static int contextval_parse(int lineno,char *valdef, struct contextdef *ctxdef)
+{
+    char *colon;
+    char *method;
+    char *arg;
+
+    if ((colon = strchr(valdef, ':')) == NULL) {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, valdef, lineno);
+        return -1;
+    }
+
+    *colon = '\0';
+    method = valdef;
+    arg    = colon + 1;
+    
+    if (!strcmp(method, "equals"))
+        ctxdef->method = pa_method_equals;
+    else if (!strcmp(method, "startswith"))
+        ctxdef->method = pa_method_startswith;
+    else if (!strcmp(method, "matches"))
+        ctxdef->method = strcmp(arg, "*") ? pa_method_matches : pa_method_true;
+    else {
+        pa_log("%s: invalid method '%s' in line %d",
+               __FILE__, method, lineno);
+        return -1;
+    }
+    
+    ctxdef->arg = (ctxdef->method == pa_method_true) ? NULL : pa_xstrdup(arg);
+    
+    return 0;
+}
+
+static int contextsetprop_parse(int lineno, char *setpropdef,
+                                struct contextdef *ctxdef)
+{
+    size_t          size;
+    struct ctxact  *act;
+    struct setprop *setprop;
+    struct anyprop *anyprop;
+    char           *comma1;
+    char           *comma2;
+    char           *objdef;
+    char           *propdef;
+    char           *valdef;
+    char           *valarg;
+
+    /*
+     * sink-name@startswidth:alsa,property:foo,value@constant:bar
+     */
+
+    size = sizeof(*act) * (ctxdef->nact + 1);
+    act  = (ctxdef->acts = pa_xrealloc(ctxdef->acts, size)) + ctxdef->nact;
+
+    memset(act, 0, sizeof(*act));
+    act->type   = pa_policy_set_property;
+    act->lineno = lineno;
+
+    setprop = &act->setprop;
+    anyprop = &act->anyprop;
+
+    if ((comma1 = strchr(setpropdef, ',')) == NULL ||
+        (comma2 = strchr(comma1 + 1, ',')) == NULL   )
+    {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, setpropdef, lineno);
+        return -1;
+    }
+
+    *comma1 = '\0';
+    *comma2 = '\0';
+    
+    objdef  = setpropdef;
+    propdef = comma1 + 1;
+    valdef  = comma2 + 1;
+
+    if (!strncmp(valdef, "value@constant:", 15)) {
+        setprop->valtype = pa_policy_value_constant;
+        valarg = valdef + 15;
+    }
+    else if (!strncmp(valdef, "value@copy-from-context", 23)) {
+        setprop->valtype = pa_policy_value_copy;
+        valarg = NULL;
+    }
+    else {
+        pa_log("%s: invalid value definition '%s' in line %d",
+               __FILE__, valdef, lineno);
+        return -1;
+    }
+    
+    if (contextanyprop_parse(lineno, objdef, propdef, anyprop) < 0)
+        return -1;
+
+    setprop->valarg  = valarg ? pa_xstrdup(valarg) : NULL;
+
+    ctxdef->nact++;
+    
+    return 0;
+}
+
+static int contextdelprop_parse(int lineno, char *delpropdef,
+                                struct contextdef *ctxdef)
+{
+    size_t          size;
+    struct ctxact  *act;
+    struct anyprop *anyprop;
+    char           *comma;
+    char           *objdef;
+    char           *propdef;
+
+    /*
+     * sink-name@startswidth:alsa,property:foo
+     */
+
+    size = sizeof(*act) * (ctxdef->nact + 1);
+    act  = (ctxdef->acts = pa_xrealloc(ctxdef->acts, size)) + ctxdef->nact;
+
+    memset(act, 0, sizeof(*act));
+    act->type   = pa_policy_delete_property;
+    act->lineno = lineno;
+
+    anyprop = &act->anyprop;
+
+    if ((comma = strchr(delpropdef, ',')) == NULL) {
+        pa_log("%s: invalid definition '%s' in line %d",
+               __FILE__, delpropdef, lineno);
+        return -1;
+    }
+
+    *comma = '\0';
+    
+    objdef  = delpropdef;
+    propdef = comma + 1;
+
+    if (contextanyprop_parse(lineno, objdef, propdef, anyprop) < 0)
+        return -1;
+
+    ctxdef->nact++;
+    
+    return 0;
+}
+
+static int contextanyprop_parse(int lineno, char *objdef, char *propdef,
+                                struct anyprop *anyprop)
+{
+    char          *colon;
+    char          *method;
+    char          *arg;
+    char          *propnam;
+
+    /*
+     * objdef  = "sink-name@startswidth:alsa"
+     * propdef = "property:foo"
+     */
+    if (!strncmp(objdef, "module-name@", 12)) {
+        anyprop->objtype = pa_policy_object_module;
+        method = objdef + 12;
+    }
+    else if (!strncmp(objdef, "card-name@", 10)) {
+        anyprop->objtype = pa_policy_object_card;
+        method = objdef + 10;
+    } 
+    else if (!strncmp(objdef, "sink-name@", 10)) {
+        anyprop->objtype = pa_policy_object_sink;
+        method = objdef + 10;
+    }
+    else if (!strncmp(objdef, "source-name@", 12)) {
+        anyprop->objtype = pa_policy_object_source;
+        method = objdef + 12;
+    }
+    else if (!strncmp(objdef, "sink-input-name@", 16)) {
+        anyprop->objtype = pa_policy_object_sink_input;
+        method = objdef + 16;
+    }
+    else if (!strncmp(objdef, "source-output-name@", 19)) {
+        anyprop->objtype = pa_policy_object_source_output;
+        method = objdef + 19;
+    }
+    else {
+        pa_log("%s: invalid object definition in line %d", __FILE__, lineno);
+        return -1;
+    }
+
+    if ((colon = strchr(method, ':')) == NULL) {
+        pa_log("%s: invalid object definition in line %d", __FILE__, lineno);
+        return -1;
+    }
+
+    *colon = '\0';
+    arg = colon + 1;
+
+
+    if (!strcmp(method, "equals"))
+        anyprop->method = pa_method_equals;
+    else if (!strcmp(method, "startswith"))
+        anyprop->method = pa_method_startswith;
+    else if (!strcmp(method, "matches"))
+        anyprop->method = pa_method_matches;
+    else {
+        pa_log("%s: invalid method '%s' in line %d", __FILE__, method, lineno);
+        return -1;
+    }
+    
+    if (!strncmp(propdef, "property:", 9))
+        propnam = propdef + 9;
+    else {
+        pa_log("%s: invalid property definition '%s' in line %d",
+               __FILE__, propdef, lineno);
+        return -1;
+    }
+
+    anyprop->arg     = pa_xstrdup(arg);
+    anyprop->propnam = pa_xstrdup(propnam);
+    
+    return 0;
+}
+
 static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
 {
     char *colon;
@@ -831,7 +1229,6 @@ static int valid_label(int lineno, char *label)
     pa_log("%s: invalid label '%s' in line %d", __FILE__, label, lineno);
     return 0;
 }
-
 
 
 /*

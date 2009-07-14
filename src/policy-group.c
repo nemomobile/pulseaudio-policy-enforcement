@@ -544,8 +544,10 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
                                           struct pa_source_output *so)
 {
     static const char  *media       = "audio_recording";
+#if 0
     static uint32_t     route_flags = PA_POLICY_GROUP_FLAG_SET_SOURCE |
                                       PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+#endif
 
     struct pa_policy_groupset    *gset;
     struct pa_policy_group       *group;
