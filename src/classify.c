@@ -64,9 +64,6 @@ static int card_is_typeof(struct pa_classify_card_def *, char *,
 
 char *get_property(char *, pa_proplist *, char *);
 
-int method_equals(const char *, union pa_classify_arg *);
-int method_startswith(const char *, union pa_classify_arg *);
-int method_matches(const char *, union pa_classify_arg *);
 
 
 struct pa_classify *pa_classify_new(struct userdata *u)
@@ -566,7 +563,7 @@ static void streams_free(struct pa_classify_stream_def *defs)
     for (stream = defs;  stream;  stream = next) {
         next = stream->next;
 
-        if (stream->method == method_matches)
+        if (stream->method == pa_classify_method_matches)
             regfree(&stream->arg.rexp);
         else
             pa_xfree((void *)stream->arg.string);
@@ -615,26 +612,33 @@ static void streams_add(struct pa_classify_stream_def **defs, char *prop,
             case pa_method_equals:
                 snprintf(method_def, sizeof(method_def),
                          "%s equals:%s", prop, arg);
-                d->method = method_equals;
+                d->method = pa_classify_method_equals;
                 d->arg.string = pa_xstrdup(arg);
                 break;
 
             case pa_method_startswith:
                 snprintf(method_def, sizeof(method_def),
                          "%s startswith:%s",prop, arg);
-                d->method = method_startswith;
+                d->method = pa_classify_method_startswith;
                 d->arg.string = pa_xstrdup(arg);
                 break;
 
             case pa_method_matches:
                 snprintf(method_def, sizeof(method_def),
                          "%s matches:%s",prop, arg);
-                d->method = method_matches;
+                d->method = pa_classify_method_matches;
                 if (regcomp(&d->arg.rexp, arg, 0) != 0) {
                     pa_log("%s: invalid regexp definition '%s'",
                            __FUNCTION__, arg);
                     pa_assert_se(0);
                 }
+                break;
+
+
+            case pa_method_true:
+                snprintf(method_def, sizeof(method_def), "%s true", prop);
+                d->method = pa_classify_method_true;
+                memset(&d->arg, 0, sizeof(d->arg));
                 break;
 
             default:
@@ -701,7 +705,7 @@ streams_find(struct pa_classify_stream_def **defs, pa_proplist *proplist,
         }
 
 #if 0
-        if (d->method == method_matches) {
+        if (d->method == pa_classify_method_matches) {
             pa_log_debug("%s: prv='%s' prop='%s' arg=<regexp>",
                          __FUNCTION__, prv, d->prop?d->prop:"<null>");
         }
@@ -746,7 +750,7 @@ static void devices_free(struct pa_classify_device *sinks)
         for (d = sinks->defs;  d->type;  d++) {
             pa_xfree((void *)d->type);
 
-            if (d->method == method_matches)
+            if (d->method == pa_classify_method_matches)
                 regfree(&d->arg.rexp);
             else
                 pa_xfree((void *)d->arg.string);
@@ -785,20 +789,20 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
     case pa_method_equals:
         method_name = "equals";
-        d->method = method_equals;
+        d->method = pa_classify_method_equals;
         d->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_startswith:
         method_name = "startswidth";
-        d->method = method_startswith;
+        d->method = pa_classify_method_startswith;
         d->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_matches:
         method_name = "matches";
         if (regcomp(&d->arg.rexp, arg, 0) == 0) {
-            d->method = method_matches;
+            d->method = pa_classify_method_matches;
             break;
         }
         /* intentional fall trough */
@@ -887,7 +891,7 @@ static void cards_free(struct pa_classify_card *cards)
             pa_xfree((void *)d->type);
             pa_xfree((void *)d->data.profile);
 
-            if (d->method == method_matches)
+            if (d->method == pa_classify_method_matches)
                 regfree(&d->arg.rexp);
             else
                 pa_xfree((void *)d->arg.string);
@@ -926,20 +930,20 @@ static void cards_add(struct pa_classify_card **p_cards, char *type,
 
     case pa_method_equals:
         method_name = "equals";
-        d->method = method_equals;
+        d->method = pa_classify_method_equals;
         d->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_startswith:
         method_name = "startswidth";
-        d->method = method_startswith;
+        d->method = pa_classify_method_startswith;
         d->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_matches:
         method_name = "matches";
         if (regcomp(&d->arg.rexp, arg, 0) == 0) {
-            d->method = method_matches;
+            d->method = pa_classify_method_matches;
             break;
         }
         /* intentional fall trough */
@@ -1041,7 +1045,8 @@ char *get_property(char *propname, pa_proplist *proplist, char *name)
     return propval;
 }
 
-int method_equals(const char *string, union pa_classify_arg *arg)
+int pa_classify_method_equals(const char *string,
+                              union pa_classify_arg *arg)
 {
     int found;
 
@@ -1053,7 +1058,8 @@ int method_equals(const char *string, union pa_classify_arg *arg)
     return found;
 }
 
-int method_startswith(const char *string, union pa_classify_arg *arg)
+int pa_classify_method_startswith(const char *string,
+                                  union pa_classify_arg *arg)
 {
     int found;
 
@@ -1065,7 +1071,8 @@ int method_startswith(const char *string, union pa_classify_arg *arg)
     return found;
 }
 
-int method_matches(const char *string, union pa_classify_arg *arg)
+int pa_classify_method_matches(const char *string,
+                               union pa_classify_arg *arg)
 {
 #define MAX_MATCH 5
 
@@ -1090,7 +1097,15 @@ int method_matches(const char *string, union pa_classify_arg *arg)
 #undef MAX_MATCH
 }
 
+int pa_classify_method_true(const char *string,
+                            union pa_classify_arg *arg)
+{
+    (void)string;
+    (void)arg;
 
+    return TRUE;
+}
+                                  
 /*
  * Local Variables:
  * c-basic-offset: 4

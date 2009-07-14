@@ -11,6 +11,7 @@ module_policy_enforcement_la_SOURCES = \
 			source-output-ext.c \
 			classify.c \
 			policy-group.c \
+			context.c \
 			dbusif.c
 module_policy_enforcement_la_LDFLAGS = -module -avoid-version
 module_policy_enforcement_la_LIBADD = $(AM_LIBADD) $(DBUS_LIBS) $(LIBPULSECORE_LIBS) $(LIBPULSE_LIBS)

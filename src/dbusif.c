@@ -9,6 +9,7 @@
 #include "userdata.h"
 #include "dbusif.h"
 #include "classify.h"
+#include "context.h"
 #include "policy-group.h"
 #include "source-ext.h"
 #include "card-ext.h"
@@ -77,11 +78,17 @@ struct argmute {
     char               *mute;
 };
 
+struct argctx {                 /* context arguments */
+    char               *variable;
+    char               *value;
+};
+
 static int action_parser(DBusMessageIter *, struct argdsc *, void *, int);
 static int audio_route_parser(struct userdata *, DBusMessageIter *);
 static int volume_limit_parser(struct userdata *, DBusMessageIter *);
 static int audio_cork_parser(struct userdata *, DBusMessageIter *);
 static int audio_mute_parser(struct userdata *, DBusMessageIter *);
+static int context_parser(struct userdata *, DBusMessageIter *);
 
 static DBusHandlerResult filter(DBusConnection *, DBusMessage *, void *);
 static void handle_admin_message(struct userdata *, DBusMessage *);
@@ -432,6 +439,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
         { "com.nokia.policy.volume_limit", volume_limit_parser },
         { "com.nokia.policy.audio_cork"  , audio_cork_parser   },
         { "com.nokia.policy.audio_mute"  , audio_mute_parser   },
+        { "com.nokia.policy.context"     , context_parser      },
         {               NULL             , NULL                }
     };
 
@@ -705,6 +713,32 @@ static int audio_mute_parser(struct userdata *u, DBusMessageIter *actit)
         
         pa_log_debug("mute device (%s|%d)", device, val);
         pa_source_ext_set_mute(u, device, val);
+
+    } while (dbus_message_iter_next(actit));
+    
+    return TRUE;
+}
+
+static int context_parser(struct userdata *u, DBusMessageIter *actit)
+{
+    static struct argdsc descs[] = {
+        {"variable", STRUCT_OFFSET(struct argctx,variable), DBUS_TYPE_STRING },
+        {"value"   , STRUCT_OFFSET(struct argctx,value)   , DBUS_TYPE_STRING },
+        {  NULL    ,            0                         , DBUS_TYPE_INVALID}
+    };
+    
+    struct argctx   args;
+    
+    do {
+        if (!action_parser(actit, descs, &args, sizeof(args)))
+            return FALSE;
+
+        if (args.variable == NULL || args.value == NULL)
+            return FALSE;
+
+        pa_log_debug("context (%s|%s)", args.variable, args.value);
+
+        pa_policy_context_variable_changed(u, args.variable, args.value);
 
     } while (dbus_message_iter_next(actit));
     

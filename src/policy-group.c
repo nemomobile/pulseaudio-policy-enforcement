@@ -1,4 +1,3 @@
-
 #include <pulsecore/pulsecore-config.h>
 
 #include <pulsecore/namereg.h>

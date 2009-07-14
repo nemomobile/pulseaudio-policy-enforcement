@@ -25,6 +25,7 @@ enum pa_classify_method {
     pa_method_equals,
     pa_method_startswith,
     pa_method_matches,
+    pa_method_true,
     pa_method_max
 };
 
@@ -137,6 +138,10 @@ int   pa_classify_is_source_typeof(struct userdata *, struct pa_source *,
 int   pa_classify_is_card_typeof(struct userdata *, struct pa_card *,
                                  char *, struct pa_classify_card_data **);
 
+int   pa_classify_method_equals(const char *, union pa_classify_arg *);
+int   pa_classify_method_startswith(const char *, union pa_classify_arg *);
+int   pa_classify_method_matches(const char *, union pa_classify_arg *);
+int   pa_classify_method_true(const char *, union pa_classify_arg *);
 
 #endif
 

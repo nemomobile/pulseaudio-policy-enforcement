@@ -10,6 +10,7 @@
 
 #include "sink-ext.h"
 #include "classify.h"
+#include "context.h"
 #include "policy-group.h"
 #include "dbusif.h"
 
@@ -21,7 +22,7 @@ static void handle_new_sink(struct userdata *, struct pa_sink *);
 static void handle_removed_sink(struct userdata *, struct pa_sink *);
 
 
-struct pa_null_sink *pa_sink_ext_init_null_sink(char *name)
+struct pa_null_sink *pa_sink_ext_init_null_sink(const char *name)
 {
     struct pa_null_sink *null_sink;
 
@@ -151,6 +152,8 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
             is_null_sink = TRUE;
         }
 
+        pa_policy_context_register(u, pa_policy_object_sink, name, sink);
+
         if (len <= 0) {
             if (!is_null_sink)
                 pa_log_debug("new sink '%s' (idx=%d)", name, idx);
@@ -203,6 +206,8 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
 
             ns->sink = NULL;
         }
+
+        pa_policy_context_unregister(u, name, sink);
 
         if (len <= 0)
             pa_log_debug("remove sink '%s' (idx=%d)", name, idx);

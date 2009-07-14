@@ -10,6 +10,7 @@
 
 #include "source-ext.h"
 #include "classify.h"
+#include "context.h"
 #include "policy-group.h"
 #include "dbusif.h"
 
@@ -164,6 +165,8 @@ static void handle_new_source(struct userdata *u, struct pa_source *source)
             ret = pa_proplist_sets(source->proplist,
                                    PA_PROP_POLICY_DEVTYPELIST, buf);
 
+            pa_policy_context_register(u,pa_policy_object_source,name,source);
+
             if (ret < 0) {
                 pa_log("failed to set property '%s' on source '%s'",
                        PA_PROP_POLICY_DEVTYPELIST, name);
@@ -197,6 +200,8 @@ static void handle_removed_source(struct userdata *u, struct pa_source *source)
         name = pa_source_ext_get_name(source);
         idx  = source->index;
         len  = pa_classify_source(u, source, 0,0, buf, sizeof(buf));
+
+        pa_policy_context_unregister(u, name, source);
 
         if (len <= 0)
             pa_log_debug("remove source '%s' (idx=%d)", name, idx);

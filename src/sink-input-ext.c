@@ -16,6 +16,7 @@
 #include "sink-input-ext.h"
 #include "sink-ext.h"
 #include "classify.h"
+#include "context.h"
 
 /* hooks */
 static pa_hook_result_t sink_input_neew(void *, void *, void *);
@@ -254,6 +255,7 @@ static void handle_new_sink_input(struct userdata      *u,
         snam = pa_sink_input_ext_get_name(sinp);
         gnam = pa_classify_sink_input(u, sinp);
 
+        pa_policy_context_register(u, pa_policy_object_sink_input, snam, sinp);
         pa_policy_group_insert_sink_input(u, gnam, sinp);
 
         pa_log_debug("new sink_input %s (idx=%d) (group=%s)",
@@ -272,6 +274,7 @@ static void handle_removed_sink_input(struct userdata      *u,
         snam = pa_sink_input_ext_get_name(sinp);
         gnam = pa_classify_sink_input(u, sinp);
 
+        pa_policy_context_unregister(u, snam, sinp);
         pa_policy_group_remove_sink_input(u, sinp->index);
 
         pa_log_debug("removed sink_input %s (idx=%d) (group=%s)",

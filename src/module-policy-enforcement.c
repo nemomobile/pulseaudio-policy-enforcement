@@ -30,6 +30,7 @@
 #include "config-file.h"
 #include "policy-group.h"
 #include "classify.h"
+#include "context.h"
 #include "client-ext.h"
 #include "sink-ext.h"
 #include "source-ext.h"
@@ -103,6 +104,7 @@ int pa__init(pa_module *m) {
     u->scrd     = pa_card_ext_subscription(u);
     u->groups   = pa_policy_groupset_new(u);
     u->classify = pa_classify_new(u);
+    u->context  = pa_policy_context_new(u);
     u->dbusif   = pa_policy_dbusif_init(u, ifnam, mypath, pdpath, pdnam);
 
     pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
@@ -110,12 +112,31 @@ int pa__init(pa_module *m) {
 
     if (!pa_policy_parse_config_file(u, cfgfile))
         goto fail;
+
+    /*********** temporary **************/
+    {
+        struct pa_policy_context_rule *rule;
+
+        rule = pa_policy_context_add_property_rule(u, "call",
+                                                   pa_method_equals, "active");
+        pa_policy_context_add_property_action(rule, -1, pa_policy_object_sink,
+                                              pa_method_equals, "sink.hw1",
+                                              "foo",pa_policy_value_constant,
+                                              "bar");
+        rule = pa_policy_context_add_property_rule(u, "call",
+                                                   pa_method_true, NULL);
+        pa_policy_context_add_property_action(rule, -2, pa_policy_object_sink,
+                                              pa_method_equals, "sink.hw1",
+                                              "kakukk",pa_policy_value_copy);
+    }
+    /********* end of temporary *********/
     
     m->userdata = u;
     
-    if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL ||
-        u->ssi == NULL || u->sso == NULL || u->groups == NULL ||
-        u->nullsink == NULL || u->classify == NULL || u->dbusif == NULL)
+    if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL   ||
+        u->ssi == NULL || u->sso == NULL  || u->groups == NULL ||
+        u->nullsink == NULL || u->classify == NULL ||
+        u->context == NULL  ||u->dbusif == NULL)
         goto fail;
 
     pa_sink_ext_discover(u);
@@ -159,6 +180,7 @@ void pa__done(pa_module *m) {
 
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);
+    pa_policy_context_free(u->context);
     pa_sink_ext_null_sink_free(u->nullsink);
     
     pa_xfree(u);

@@ -14,7 +14,7 @@
 #include "source-ext.h"
 #include "source-output-ext.h"
 #include "classify.h"
-
+#include "context.h"
 
 
 /* hooks */
@@ -196,6 +196,7 @@ static void handle_new_source_output(struct userdata         *u,
         snam = pa_source_output_ext_get_name(sout);
         gnam = pa_classify_source_output(u, sout);
 
+        pa_policy_context_register(u,pa_policy_object_source_output,snam,sout);
         pa_policy_group_insert_source_output(u, gnam, sout);
 
         pa_log_debug("new source_output %s (idx=%d) (group=%s)",
@@ -214,6 +215,7 @@ static void handle_removed_source_output(struct userdata         *u,
         snam = pa_source_output_ext_get_name(sout);
         gnam = pa_classify_source_output(u, sout);
 
+        pa_policy_context_unregister(u, snam, sout);
         pa_policy_group_remove_source_output(u, sout->index);
 
         pa_log_debug("removed source_output %s (idx=%d) (group=%s)",
