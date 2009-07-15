@@ -1,6 +1,7 @@
 pulseaudio-policy-enforcement (0.5.29) unstable; urgency=low
 
   * Support for context variables
+  * 'othermedia_preemption' module argument
 
  -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sun, 12 Jul 2009 20:30:00 +0300
 

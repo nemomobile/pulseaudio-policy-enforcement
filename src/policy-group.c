@@ -253,16 +253,29 @@ void pa_policy_groupset_unregister_source(struct userdata *u, uint32_t srcidx)
     }
 }
 
-void pa_policy_groupset_create_default_group(struct userdata *u)
+void pa_policy_groupset_create_default_group(struct userdata *u,
+                                             const char *preempt)
 {
     static char     *name = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
-    static uint32_t flags = PA_POLICY_GROUP_FLAGS_CLIENT |
-                            PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY;
+    static uint32_t flags = PA_POLICY_GROUP_FLAGS_CLIENT;
 
     struct pa_policy_groupset *gset;
     
     pa_assert(u);
     pa_assert_se((gset = u->groups));
+
+    if (preempt != NULL) {
+        if (!strcmp(preempt, "on")) {
+            flags |= PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY;
+        }
+        else if (strcmp(preempt, "off")) {
+            pa_log("invalid value '%s' for preemption");
+        }
+    }
+
+    pa_log_info("group '%s' preemption is %s", name,
+                (flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) ? "on" : "off");
+
 
     gset->dflt = pa_policy_group_new(u, name, NULL, NULL, flags);
 }

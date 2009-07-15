@@ -77,7 +77,7 @@ void pa_policy_groupset_register_sink(struct userdata *, struct pa_sink *);
 void pa_policy_groupset_unregister_sink(struct userdata *, uint32_t);
 void pa_policy_groupset_register_source(struct userdata *, struct pa_source *);
 void pa_policy_groupset_unregister_source(struct userdata *, uint32_t);
-void pa_policy_groupset_create_default_group(struct userdata *);
+void pa_policy_groupset_create_default_group(struct userdata *, const char *);
 
 struct pa_policy_group *pa_policy_group_new(struct userdata *, char*,
                                             char *, char *, uint32_t);

@@ -54,6 +54,7 @@ PA_MODULE_USAGE(
     "dbus_policyd_path=<policy daemon's path>"
     "dbus_policyd_name=<policy daemon's name>"
     "null_sink_name=<name of the null sink>"
+    "othermedia_preemption=<on|off>"
 );
 
 static const char* const valid_modargs[] = {
@@ -63,6 +64,7 @@ static const char* const valid_modargs[] = {
     "dbus_policyd_path",
     "dbus_policyd_name",
     "null_sink_name",
+    "othermedia_preemption",
     NULL
 };
 
@@ -76,6 +78,7 @@ int pa__init(pa_module *m) {
     const char      *pdpath;
     const char      *pdnam;
     const char      *nsnam;
+    const char      *preempt;
     
     pa_assert(m);
     
@@ -90,6 +93,7 @@ int pa__init(pa_module *m) {
     pdpath  = pa_modargs_get_value(ma, "dbus_policyd_path", NULL);
     pdnam   = pa_modargs_get_value(ma, "dbus_policyd_name", NULL);
     nsnam   = pa_modargs_get_value(ma, "null_sink_name", NULL);
+    preempt = pa_modargs_get_value(ma, "othermedia_preemption", NULL);
 
     
     u = pa_xnew0(struct userdata, 1);
@@ -107,20 +111,20 @@ int pa__init(pa_module *m) {
     u->context  = pa_policy_context_new(u);
     u->dbusif   = pa_policy_dbusif_init(u, ifnam, mypath, pdpath, pdnam);
 
+    if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL   ||
+        u->ssi == NULL || u->sso == NULL  || u->groups == NULL ||
+        u->nullsink == NULL || u->classify == NULL ||
+        u->context == NULL  || u->dbusif == NULL)
+        goto fail;
+
     pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
-    pa_policy_groupset_create_default_group(u);
+    pa_policy_groupset_create_default_group(u, preempt);
 
     if (!pa_policy_parse_config_file(u, cfgfile))
         goto fail;
 
     m->userdata = u;
     
-    if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL   ||
-        u->ssi == NULL || u->sso == NULL  || u->groups == NULL ||
-        u->nullsink == NULL || u->classify == NULL ||
-        u->context == NULL  ||u->dbusif == NULL)
-        goto fail;
-
     pa_sink_ext_discover(u);
     pa_source_ext_discover(u);
     pa_client_ext_discover(u);
