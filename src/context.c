@@ -1,5 +1,7 @@
 #include <stdarg.h>
 
+#include <pulsecore/pulsecore-config.h>
+
 #include "context.h"
 #include "card-ext.h"
 #include "sink-ext.h"
