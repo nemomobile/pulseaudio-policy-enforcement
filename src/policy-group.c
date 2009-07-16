@@ -269,7 +269,7 @@ void pa_policy_groupset_create_default_group(struct userdata *u,
             flags |= PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY;
         }
         else if (strcmp(preempt, "off")) {
-            pa_log("invalid value '%s' for preemption");
+            pa_log("invalid value '%s' for preemption", preempt);
         }
     }
 
