@@ -45,6 +45,7 @@ static void set_object_property(struct pa_policy_object *,
 static void delete_object_property(struct pa_policy_object *, const char *);
 static pa_proplist *get_object_proplist(struct pa_policy_object *);
 static const char *object_name(struct pa_policy_object *);
+static void fire_object_property_changed_hook(struct pa_policy_object *object);
 
 static const char *object_type_str(enum pa_policy_object_type);
 
@@ -688,6 +689,7 @@ static void set_object_property(struct pa_policy_object *object,
     if (object->ptr != NULL) {
         if ((proplist = get_object_proplist(object)) != NULL) {
             pa_proplist_sets(proplist, property, value);
+            fire_object_property_changed_hook(object);
         }
     }
 }
@@ -700,6 +702,7 @@ static void delete_object_property(struct pa_policy_object *object,
     if (object->ptr != NULL) {
         if ((proplist = get_object_proplist(object)) != NULL) {
             pa_proplist_unset(proplist, property);
+            fire_object_property_changed_hook(object);
         }
     }
 }
@@ -750,9 +753,11 @@ static const char *object_name(struct pa_policy_object *object)
 
     case pa_policy_object_module:
         name = ((struct pa_module *)object->ptr)->name;
+        break;
 
     case pa_policy_object_card:
         name = pa_card_ext_get_name((struct pa_card *)object->ptr);
+        break;
 
     case pa_policy_object_sink:
         name = pa_sink_ext_get_name((struct pa_sink *)object->ptr);
@@ -779,6 +784,47 @@ static const char *object_name(struct pa_policy_object *object)
     return name;
 }
 
+static void fire_object_property_changed_hook(struct pa_policy_object *object)
+{
+    pa_core                 *core;
+    pa_core_hook_t           hook;
+    struct pa_sink          *sink;
+    struct pa_source        *src;
+    struct pa_sink_input    *sinp;
+    struct pa_source_output *sout;
+
+   switch (object->type) {
+
+    case pa_policy_object_sink:
+        sink = object->ptr;
+        core = sink->core;
+        hook = PA_CORE_HOOK_SINK_PROPLIST_CHANGED;
+        break;
+        
+    case pa_policy_object_source:
+        src  = object->ptr;
+        core = src->core;
+        hook = PA_CORE_HOOK_SOURCE_PROPLIST_CHANGED;
+        break;
+        
+    case pa_policy_object_sink_input:
+        sinp = object->ptr;
+        core = sinp->core;
+        hook = PA_CORE_HOOK_SINK_INPUT_PROPLIST_CHANGED;
+        break;
+        
+    case pa_policy_object_source_output:
+        sout = object->ptr;
+        core = sout->core;
+        hook = PA_CORE_HOOK_SOURCE_OUTPUT_PROPLIST_CHANGED;
+        break;
+        
+    default:
+        return;
+    }
+
+   pa_hook_fire(&core->hooks[hook], object->ptr);
+}
 
 static const char *object_type_str(enum pa_policy_object_type type)
 {

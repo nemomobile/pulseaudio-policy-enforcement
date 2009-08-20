@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (0.5.31) unstable; urgency=low
+
+  * firing property change hooks on context variable changes
+    (Fixes: NB#123772)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 24 Jul 2009 09:55:00 +0300
+
 pulseaudio-policy-enforcement (0.5.30) unstable; urgency=low
 
   * bumped version number for a new pulseaudio release
