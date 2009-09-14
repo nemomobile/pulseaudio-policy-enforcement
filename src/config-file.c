@@ -179,11 +179,10 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
         cfgfile = DEFAULT_CONFIG_FILE;
 
     pa_policy_file_path(cfgfile, cfgpath, PATH_MAX);
-    pa_log_info("%s: policy config file is '%s'", __FILE__, cfgpath);
+    pa_log_info("policy config file is '%s'", cfgpath);
 
     if ((f = fopen(cfgpath, "r")) == NULL) {
-        pa_log("%s: Can't open config file '%s': %s",
-               __FILE__, cfgpath, strerror(errno));
+        pa_log("Can't open config file '%s': %s", cfgpath, strerror(errno));
         return 0;
     }
 
@@ -261,8 +260,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     endpwent();
 
     if (fclose(f) != 0) {
-        pa_log("%s: Can't close config file '%s': %s",
-               __FILE__, cfgpath, strerror(errno));
+        pa_log("Can't close config file '%s': %s", cfgpath, strerror(errno));
     }
 
     return success;
@@ -287,8 +285,7 @@ static int preprocess_buffer(int lineno, char *inbuf, char *outbuf)
         }
         
         if (c < 0x20) {
-            pa_log("%s: Illegal character 0x%02x in line %d",
-                   __FILE__, c, lineno);
+            pa_log("Illegal character 0x%02x in line %d", c, lineno);
             sts = -1;
             errno = EILSEQ;
             break;
@@ -299,8 +296,7 @@ static int preprocess_buffer(int lineno, char *inbuf, char *outbuf)
     *q = '\0';
 
     if (quote) {
-        pa_log("%s: unterminated quoted string '%s' in line %d",
-               __FILE__, inbuf, lineno);
+        pa_log("unterminated quoted string '%s' in line %d", inbuf, lineno);
     }
 
     return sts;
@@ -328,8 +324,7 @@ static int section_header(int lineno, char *line, enum section_type *type)
             *type = section_context;
         else {
             *type = section_unknown;
-            pa_log("%s: Invalid section type '%s' in line %d",
-                   __FILE__, line, lineno);
+            pa_log("Invalid section type '%s' in line %d", line, lineno);
         }
     }
 
@@ -587,8 +582,7 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
             
             if (fldef[0] == '\0') {
                 sts = -1;
-                pa_log("%s: missing flag definition in line %d",
-                       __FILE__, lineno);
+                pa_log("missing flag definition in line %d", lineno);
             }
             else {
                 sts = 0;
@@ -621,8 +615,8 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
                         else if (!strcmp(flname, "mute_by_route"))
                             flags |= PA_POLICY_GROUP_FLAG_MUTE_BY_ROUTE;
                         else {
-                            pa_log("%s: invalid flag '%s' in line %d",
-                                   __FILE__, flname, lineno);
+                            pa_log("invalid flag '%s' in line %d",
+                                   flname, lineno);
                             sts = -1;
                             break;
                         }
@@ -636,13 +630,11 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
-                pa_log("%s: invalid definition '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid definition '%s' in line %d", line, lineno);
             }
             else {
                 *end = '\0';
-                pa_log("%s: invalid key value '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid key value '%s' in line %d", line, lineno);
             }
             sts = -1;
         }
@@ -675,13 +667,11 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
-                pa_log("%s: invalid definition '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid definition '%s' in line %d", line, lineno);
             }
             else {
                 *end = '\0';
-                pa_log("%s: invalid key value '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid key value '%s' in line %d", line, lineno);
             }
             sts = -1;
         }
@@ -714,13 +704,11 @@ static int carddef_parse(int lineno, char *line, struct carddef *carddef)
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
-                pa_log("%s: invalid definition '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid definition '%s' in line %d", line, lineno);
             }
             else {
                 *end = '\0';
-                pa_log("%s: invalid key value '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid key value '%s' in line %d", line, lineno);
             }
             sts = -1;
         }
@@ -769,8 +757,7 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
                 }
 
                 if (uid < 0) {
-                    pa_log("%s: invalid user '%s' in line %d",
-                           __FILE__, user, lineno);
+                    pa_log("invalid user '%s' in line %d", user, lineno);
                     sts = -1;
                 }
             }
@@ -785,13 +772,11 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
-                pa_log("%s: invalid definition '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid definition '%s' in line %d", line, lineno);
             }
             else {
                 *end = '\0';
-                pa_log("%s: invalid key value '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid key value '%s' in line %d", line, lineno);
             }
             sts = -1;
         }
@@ -824,13 +809,11 @@ static int contextdef_parse(int lineno, char *line, struct contextdef *ctxdef)
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
-                pa_log("%s: invalid definition '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid definition '%s' in line %d", line, lineno);
             }
             else {
                 *end = '\0';
-                pa_log("%s: invalid key value '%s' in line %d",
-                       __FILE__, line, lineno);
+                pa_log("invalid key value '%s' in line %d", line, lineno);
             }
             sts = -1;
         }
@@ -849,8 +832,7 @@ static int deviceprop_parse(int lineno, enum device_class class,
     char *arg;
 
     if ((colon = strchr(propdef, ':')) == NULL) {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, propdef, lineno);
+        pa_log("invalid definition '%s' in line %d", propdef, lineno);
         return -1;
     }
 
@@ -874,8 +856,7 @@ static int deviceprop_parse(int lineno, enum device_class class,
     else if (!strcmp(method, "matches"))
         devdef->method = pa_method_matches;
     else {
-        pa_log("%s: invalid method '%s' in line %d",
-               __FILE__, method, lineno);
+        pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
@@ -895,8 +876,7 @@ static int streamprop_parse(int lineno,char *propdef,struct streamdef *strdef)
     char *arg;
 
     if ((colon = strchr(propdef, ':')) == NULL) {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, propdef, lineno);
+        pa_log("invalid definition '%s' in line %d", propdef, lineno);
         return -1;
     }
 
@@ -904,8 +884,7 @@ static int streamprop_parse(int lineno,char *propdef,struct streamdef *strdef)
     arg    = colon + 1;
 
     if ((at = strchr(propdef, '@')) == NULL) {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, propdef, lineno);
+        pa_log("invalid definition '%s' in line %d", propdef, lineno);
         return -1;
     }
 
@@ -920,8 +899,7 @@ static int streamprop_parse(int lineno,char *propdef,struct streamdef *strdef)
     else if (!strcmp(method, "matches"))
         strdef->method = pa_method_matches;
     else {
-        pa_log("%s: invalid method '%s' in line %d",
-               __FILE__, method, lineno);
+        pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
@@ -938,8 +916,7 @@ static int contextval_parse(int lineno,char *valdef, struct contextdef *ctxdef)
     char *arg;
 
     if ((colon = strchr(valdef, ':')) == NULL) {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, valdef, lineno);
+        pa_log("invalid definition '%s' in line %d", valdef, lineno);
         return -1;
     }
 
@@ -954,8 +931,7 @@ static int contextval_parse(int lineno,char *valdef, struct contextdef *ctxdef)
     else if (!strcmp(method, "matches"))
         ctxdef->method = strcmp(arg, "*") ? pa_method_matches : pa_method_true;
     else {
-        pa_log("%s: invalid method '%s' in line %d",
-               __FILE__, method, lineno);
+        pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
@@ -995,8 +971,7 @@ static int contextsetprop_parse(int lineno, char *setpropdef,
     if ((comma1 = strchr(setpropdef, ',')) == NULL ||
         (comma2 = strchr(comma1 + 1, ',')) == NULL   )
     {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, setpropdef, lineno);
+        pa_log("invalid definition '%s' in line %d", setpropdef, lineno);
         return -1;
     }
 
@@ -1016,8 +991,7 @@ static int contextsetprop_parse(int lineno, char *setpropdef,
         valarg = NULL;
     }
     else {
-        pa_log("%s: invalid value definition '%s' in line %d",
-               __FILE__, valdef, lineno);
+        pa_log("invalid value definition '%s' in line %d", valdef, lineno);
         return -1;
     }
     
@@ -1055,8 +1029,7 @@ static int contextdelprop_parse(int lineno, char *delpropdef,
     anyprop = &act->anyprop;
 
     if ((comma = strchr(delpropdef, ',')) == NULL) {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, delpropdef, lineno);
+        pa_log("invalid definition '%s' in line %d", delpropdef, lineno);
         return -1;
     }
 
@@ -1110,12 +1083,12 @@ static int contextanyprop_parse(int lineno, char *objdef, char *propdef,
         method = objdef + 19;
     }
     else {
-        pa_log("%s: invalid object definition in line %d", __FILE__, lineno);
+        pa_log("invalid object definition in line %d", lineno);
         return -1;
     }
 
     if ((colon = strchr(method, ':')) == NULL) {
-        pa_log("%s: invalid object definition in line %d", __FILE__, lineno);
+        pa_log("invalid object definition in line %d", lineno);
         return -1;
     }
 
@@ -1130,15 +1103,14 @@ static int contextanyprop_parse(int lineno, char *objdef, char *propdef,
     else if (!strcmp(method, "matches"))
         anyprop->method = pa_method_matches;
     else {
-        pa_log("%s: invalid method '%s' in line %d", __FILE__, method, lineno);
+        pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
     if (!strncmp(propdef, "property:", 9))
         propnam = propdef + 9;
     else {
-        pa_log("%s: invalid property definition '%s' in line %d",
-               __FILE__, propdef, lineno);
+        pa_log("invalid property definition '%s' in line %d", propdef, lineno);
         return -1;
     }
 
@@ -1155,8 +1127,7 @@ static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
     char *arg;
 
     if ((colon = strchr(namedef, ':')) == NULL) {
-        pa_log("%s: invalid definition '%s' in line %d",
-               __FILE__, namedef, lineno);
+        pa_log("invalid definition '%s' in line %d", namedef, lineno);
         return -1;
     }
 
@@ -1171,8 +1142,7 @@ static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
     else if (!strcmp(method, "matches"))
         carddef->method = pa_method_matches;
     else {
-        pa_log("%s: invalid method '%s' in line %d",
-               __FILE__, method, lineno);
+        pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
@@ -1200,8 +1170,7 @@ static int flags_parse(int lineno, char *flagdef, uint32_t *flags_ret)
         if (!strcmp(flagname, "disable_notify"))
             flags |= PA_POLICY_DISABLE_NOTIFY;
         else {
-            pa_log("%s: invalid flag '%s' in line %d",
-                   __FILE__, flagname, lineno);
+            pa_log("invalid flag '%s' in line %d", flagname, lineno);
             return -1;
         }
     }
@@ -1226,7 +1195,7 @@ static int valid_label(int lineno, char *label)
     return 1;
 
  invalid:
-    pa_log("%s: invalid label '%s' in line %d", __FILE__, label, lineno);
+    pa_log("invalid label '%s' in line %d", label, lineno);
     return 0;
 }
 

@@ -222,7 +222,7 @@ static void handle_removed_card(struct userdata *u, struct pa_card *card)
         idx  = card->index;
         len  = pa_classify_card(u, card, 0,0, buf, sizeof(buf));
 
-        pa_policy_context_unregister(u, name, card);
+        pa_policy_context_unregister(u, pa_policy_object_card, name, card,idx);
 
         if (len <= 0)
             pa_log_debug("remove card '%s' (idx=%d)", name, idx);

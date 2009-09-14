@@ -274,7 +274,8 @@ static void handle_removed_sink_input(struct userdata      *u,
         snam = pa_sink_input_ext_get_name(sinp);
         gnam = pa_classify_sink_input(u, sinp);
 
-        pa_policy_context_unregister(u, snam, sinp);
+        pa_policy_context_unregister(u, pa_policy_object_sink_input,
+                                     snam, sinp, sinp->index);
         pa_policy_group_remove_sink_input(u, sinp->index);
 
         pa_log_debug("removed sink_input %s (idx=%d) (group=%s)",

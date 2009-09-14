@@ -47,6 +47,7 @@ struct pa_policy_object {
     enum pa_policy_object_type          type;
     struct pa_policy_match              match;
     void                               *ptr;
+    unsigned long                       index;
 };
 
 struct pa_policy_value_constant {
@@ -116,7 +117,8 @@ void pa_policy_context_free(struct pa_policy_context *);
 
 void pa_policy_context_register(struct userdata *, enum pa_policy_object_type,
                                 const char *, void *);
-void pa_policy_context_unregister(struct userdata *, const char *, void *);
+void pa_policy_context_unregister(struct userdata *,enum pa_policy_object_type,
+                                  const char *, void *, unsigned long);
 
 
 struct pa_policy_context_rule

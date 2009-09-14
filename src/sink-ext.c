@@ -207,7 +207,7 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
             ns->sink = NULL;
         }
 
-        pa_policy_context_unregister(u, name, sink);
+        pa_policy_context_unregister(u, pa_policy_object_sink, name, sink,idx);
 
         if (len <= 0)
             pa_log_debug("remove sink '%s' (idx=%d)", name, idx);

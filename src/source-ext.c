@@ -201,7 +201,8 @@ static void handle_removed_source(struct userdata *u, struct pa_source *source)
         idx  = source->index;
         len  = pa_classify_source(u, source, 0,0, buf, sizeof(buf));
 
-        pa_policy_context_unregister(u, name, source);
+        pa_policy_context_unregister(u, pa_policy_object_source,
+                                     name, source, idx);
 
         if (len <= 0)
             pa_log_debug("remove source '%s' (idx=%d)", name, idx);

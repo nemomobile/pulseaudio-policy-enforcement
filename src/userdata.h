@@ -21,6 +21,7 @@ struct pa_source_evsubscr;
 struct pa_sinp_evsubscr;
 struct pa_sout_evsubscr;
 struct pa_card_evsubscr;
+struct pa_module_evsubscr;
 struct pa_policy_groupset;
 struct pa_classify;
 struct pa_policy_context;
@@ -36,6 +37,7 @@ struct userdata {
     struct pa_sinp_evsubscr   *ssi;      /* sink input event susbscription */
     struct pa_sout_evsubscr   *sso;      /* source output event susbscription*/
     struct pa_card_evsubscr   *scrd;     /* card event subscription */
+    struct pa_module_evsubscr *smod;     /* module event subscription */
     struct pa_policy_groupset *groups;   /* policy groups */
     struct pa_classify        *classify; /* rules for classification */
     struct pa_policy_context  *context;  /* for processing context variables */

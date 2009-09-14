@@ -215,7 +215,8 @@ static void handle_removed_source_output(struct userdata         *u,
         snam = pa_source_output_ext_get_name(sout);
         gnam = pa_classify_source_output(u, sout);
 
-        pa_policy_context_unregister(u, snam, sout);
+        pa_policy_context_unregister(u, pa_policy_object_source_output,
+                                     snam, sout, sout->index);
         pa_policy_group_remove_source_output(u, sout->index);
 
         pa_log_debug("removed source_output %s (idx=%d) (group=%s)",

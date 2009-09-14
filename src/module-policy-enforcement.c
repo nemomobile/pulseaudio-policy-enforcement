@@ -37,6 +37,7 @@
 #include "sink-input-ext.h"
 #include "source-output-ext.h"
 #include "card-ext.h"
+#include "module-ext.h"
 #include "dbusif.h"
 
 #ifndef PA_DEFAULT_CONFIG_DIR
@@ -106,15 +107,16 @@ int pa__init(pa_module *m) {
     u->ssi      = pa_sink_input_ext_subscription(u);
     u->sso      = pa_source_output_ext_subscription(u);
     u->scrd     = pa_card_ext_subscription(u);
+    u->smod     = pa_module_ext_subscription(u);
     u->groups   = pa_policy_groupset_new(u);
     u->classify = pa_classify_new(u);
     u->context  = pa_policy_context_new(u);
     u->dbusif   = pa_policy_dbusif_init(u, ifnam, mypath, pdpath, pdnam);
 
-    if (u->scl == NULL || u->ssnk == NULL || u->ssrc == NULL   ||
-        u->ssi == NULL || u->sso == NULL  || u->groups == NULL ||
-        u->nullsink == NULL || u->classify == NULL ||
-        u->context == NULL  || u->dbusif == NULL)
+    if (u->scl == NULL      || u->ssnk == NULL     || u->ssrc == NULL ||
+        u->ssi == NULL      || u->sso == NULL      || u->scrd == NULL ||
+        u->smod == NULL     || u->groups == NULL   || u->nullsink == NULL ||
+        u->classify == NULL || u->context == NULL  || u->dbusif == NULL)
         goto fail;
 
     pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
@@ -131,6 +133,7 @@ int pa__init(pa_module *m) {
     pa_sink_input_ext_discover(u);
     pa_source_output_ext_discover(u);
     pa_card_ext_discover(u);
+    pa_module_ext_discover(u);
 
     pa_modargs_free(ma);
 
@@ -163,6 +166,7 @@ void pa__done(pa_module *m) {
     pa_sink_input_ext_subscription_free(u->ssi);
     pa_source_output_ext_subscription_free(u->sso);
     pa_card_ext_subscription_free(u->scrd);
+    pa_module_ext_subscription_free(u->smod);
 
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);

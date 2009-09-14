@@ -3,6 +3,7 @@
 #include <pulsecore/pulsecore-config.h>
 
 #include "context.h"
+#include "module-ext.h"
 #include "card-ext.h"
 #include "sink-ext.h"
 #include "source-ext.h"
@@ -24,7 +25,8 @@ static void  append_action(struct pa_policy_context_rule  *,
                            union pa_policy_context_action *);
 static void  delete_action(struct pa_policy_context_rule  *,
                            union pa_policy_context_action *);
-static int perform_action(union pa_policy_context_action *, char *);
+static int perform_action(struct userdata *, union pa_policy_context_action *,
+                          char *);
 
 static int   match_setup(struct pa_policy_match *, enum pa_classify_method,
                          char *, char **);
@@ -38,15 +40,18 @@ static void register_object(struct pa_policy_object *,
                             enum pa_policy_object_type,
                             const char *, void *, int);
 static void unregister_object(struct pa_policy_object *,
-                              const char *, void *, int);
+                              enum pa_policy_object_type, const char *,
+                              void *, unsigned long, int);
 static const char *get_object_property(struct pa_policy_object *,const char *);
 static void set_object_property(struct pa_policy_object *,
                                 const char *, const char *);
 static void delete_object_property(struct pa_policy_object *, const char *);
 static pa_proplist *get_object_proplist(struct pa_policy_object *);
+static int object_assert(struct userdata *, struct pa_policy_object *);
 static const char *object_name(struct pa_policy_object *);
 static void fire_object_property_changed_hook(struct pa_policy_object *object);
 
+static unsigned long object_index(enum pa_policy_object_type, void *);
 static const char *object_type_str(enum pa_policy_object_type);
 
 
@@ -112,8 +117,10 @@ void pa_policy_context_register(struct userdata *u,
 }
 
 void pa_policy_context_unregister(struct userdata *u,
+                                  enum pa_policy_object_type type,
                                   const char *name,
-                                  void *ptr)
+                                  void *ptr,
+                                  unsigned long index)
 {
     struct pa_policy_context_variable *var;
     struct pa_policy_context_rule     *rule;
@@ -145,7 +152,7 @@ void pa_policy_context_unregister(struct userdata *u,
                     continue;
                 } /* switch */
 
-                unregister_object(object, name, ptr, lineno);
+                unregister_object(object, type, name, ptr, index, lineno);
 
             } /* for actn */
         }  /* for rule */
@@ -244,7 +251,7 @@ int pa_policy_context_variable_changed(struct userdata *u, char *name,
                     if (rule->match.method(value, &rule->match.arg)) {
                         for (actn = rule->actions; actn; actn = actn->any.next)
                         {
-                            if (!perform_action(actn, value))
+                            if (!perform_action(u, actn, value))
                                 success = FALSE;
                         }
                     }
@@ -427,8 +434,9 @@ static void delete_action(struct pa_policy_context_rule  *rule,
            __FUNCTION__);
 }
 
-static int perform_action(union pa_policy_context_action *action,
-                          char *var_value)
+static int perform_action(struct userdata                *u,
+                          union pa_policy_context_action *action,
+                          char                           *var_value)
 {
     struct pa_policy_set_property *setprop;
     struct pa_policy_del_property *delprop;
@@ -439,66 +447,72 @@ static int perform_action(union pa_policy_context_action *action,
     const char                    *objtype;
     int                            success;
 
-    success = TRUE;
-
     switch (action->any.type) {
 
     case pa_policy_set_property:
         setprop = &action->setprop;
         object  = &setprop->object;
 
-        switch (setprop->value.type) {
+        if (!object_assert(u, object))
+            success = FALSE;
+        else {
+            switch (setprop->value.type) {
 
-        case pa_policy_value_constant:
-            prop_value = setprop->value.constant.string;
-            break;
+            case pa_policy_value_constant:
+                prop_value = setprop->value.constant.string;
+                break;
 
-        case pa_policy_value_copy:
-            prop_value = var_value;
-            break;
+            case pa_policy_value_copy:
+                prop_value = var_value;
+                break;
+                
+            default:
+                prop_value = NULL;
+                break;
+            }
+            
+            if (prop_value == NULL)
+                success = FALSE;
+            else {
+                success = TRUE;
 
-        default:
-            prop_value = NULL;
-            break;
+                old_value = get_object_property(object, setprop->property);
+                objname   = object_name(object);
+                objtype   = object_type_str(object->type);
+                
+                if (!strcmp(prop_value, old_value)) {
+                    pa_log_debug("%s '%s' property '%s' value is already '%s'",
+                                 objtype, objname, setprop->property,
+                                 prop_value);
+                }
+                else {
+                    pa_log_debug("setting %s '%s' property '%s' to '%s'",
+                                 objtype, objname, setprop->property,
+                                 prop_value);
+
+                    set_object_property(object, setprop->property, prop_value);
+                }
+            }
         }
+        break;
 
-        if (prop_value == NULL)
+    case pa_policy_delete_property:
+        delprop = &action->delprop;
+        object  = &delprop->object;
+
+        if (!object_assert(u, object))
             success = FALSE;
         else {
             success = TRUE;
 
-            old_value = get_object_property(object, setprop->property);
-            objname   = object_name(object);
-            objtype   = object_type_str(object->type);
-
-            if (!strcmp(prop_value, old_value)) {
-                pa_log_debug("%s '%s' property '%s' value is already '%s'",
-                             objtype, objname, setprop->property, prop_value);
-            }
-            else {
-                pa_log_debug("setting %s '%s' property '%s' to '%s'",
-                             objtype, objname, setprop->property, prop_value);
-
-                set_object_property(object, setprop->property, prop_value);
-            }
+            objname = object_name(object);
+            objtype = object_type_str(object->type);
+            
+            pa_log_debug("deleting %s '%s' property '%s'",
+                         objtype, objname, delprop->property);
+            
+            delete_object_property(object, delprop->property);
         }
-
-        break;
-
-    case pa_policy_delete_property:
-        success = TRUE;
-
-        delprop = &action->delprop;
-        object  = &delprop->object;
-
-        objname = object_name(object);
-        objtype = object_type_str(object->type);
-
-        pa_log_debug("deleting %s '%s' property '%s'",
-                     objtype, objname, delprop->property);
-
-        delete_object_property(object, delprop->property);
-
         break;
 
     default:
@@ -627,7 +641,7 @@ static void register_object(struct pa_policy_object *object,
                             enum pa_policy_object_type type,
                             const char *name, void *ptr, int lineno)
 {
-    const char *type_str;
+    const char    *type_str;
 
     if (object->type == type && object->match.method(name,&object->match.arg)){
 
@@ -641,21 +655,29 @@ static void register_object(struct pa_policy_object *object,
             pa_log_debug("registering context-rule for %s '%s' "
                          "(line %d in config file)", type_str, name, lineno);
 
-            object->ptr = ptr;
+            object->ptr   = ptr;
+            object->index = object_index(type, ptr);
+
         }
     }
 }
 
 static void unregister_object(struct pa_policy_object *object,
-                              const char *name, void *ptr, int lineno)
+                              enum pa_policy_object_type type,
+                              const char *name,
+                              void *ptr,
+                              unsigned long index,
+                              int lineno)
 {
-    if (ptr == object->ptr) {
+    if (( ptr &&                ptr == object->ptr             ) ||
+        (!ptr && type == object->type && index == object->index)   ) {
 
         pa_log_debug("unregistering context-rule for %s '%s' "
                      "(line %d in config file)",
                      object_type_str(object->type), name, lineno);
 
-        object->ptr = NULL;
+        object->ptr   = NULL;
+        object->index = PA_IDXSET_INVALID;
     }
 }
 
@@ -745,6 +767,43 @@ static pa_proplist *get_object_proplist(struct pa_policy_object *object)
     return proplist;
 }
 
+
+static int object_assert(struct userdata *u, struct pa_policy_object *object)
+{
+    void *ptr;
+
+    pa_assert(u);
+    pa_assert(u->core);
+
+    if (object->ptr != NULL && object->index != PA_IDXSET_INVALID) {
+
+        switch (object->type) {
+
+        case pa_policy_object_module:
+            ptr = pa_idxset_get_by_index(u->core->modules, object->index);
+
+            if (ptr != object->ptr)
+                break;
+
+            return TRUE;
+
+        case pa_policy_object_card:
+        case pa_policy_object_sink:
+        case pa_policy_object_source:
+        case pa_policy_object_sink_input:
+        case pa_policy_object_source_output:
+            return TRUE;
+
+        default:
+            break;
+        }
+    }
+    
+    pa_log("%s() failed", __FUNCTION__);
+
+    return FALSE;
+}
+
 static const char *object_name(struct pa_policy_object *object)
 {
     const char *name;
@@ -752,7 +811,7 @@ static const char *object_name(struct pa_policy_object *object)
     switch (object->type) {
 
     case pa_policy_object_module:
-        name = ((struct pa_module *)object->ptr)->name;
+        name = pa_module_ext_get_name((struct pa_module *)object->ptr);
         break;
 
     case pa_policy_object_card:
@@ -825,6 +884,27 @@ static void fire_object_property_changed_hook(struct pa_policy_object *object)
 
    pa_hook_fire(&core->hooks[hook], object->ptr);
 }
+
+static unsigned long object_index(enum pa_policy_object_type type, void *ptr)
+{
+    switch (type) {
+    case pa_policy_object_module:
+        return ((struct pa_module *)ptr)->index;
+    case pa_policy_object_card:
+        return ((struct pa_card *)ptr)->index;
+    case pa_policy_object_sink:
+        return ((struct pa_sink *)ptr)->index;
+    case pa_policy_object_source:
+        return ((struct pa_source *)ptr)->index;
+    case pa_policy_object_sink_input:
+        return ((struct pa_sink_input *)ptr)->index;
+    case pa_policy_object_source_output:
+        return ((struct pa_source_output *)ptr)->index;
+    default:
+        return PA_IDXSET_INVALID;
+    }
+}
+
 
 static const char *object_type_str(enum pa_policy_object_type type)
 {
