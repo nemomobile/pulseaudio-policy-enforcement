@@ -28,7 +28,7 @@
 
 #define POLICY_DECISION             "decision"
 #define POLICY_STREAM_INFO          "stream_info"
-#define POLICY_ACTIONS              "actions"
+#define POLICY_ACTIONS              "audio_actions"
 #define POLICY_STATUS               "status"
 
 
@@ -41,7 +41,8 @@ struct pa_policy_dbusif {
     char               *pdpath;  /* policy daemon's signal path */
     char               *pdnam;   /* policy daemon's D-Bus name */
     char               *admrule; /* match rule to catch name changes */
-    char               *polrule; /* match rule to catch policy signals */
+    char               *actrule; /* match rule to catch action signals */
+    char               *strrule; /* match rule to catch stream info signals */
     int                 regist;  /* wheter or not registered to policy daemon*/
 };
 
@@ -111,7 +112,8 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     struct pa_policy_dbusif *dbusif = NULL;
     DBusConnection          *dbusconn;
     DBusError                error;
-    char                     polrule[512];
+    char                     actrule[512];
+    char                     strrule[512];
     char                     admrule[512];
     
     dbusif = pa_xnew0(struct pa_policy_dbusif, 1);
@@ -168,13 +170,25 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
         goto fail;
     }
 
-    snprintf(polrule, sizeof(polrule), "type='signal',interface='%s',"
-             "path='%s/%s'", ifnam, pdpath, POLICY_DECISION);
-    dbus_bus_add_match(dbusconn, polrule, &error);
+    snprintf(actrule, sizeof(actrule), "type='signal',interface='%s',"
+             "member='%s',path='%s/%s'", ifnam, POLICY_ACTIONS,
+             pdpath, POLICY_DECISION);
+    dbus_bus_add_match(dbusconn, actrule, &error);
 
     if (dbus_error_is_set(&error)) {
-        pa_log("%s: unable to subscribe policy signals on %s: %s: %s",
-               __FILE__, ifnam, error.name, error.message);
+        pa_log("%s: unable to subscribe policy %s signal on %s: %s: %s",
+               __FILE__, POLICY_ACTIONS, ifnam, error.name, error.message);
+        goto fail;
+    }
+
+    snprintf(strrule, sizeof(strrule), "type='signal',interface='%s',"
+             "member='%s',path='%s/%s'", ifnam, POLICY_STREAM_INFO,
+             pdpath, POLICY_DECISION);
+    dbus_bus_add_match(dbusconn, strrule, &error);
+
+    if (dbus_error_is_set(&error)) {
+        pa_log("%s: unable to subscribe policy %s signal on %s: %s: %s",
+               __FILE__, POLICY_STREAM_INFO, ifnam, error.name, error.message);
         goto fail;
     }
 
@@ -185,7 +199,8 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     dbusif->pdpath  = pa_xstrdup(pdpath);
     dbusif->pdnam   = pa_xstrdup(pdnam);
     dbusif->admrule = pa_xstrdup(admrule);
-    dbusif->polrule = pa_xstrdup(polrule);
+    dbusif->actrule = pa_xstrdup(actrule);
+    dbusif->strrule = pa_xstrdup(strrule);
 
     register_to_pdp(dbusif, u);
 
@@ -212,7 +227,8 @@ static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif,
             }
 
             dbus_bus_remove_match(dbusconn, dbusif->admrule, NULL);
-            dbus_bus_remove_match(dbusconn, dbusif->polrule, NULL);
+            dbus_bus_remove_match(dbusconn, dbusif->actrule, NULL);
+            dbus_bus_remove_match(dbusconn, dbusif->strrule, NULL);
 
             pa_dbus_connection_unref(dbusif->conn);
         }
@@ -222,7 +238,8 @@ static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif,
         pa_xfree(dbusif->pdpath);
         pa_xfree(dbusif->pdnam);
         pa_xfree(dbusif->admrule);
-        pa_xfree(dbusif->polrule);
+        pa_xfree(dbusif->actrule);
+        pa_xfree(dbusif->strrule);
 
         pa_xfree(dbusif);
     }
@@ -786,6 +803,9 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
     DBusConnection  *conn   = pa_dbus_connection_get(dbusif->conn);
     DBusMessage     *msg;
     DBusPendingCall *pend;
+    char            *signals[4];
+    char           **v_ARRAY;
+    int              i;
     int              success;
 
     pa_log_info("%s: registering to policy daemon: name='%s' path='%s' if='%s'"
@@ -800,9 +820,14 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
         goto failed;
     }
 
+    signals[i=0] = POLICY_ACTIONS;
+    v_ARRAY = &signals;
+
     success = dbus_message_append_args(msg,
-                DBUS_TYPE_STRING, &name,
-                DBUS_TYPE_INVALID);
+                                       DBUS_TYPE_STRING, &name,
+                                       DBUS_TYPE_ARRAY,
+                                       DBUS_TYPE_STRING, &v_ARRAY, i+1,
+                                       DBUS_TYPE_INVALID);
     if (!success) {
         pa_log("%s: Failed to build D-Bus message to register", __FILE__);
         goto failed;
