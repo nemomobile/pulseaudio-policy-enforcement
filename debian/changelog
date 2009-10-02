@@ -2,7 +2,7 @@ pulseaudio-policy-enforcement (0.5.32-6maemo1) unstable; urgency=low
 
   * First release for maemo6.
 
- -- Martin Wolf <ext-martin.2.wolf@nokia.com> Thu, 01 Oct 2009 16:11:12 +0300
+ -- Martin Wolf <ext-martin.2.wolf@nokia.com>  Thu, 01 Oct 2009 16:11:12 +0300
 
 pulseaudio-policy-enforcement (0.5.32) unstable; urgency=low
 
