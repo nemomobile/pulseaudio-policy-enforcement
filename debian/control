@@ -1,6 +1,6 @@
 Source: pulseaudio-policy-enforcement
 Priority: optional
-Maintainer: Janos Kovacs <janos.f.kovacs@nokia.com>
+Maintainer: Martin Wolf <ext-martin.2.wolf@nokia.com>
 Build-Depends: debhelper (>= 5.0.0), cdbs,
  libglib2.0-dev,
  libdbus-1-dev,
