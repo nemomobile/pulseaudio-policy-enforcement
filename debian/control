@@ -1,7 +1,7 @@
 Source: pulseaudio-policy-enforcement
 Priority: optional
 Maintainer: Martin Wolf <ext-martin.2.wolf@nokia.com>
-Build-Depends: debhelper (>= 5.0.0), cdbs,
+Build-Depends: debhelper (>= 5.0.0), cdbs, automake, diff,
  libglib2.0-dev,
  libdbus-1-dev,
  libltdl-dev,
