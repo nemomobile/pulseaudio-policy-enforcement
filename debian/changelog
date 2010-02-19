@@ -1,8 +1,14 @@
+pulseaudio-policy-enforcement (1:1.2) unstable; urgency=low
+
+  * Add build dependency to automake and diff.
+
+ -- Kimmo Varis <ext-kimmo.1.varis@nokia.com>  Fri, 19 Feb 2010 09:49:12 +0300
+
 pulseaudio-policy-enforcement (1:1.1) unstable; urgency=low
 
   * Fix build-dependency to libltdl-dev instead of libltdl7-dev.
 
- -- Martin Wolf <ext-kimmo.1.varis@nokia.com>  Tue, 09 Feb 2010 08:49:12 +0300
+ -- Kimmo Varis <ext-kimmo.1.varis@nokia.com>  Tue, 09 Feb 2010 08:49:12 +0300
 
 pulseaudio-policy-enforcement (1:1.0) unstable; urgency=low
 
