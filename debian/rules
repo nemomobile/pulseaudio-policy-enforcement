@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+include /usr/share/cdbs/1/rules/utils.mk
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/autotools.mk
+
+DEB_CONFIGURE_SCRIPT_ENV += LDFLAGS="-Wl,-z,defs,--as-needed"
+DEB_MAKE_BUILD_TARGET = all #doc
+DEB_DH_INSTALL_SOURCEDIR = debian/tmp
+DEB_DH_STRIP_ARGS = --dbg-package=pulseaudio-policy-enforcement-dbg
+DEB_CONFIGURE_EXTRA_FLAGS := --prefix=/usr --with-module-dir=/usr/lib/pulse-0.9.15/modules
+
+makebuilddir:: stamp-autogen
+
+stamp-autogen:
+	./autogen.sh
+	touch $@
+
+clean::
+	rm -f stamp-autogen configure aclocal.m4
+	find -name Makefile.in -exec rm -f '{}' ';'
+

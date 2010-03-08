@@ -1,0 +1,27 @@
+Source: pulseaudio-policy-enforcement
+Priority: optional
+Maintainer: Janos Kovacs <janos.f.kovacs@nokia.com>
+Build-Depends: debhelper (>= 5.0.0), cdbs,
+ libglib2.0-dev,
+ libdbus-1-dev,
+ libltdl7-dev,
+ libpulse-dev (>= 0.9.15~git20090203-0maemo1),
+ pulseaudio-dev (>= 0.9.15~git20090203-0maemo1)
+Standards-Version: 3.7.2.2
+Section: sound
+
+Package: pulseaudio-policy-enforcement
+Section: sound
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: Pulseaudio module for policy enforcement
+ Pulseaudio module for policy enforcement.
+
+
+Package: pulseaudio-policy-enforcement-dbg
+Priority: extra
+Section: sound
+Architecture: any
+Depends: pulseaudio-policy-enforcement (= ${binary:Version})
+Description: Debug symbols for Pulseaudio policy enforcement module.
+

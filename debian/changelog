@@ -1,0 +1,271 @@
+pulseaudio-policy-enforcement (0.5.35) unstable; urgency=low
+
+  * Bumped version.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Mon, 14 Dec 2009 18:00:00 +0300
+
+pulseaudio-policy-enforcement (0.5.34) unstable; urgency=low
+
+  * bumping version number (Fixes: NB#145292)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 04 Nov 2009 18:00:00 +0300
+
+pulseaudio-policy-enforcement (0.5.33) unstable; urgency=low
+
+  * support for the changed signal names
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Tue, 29 Sep 2009 02:00:00 +0300
+
+pulseaudio-policy-enforcement (0.5.32) unstable; urgency=low
+
+  * fix for setting module properties based on context variables
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 14 Sep 2009 17:15:00 +0300
+
+pulseaudio-policy-enforcement (0.5.31) unstable; urgency=low
+
+  * firing property change hooks on context variable changes
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 24 Jul 2009 09:55:00 +0300
+
+pulseaudio-policy-enforcement (0.5.30) unstable; urgency=low
+
+  * bumped version number for a new pulseaudio release
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 24 Jul 2009 09:55:00 +0300
+
+pulseaudio-policy-enforcement (0.5.29) unstable; urgency=low
+
+  * Support for context variables
+  * 'othermedia_preemption' module argument
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sun, 12 Jul 2009 20:30:00 +0300
+
+pulseaudio-policy-enforcement (0.5.28) unstable; urgency=low
+
+  * Fix D-Bus memory leak for othermedia info messages (ie. for cases when
+    paplay is used)
+  * Beside card name consider the supported profiles at Bluetooth card
+    classification
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 02 Jul 2009 17:40:00 +0300
+
+pulseaudio-policy-enforcement (0.5.27) unstable; urgency=low
+
+  * Temporarily setting 'sink.null' as the default null-sink-name to be able.
+  * Mute-by-route support.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 25 Jun 2009 12:44:42 +0300
+
+pulseaudio-policy-enforcement (0.5.26) unstable; urgency=low
+
+  * Bumping version number for a new release
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fr, 12 Jun 2009 16:00:00 +0300
+
+pulseaudio-policy-enforcement (0.5.24) unstable; urgency=low
+
+  * Bumping version number for a new PA release
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 08 Jun 2009 16:00:00 +0300
+
+pulseaudio-policy-enforcement (0.5.23) unstable; urgency=low
+
+  * Disabling volume limit setting (just muting/unmuting)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 05 Jun 2009 19:33:31 +0300
+
+pulseaudio-policy-enforcement (0.5.22) unstable; urgency=low
+
+  * Added support for maemo-launche(r)d process classification.
+  * narrowing the scope of NameOwnerChanged D-Bus signal to org.freedesktop.ohm
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Thu, 14 May 2009 19:33:31 +0300
+
+pulseaudio-policy-enforcement (0.5.21) unstable; urgency=low
+
+  * media active/inactive notification in othermedia group
+  * name field in the registration message
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 14 May 2009 16:00:00 +0300
+
+pulseaudio-policy-enforcement (0.5.20) unstable; urgency=low
+
+  * bumping version number for PA release
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 07 May 2009 16:38:00 +0300
+
+pulseaudio-policy-enforcement (0.5.19) unstable; urgency=low
+
+  [ Janos Kovacs ]
+  * source-output-ext is now updated with the chnages that were made for
+    sink-input-ext.c. This includes the source_route flag and the pre-routing
+    (ie. overriding the traget source of source-output before it were actually
+    created).
+    the source-output to the act
+  * removed the double "dbusif.c: dbusif.c:" from debug logs
+
+  [ Ismo Puustinen ]
+  * Don't send status signals if transaction ID is 0.
+
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Thu, 07 May 2009 13:42:21 +0300
+
+pulseaudio-policy-enforcement (0.5.18) unstable; urgency=low
+
+  * Bumped version for the latest pulseaudio co-release.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 23 Apr 2009 15:55:00 +0200
+
+pulseaudio-policy-enforcement (0.5.17) unstable; urgency=low
+
+  * Bumped version for the latest pulseaudio co-release.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Mon, 20 Apr 2009 15:24:09 +0200
+
+pulseaudio-policy-enforcement (0.5.16) unstable; urgency=low
+
+  * directing streams to the right sink in pre-hook instead of post-hook.
+    This eliminates a possible stream moving between sinks, eg. between
+    sink.music and sink.voice.raw
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 06 Apr 2009 17:10:00 +0200
+
+pulseaudio-policy-enforcement (0.5.15) unstable; urgency=low
+
+  * changes for the new PA
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Tue, 02 Apr 2009 15:09:00 +0200
+
+pulseaudio-policy-enforcement (0.5.14) unstable; urgency=low
+
+  * introducing the 'set_sink' flag for initial, static routing (eg. for
+    routing system sounds directly to sink.voice.raw)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 30 Mar 2009 15:12:00 +0200
+
+pulseaudio-policy-enforcement (0.5.13) unstable; urgency=low
+
+  * version placeholder for possible pulseaudio release.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 19 Mar 2009 20:48:00 +0200
+
+pulseaudio-policy-enforcement (0.5.12) unstable; urgency=low
+
+  * allowing any stream (ie. sink-input/source/output) property to use
+    for group classification purposes.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 19 Mar 2009 20:48:00 +0200
+
+pulseaudio-policy-enforcement (0.5.11) unstable; urgency=low
+
+  * adjust to the ever changing Pulse Audio bluetooth naming convention
+  * fixes to stream classification
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 18 Mar 2009 20:33:00 +0200
+
+pulseaudio-policy-enforcement (0.5.10) unstable; urgency=low
+
+  * Revert input volume setting to pa_asyncmsgq_post.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Mon, 09 Mar 2009 18:04:09 +0200
+
+pulseaudio-policy-enforcement (0.5.9) unstable; urgency=low
+
+  * Don't save forced volumes in sinks.
+  * Change pa_assert to pa_assert_se where appropriate (Fixes: NB#103904).
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Fri, 06 Mar 2009 18:30:33 +0200
+
+pulseaudio-policy-enforcement (0.5.8) unstable; urgency=low
+
+  * support for the new BT routing in Pulse Audio 0.9.15
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Tue, 24 Feb 2009 16:43:00 +0200
+
+pulseaudio-policy-enforcement (0.9.15.0-0maemo1) UNRELEASED; urgency=low
+
+  * Updated to work with PulseAudio 0.9.15-test1.
+
+ -- Maemo Multimedia <multimedia@maemo.org>  Thu, 05 Feb 2009 14:31:51 +0200
+
+pulseaudio-policy-enforcement (0.5.7) unstable; urgency=low
+
+  * cope with embeded stream creation (i.e. a stream redirect would create
+    another stream before the redirection ends)
+  * Remove libatomic-ops dependency.
+
+ -- Maemo Multimedia <multimedia@maemo.org>  Thu, 29 Jan 2009 18:41:23 +0200
+
+pulseaudio-policy-enforcement (0.5.6) unstable; urgency=low
+
+  * mutes output streams if the volume limit is zero. (better co-existence
+    with module-flat-volume)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sun, 25 Jan 2009 13:30:00 +0200
+
+pulseaudio-policy-enforcement (0.5.5) unstable; urgency=low
+
+  * support for pulseaudio 0.9.15
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 21 Jan 2009 17:10:00 +0200
+
+pulseaudio-policy-enforcement (0.5.4) unstable; urgency=low
+
+  * Support for video routing action (i.e. silently ignore them
+    instead of failing)
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 16 Jan 2009 12:15:00 +0200
+
+pulseaudio-policy-enforcement (0.5.3) unstable; urgency=low
+
+  * Renamed the incoming "info" signal to "command" (the outgoing "info"
+    signal name was not changed).
+
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Fri, 09 Jan 2009 11:35:00 +0200
+
+pulseaudio-policy-enforcement (0.5.2) unstable; urgency=low
+
+  * Fix for zero volume in case of new streams
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 29 Dec 2008 14:45:01 +0200
+
+pulseaudio-policy-enforcement (0.5.1) unstable; urgency=low
+
+  * Postinstall script fix for busybox.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 19 Dec 2008 20:10:13 +0200
+
+pulseaudio-policy-enforcement (0.5) unstable; urgency=low
+
+  * Filter patch in --no-cpu-limit for pulseaudio startup.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Fri, 19 Dec 2008 16:50:00 +0200
+
+pulseaudio-policy-enforcement (0.4) unstable; urgency=low
+
+  * Filter subsequent, identical policy decisions.
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Wed, 17 Dec 2008 14:15:06 +0200
+
+pulseaudio-policy-enforcement (0.3) unstable; urgency=low
+
+  * Postinst script was added to fix the pulseaudio system.pa file.
+  * Change pacakage version 0.9.13.
+  * Support for maintaining the 'mode' and 'accessory_hwid' properties on sinks.
+  * The type volume limit in D-Bus action message changed (uint32 -> int32) due.
+  * Fix for not failing for volume limit 0.
+  * The volume limit data type in the dbus action message is changed from.
+
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Wed, 10 Dec 2008 15:14:48 +0200
+
+pulseaudio-policy-enforcement (0.2) unstable; urgency=low
+
+  * 
+
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Wed, 19 Nov 2008 14:55:15 +0200
+
+pulseaudio-policy-enforcement (0.1) unstable; urgency=low
+
+  * Initial release.
+
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Tue, 07 Oct 2008 18:48:01 +0300
