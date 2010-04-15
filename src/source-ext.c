@@ -6,6 +6,8 @@
 #include <pulsecore/pulsecore-config.h>
 
 #include <pulse/def.h>
+
+#include <pulsecore/core-util.h>
 #include <pulsecore/source.h>
 
 #include "source-ext.h"
@@ -110,7 +112,7 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
                 pa_log_debug("%s() %smute source '%s' type '%s'",
                              __FUNCTION__, mute ? "" : "un", name, type);
             
-                pa_source_set_mute(source, mute);
+                pa_source_set_mute(source, mute, TRUE);
             }
             
             return 0;
@@ -121,6 +123,47 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
     return -1;
 }
 
+int pa_source_ext_set_ports(struct userdata *u, const char *type)
+{
+    int ret = 0;
+
+#if PULSEAUDIO_HAS_PORTS
+    pa_source *source;
+    struct pa_classify_device_data *data;
+    uint32_t idx;
+
+    pa_assert(u);
+    pa_assert(u->core);
+
+    PA_IDXSET_FOREACH(source, u->core->sources, idx) {
+        /* Check whether the port of this source should be changed. */
+        if (pa_classify_is_port_source_typeof(u, source, type, &data)) {
+            struct pa_classify_port_entry *port_entry;
+
+            pa_assert_se(port_entry = pa_hashmap_get(data->ports,
+                                                     source->name));
+
+            if (!source->active_port ||
+                    !pa_streq(port_entry->port_name,
+                              source->active_port->name)) {
+
+                if (pa_source_set_port(source, port_entry->port_name,
+                                       FALSE) < 0) {
+                    ret = -1;
+                    pa_log("failed to set source '%s' port to '%s'",
+                           source->name, port_entry->port_name);
+                }
+                else {
+                    pa_log_debug("changed source '%s' port to '%s'",
+                                 source->name, port_entry->port_name);
+                }
+            }
+        }
+    }
+#endif
+
+    return ret;
+}
 
 static pa_hook_result_t source_put(void *hook_data, void *call_data,
                                        void *slot_data)

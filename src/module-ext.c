@@ -119,7 +119,6 @@ static void handle_new_module(struct userdata *u, struct pa_module *module)
 {
     char     *name;
     uint32_t  idx;
-    int       ret;
 
     if (module && u) {
         name = pa_module_ext_get_name(module);
@@ -135,7 +134,7 @@ static void handle_removed_module(struct userdata *u, unsigned long idx)
 
     if (u) {
 
-        snprintf(name, sizeof(name), "module #%d", idx);
+        snprintf(name, sizeof(name), "module #%lu", idx);
 
         pa_policy_context_unregister(u, pa_policy_object_module,
                                      name, NULL, idx);

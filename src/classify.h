@@ -59,8 +59,16 @@ struct pa_classify_stream {
     struct pa_classify_stream_def *defs;
 };
 
+struct pa_classify_port_entry {
+    char *device_name; /* Sink or source name */
+    char *port_name;
+};
+
 struct pa_classify_device_data {
-    uint32_t                         flags; /* PA_POLICY_DISABLE_NOTIFY, etc */
+    pa_hashmap *ports; /* Key: device name, value: pa_classify_port_entry. If
+                        * the device type doesn't require setting any ports,
+                        * this is NULL. */
+    uint32_t    flags; /* PA_POLICY_DISABLE_NOTIFY, etc */
 };
 
 struct pa_classify_device_def {
@@ -106,13 +114,17 @@ struct pa_classify {
 struct pa_classify *pa_classify_new(struct userdata *);
 void  pa_classify_free(struct pa_classify *);
 void  pa_classify_add_sink(struct userdata *, char *, char *,
-                           enum pa_classify_method, char *, uint32_t);
+                           enum pa_classify_method, char *, pa_hashmap *,
+                           uint32_t);
 void  pa_classify_add_source(struct userdata *, char *, char *,
-                             enum pa_classify_method, char *, uint32_t);
+                             enum pa_classify_method, char *, pa_hashmap *,
+                             uint32_t);
 void  pa_classify_add_card(struct userdata *, char *,
                            enum pa_classify_method, char *, char *, uint32_t);
 void pa_classify_add_stream(struct userdata *, char *, enum pa_classify_method,
                             char *, char *, uid_t, char *, char *);
+
+void pa_classify_port_entry_free(struct pa_classify_port_entry *);
 
 void  pa_classify_register_pid(struct userdata *, pid_t, char *, char *);
 void  pa_classify_unregister_pid(struct userdata *, pid_t, char *);
@@ -131,12 +143,24 @@ int   pa_classify_source(struct userdata *, struct pa_source *,
 int   pa_classify_card(struct userdata *, struct pa_card *,
                        uint32_t, uint32_t, char *, int);
 
-int   pa_classify_is_sink_typeof(struct userdata *, struct pa_sink *, char *,
+int   pa_classify_is_sink_typeof(struct userdata *, struct pa_sink *,
+                                 const char *,
                                  struct pa_classify_device_data **);
 int   pa_classify_is_source_typeof(struct userdata *, struct pa_source *,
-                                   char *, struct pa_classify_device_data **);
+                                   const char *,
+                                   struct pa_classify_device_data **);
 int   pa_classify_is_card_typeof(struct userdata *, struct pa_card *,
                                  char *, struct pa_classify_card_data **);
+
+/* The ports= option in the [device] section may contain multiple sinks or
+ * sources of which port should be set. These two functions are used to find
+ * out whether the port of the given sink or source should be set. */
+int pa_classify_is_port_sink_typeof(struct userdata *, struct pa_sink *,
+                                    const char *,
+                                    struct pa_classify_device_data **);
+int pa_classify_is_port_source_typeof(struct userdata *, struct pa_source *,
+                                      const char *,
+                                      struct pa_classify_device_data **);
 
 int   pa_classify_method_equals(const char *, union pa_classify_arg *);
 int   pa_classify_method_startswith(const char *, union pa_classify_arg *);
