@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (1:1.4) unstable; urgency=low
+
+  * Merge in PulseAudio port support
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Thu, 15 Apr 2010 16:40:01 +0300
+
 pulseaudio-policy-enforcement (1:1.3) unstable; urgency=low
 
   * Bumper version.
