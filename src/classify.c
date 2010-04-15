@@ -866,6 +866,7 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
         /* Copy the ports hashmap to d->data.ports. */
 
+#if PULSEAUDIO_HAS_PORTS
         d->data.ports = pa_hashmap_new(pa_idxset_string_hash_func,
                                        pa_idxset_string_compare_func);
         PA_HASHMAP_FOREACH(port, ports, state) {
@@ -884,6 +885,9 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
             pa_strbuf_printf(buf, "%s:%s", port->device_name, port->port_name);
         }
+#else
+        d->data.ports = NULL;
+#endif
     }
 
     d->data.flags = flags;

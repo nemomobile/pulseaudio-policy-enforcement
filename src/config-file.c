@@ -1,3 +1,4 @@
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdlib.h>
@@ -889,6 +890,7 @@ static int deviceprop_parse(int lineno, enum device_class class,
 static int ports_parse(int lineno, const char *portsdef,
                        struct devicedef *devdef)
 {
+#if PULSEAUDIO_HAS_PORTS
     char **entries;
 
     if (devdef->ports) {
@@ -953,6 +955,7 @@ static int ports_parse(int lineno, const char *portsdef,
 
     } else
         pa_log_warn("Empty ports= definition in line %d", lineno);
+#endif
 
     return 0;
 }

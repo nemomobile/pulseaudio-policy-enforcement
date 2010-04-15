@@ -112,7 +112,11 @@ int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
                 pa_log_debug("%s() %smute source '%s' type '%s'",
                              __FUNCTION__, mute ? "" : "un", name, type);
             
+#if PULSEAUDIO_HAS_PORTS
                 pa_source_set_mute(source, mute, TRUE);
+#else
+                pa_source_set_mute(source, mute);
+#endif
             }
             
             return 0;
