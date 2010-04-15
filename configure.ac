@@ -83,7 +83,7 @@ AC_ARG_WITH(
         [modlibexecdir=$withval], [modlibexecdir=${LIBDIR}/pulse-${PA_MAJORMINOR}/modules])
 
 PULSEAUDIO_HAS_PORTS=0
-echo -e "#include <pulsecore/pulsecore-config.h>\n #include <pulsecore/sink.h>\nint main() {\nreturn pa_sink_set_port((struct pa_sink *)0,\"\",0);\n}" | ${CC} ${CFLAGS} ${LIBPULSECORE_CFLAGS} ${LIBPULSE_CFLAGS} -Wmissing-declarations -Werror -x c -o /dev/null - && PULSEAUDIO_HAS_PORTS=1
+echo -e "#include <pulsecore/pulsecore-config.h>\n #include <pulsecore/sink.h>\nint main() {\nreturn pa_sink_set_port((struct pa_sink *)0,\"\",0);\n}" | ${CC} ${CFLAGS} ${LIBPULSECORE_CFLAGS} ${LIBPULSE_CFLAGS} ${AM_LIBADD} ${LIBPULSECORE_LIBS} ${LIBPULSE_LIBS} -Wmissing-declarations -Werror -x c -o /dev/null - && PULSEAUDIO_HAS_PORTS=1
 AC_SUBST(PULSEAUDIO_HAS_PORTS)
 
 
