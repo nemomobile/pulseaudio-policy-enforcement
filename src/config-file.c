@@ -17,6 +17,7 @@
 
 #include <pulsecore/pulsecore-config.h>
 
+#include <pulsecore/core-util.h>
 #include <pulsecore/log.h>
 
 #include "config-file.h"
@@ -89,6 +90,8 @@ struct devicedef {
     char                    *prop;
     enum pa_classify_method  method;
     char                    *arg;
+    pa_hashmap              *ports; /* Key: device name, value:
+                                     * pa_classify_port_entry. */
     uint32_t                 flags;
 };
 
@@ -145,6 +148,7 @@ static int streamdef_parse(int, char *, struct streamdef *);
 static int contextdef_parse(int, char *, struct contextdef *);
 
 static int deviceprop_parse(int, enum device_class,char *,struct devicedef *);
+static int ports_parse(int, const char *, struct devicedef *);
 static int streamprop_parse(int, char *, struct streamdef *);
 static int contextval_parse(int, char *, struct contextdef *);
 static int contextsetprop_parse(int, char *, struct contextdef *);
@@ -417,25 +421,37 @@ static int section_close(struct userdata *u, struct section *sec)
         case section_device:
             status = 0;
             devdef = sec->def.device;
-            
+
             switch (devdef->class) {
 
             case device_sink:
+                /* All devdef values are deep copied. */
                 pa_classify_add_sink(u, devdef->type,
                                      devdef->prop, devdef->method, devdef->arg,
-                                     devdef->flags);
+                                     devdef->ports, devdef->flags);
                 break;
 
             case device_source:
+                /* All devdef values are deep copied. */
                 pa_classify_add_source(u, devdef->type,
-                                       devdef->prop,devdef->method,devdef->arg,
+                                       devdef->prop, devdef->method,
+                                       devdef->arg, devdef->ports,
                                        devdef->flags);
                 break;
 
             default:
                 break;
             }
-            
+
+            if (devdef->ports) {
+                struct pa_classify_port_entry *port;
+
+                while ((port = pa_hashmap_steal_first(devdef->ports)))
+                    pa_classify_port_entry_free(port);
+
+                pa_hashmap_free(devdef->ports, NULL, NULL);
+            }
+
             pa_xfree(devdef->type);
             pa_xfree(devdef->prop);
             pa_xfree(devdef->arg);
@@ -662,6 +678,9 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
         else if (!strncmp(line, "source=", 7)) {
             sts = deviceprop_parse(lineno, device_source, line+7, devdef);
         }
+        else if (!strncmp(line, "ports=", 6)) {
+            sts = ports_parse(lineno, line+6, devdef);
+        }
         else if (!strncmp(line, "flags=", 6)) {
             sts = flags_parse(lineno, line+6, &devdef->flags);
         }
@@ -864,6 +883,77 @@ static int deviceprop_parse(int lineno, enum device_class class,
     devdef->prop  = pa_xstrdup(prop);
     devdef->arg   = pa_xstrdup(arg);
     
+    return 0;
+}
+
+static int ports_parse(int lineno, const char *portsdef,
+                       struct devicedef *devdef)
+{
+    char **entries;
+
+    if (devdef->ports) {
+        struct pa_classify_port_entry *port;
+
+        pa_log("Duplicate ports= line in line %d, using the last "
+               "occurrence.", lineno);
+
+        while ((port = pa_hashmap_steal_first(devdef->ports)))
+            pa_classify_port_entry_free(port);
+
+        pa_hashmap_free(devdef->ports, NULL, NULL);
+    }
+
+    devdef->ports = pa_hashmap_new(pa_idxset_string_hash_func,
+                                   pa_idxset_string_compare_func);
+
+    if ((entries = pa_split_strv(portsdef, ","))) {
+        char *entry; /* This string has format "sinkname:portname". */
+        int i = 0;
+
+        while ((entry = entries[i++])) {
+            struct pa_classify_port_entry *port;
+            size_t entry_len;
+            size_t colon_pos;
+
+            if (!*entry) {
+                pa_log_debug("Ignoring a redundant comma in line %d", lineno);
+                continue;
+            }
+
+            entry_len = strlen(entry);
+            colon_pos = strcspn(entry, ":");
+
+            if (colon_pos == entry_len) {
+                pa_log("Colon missing in port entry '%s' in line %d, ignoring "
+                       "the entry", entry, lineno);
+                continue;
+            } else if (colon_pos == 0) {
+                pa_log("Empty device name in port entry '%s' in line %d, "
+                       "ignoring the entry", entry, lineno);
+                continue;
+            } else if (colon_pos == entry_len - 1) {
+                pa_log("Empty port name in port entry '%s' in line %d, "
+                       "ignoring the entry", entry, lineno);
+                continue;
+            }
+
+            port = pa_xnew(struct pa_classify_port_entry, 1);
+            port->device_name = pa_xstrndup(entry, colon_pos);
+            port->port_name = pa_xstrdup(entry + colon_pos + 1);
+
+            if (pa_hashmap_put(devdef->ports, port->device_name, port) < 0) {
+                pa_log("Duplicate device name in port entry '%s' in line %d, "
+                       "using the first occurrence", entry, lineno);
+
+                pa_classify_port_entry_free(port);
+            }
+        }
+
+        pa_xstrfreev(entries);
+
+    } else
+        pa_log_warn("Empty ports= definition in line %d", lineno);
+
     return 0;
 }
 

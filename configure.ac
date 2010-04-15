@@ -82,6 +82,11 @@ AC_ARG_WITH(
         AS_HELP_STRING([--with-module-dir],[Directory where to install the modules to (defaults to ${LIBDIR}/pulse-${PA_MAJORMINOR}/modules/]),
         [modlibexecdir=$withval], [modlibexecdir=${LIBDIR}/pulse-${PA_MAJORMINOR}/modules])
 
+PULSEAUDIO_HAS_PORTS=0
+echo -e "#include <pulsecore/pulsecore-config.h>\n #include <pulsecore/sink.h>\nint main() {\nreturn pa_sink_set_port((struct pa_sink *)0,\"\",0);\n}" | ${CC} ${CFLAGS} ${LIBPULSECORE_CFLAGS} ${LIBPULSE_CFLAGS} -Wmissing-declarations -Werror -x c -o /dev/null - && PULSEAUDIO_HAS_PORTS=1
+AC_SUBST(PULSEAUDIO_HAS_PORTS)
+
+
 AC_SUBST(modlibexecdir)
 
 AC_CONFIG_FILES([
@@ -94,17 +99,18 @@ AC_OUTPUT
 echo "
  ---{ $PACKAGE_NAME $VERSION }---
 
-    prefix:              ${prefix}
-    sysconfdir:          ${sysconfdir}
-    localstatedir:       ${localstatedir}
-    Compiler:            ${CC}
-    CFLAGS:              ${CFLAGS}
-    LIBDIR:              ${LIBDIR}
-    LIBPULSE_CFLAGS:     ${LIBPULSE_CFLAGS}
-    LIBPULSE_LIBS:       ${LIBPULSE_LIBS}
-    LIBPULSECORE_CFLAGS: ${LIBPULSECORE_CFLAGS}
-    LIBPULSECORE_LIBS:   ${LIBPULSECORE_LIBS}
-    DBUS_CFLAGS:         ${DBUS_CFLAGS}
-    DBUS_LIBS:           ${DBUS_LIBS}
-    PD_SUPPORT:          ${PD_SUPPORT}
+    prefix:               ${prefix}
+    sysconfdir:           ${sysconfdir}
+    localstatedir:        ${localstatedir}
+    Compiler:             ${CC}
+    CFLAGS:               ${CFLAGS}
+    LIBDIR:               ${LIBDIR}
+    LIBPULSE_CFLAGS:      ${LIBPULSE_CFLAGS}
+    LIBPULSE_LIBS:        ${LIBPULSE_LIBS}
+    LIBPULSECORE_CFLAGS:  ${LIBPULSECORE_CFLAGS}
+    LIBPULSECORE_LIBS:    ${LIBPULSECORE_LIBS}
+    PULSEAUDIO_HAS_PORTS: ${PULSEAUDIO_HAS_PORTS}
+    DBUS_CFLAGS:          ${DBUS_CFLAGS}
+    DBUS_LIBS:            ${DBUS_LIBS}
+    PD_SUPPORT:           ${PD_SUPPORT}
 "

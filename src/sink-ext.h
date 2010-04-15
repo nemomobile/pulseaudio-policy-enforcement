@@ -21,6 +21,7 @@ struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *);
 void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
 void  pa_sink_ext_discover(struct userdata *);
 char *pa_sink_ext_get_name(struct pa_sink *);
+int pa_sink_ext_set_ports(struct userdata *, const char *);
 
 void pa_policy_send_device_state(struct userdata *, const char *, char *);
 

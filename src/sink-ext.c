@@ -6,6 +6,8 @@
 #include <pulsecore/pulsecore-config.h>
 
 #include <pulse/def.h>
+
+#include <pulsecore/core-util.h>
 #include <pulsecore/sink.h>
 
 #include "sink-ext.h"
@@ -101,6 +103,46 @@ void pa_sink_ext_discover(struct userdata *u)
 char *pa_sink_ext_get_name(struct pa_sink *sink)
 {
     return sink->name ? sink->name : (char *)"<unknown>";
+}
+
+int pa_sink_ext_set_ports(struct userdata *u, const char *type)
+{
+    int ret = 0;
+
+#if PULSEAUDIO_HAS_PORTS
+    pa_sink *sink;
+    struct pa_classify_device_data *data;
+    uint32_t idx;
+
+    pa_assert(u);
+    pa_assert(u->core);
+
+    PA_IDXSET_FOREACH(sink, u->core->sinks, idx) {
+        /* Check whether the port of this sink should be changed. */
+        if (pa_classify_is_port_sink_typeof(u, sink, type, &data)) {
+            struct pa_classify_port_entry *port_entry;
+
+            pa_assert_se(port_entry = pa_hashmap_get(data->ports, sink->name));
+
+            if (!sink->active_port ||
+                    !pa_streq(port_entry->port_name,
+                              sink->active_port->name)) {
+
+                if (pa_sink_set_port(sink, port_entry->port_name, FALSE) < 0) {
+                    ret = -1;
+                    pa_log("failed to set sink '%s' port to '%s'",
+                           sink->name, port_entry->port_name);
+                }
+                else {
+                    pa_log_debug("changed sink '%s' port to '%s'",
+                                 sink->name, port_entry->port_name);
+                }
+            }
+        }
+    }
+#endif
+
+    return ret;
 }
 
 static pa_hook_result_t sink_put(void *hook_data, void *call_data,

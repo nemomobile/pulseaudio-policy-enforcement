@@ -11,6 +11,7 @@
 #include "classify.h"
 #include "context.h"
 #include "policy-group.h"
+#include "sink-ext.h"
 #include "source-ext.h"
 #include "card-ext.h"
 
@@ -627,6 +628,10 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
         pa_log_debug("route %s to %s (%s|%s)", args.type, target, mode, hwid);
 
         if (pa_card_ext_set_profile(u, target) < 0 ||
+            (class == pa_policy_route_to_sink && 
+                pa_sink_ext_set_ports(u, target) < 0) ||
+            (class == pa_policy_route_to_source &&
+                pa_source_ext_set_ports(u, target) < 0) ||
             pa_policy_group_move_to(u, NULL, class, target, mode, hwid) < 0)
         {
             pa_log("%s: can't route to %s %s", __FILE__, args.type, target);
@@ -803,8 +808,8 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
     DBusConnection  *conn   = pa_dbus_connection_get(dbusif->conn);
     DBusMessage     *msg;
     DBusPendingCall *pend;
-    char            *signals[4];
-    char           **v_ARRAY;
+    const char      *signals[4];
+    const char     **v_ARRAY;
     int              i;
     int              success;
 
@@ -821,7 +826,7 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
     }
 
     signals[i=0] = POLICY_ACTIONS;
-    v_ARRAY = &signals;
+    v_ARRAY = signals;
 
     success = dbus_message_append_args(msg,
                                        DBUS_TYPE_STRING, &name,

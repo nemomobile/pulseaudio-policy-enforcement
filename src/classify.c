@@ -2,10 +2,12 @@
 
 #include <pulsecore/pulsecore-config.h>
 
-#include <pulsecore/log.h>
 #include <pulsecore/client.h>
+#include <pulsecore/core-util.h>
+#include <pulsecore/log.h>
 #include <pulsecore/sink-input.h>
 #include <pulsecore/source-output.h>
+#include <pulsecore/strbuf.h>
 
 #include "classify.h"
 #include "client-ext.h"
@@ -47,11 +49,13 @@ static struct pa_classify_stream_def
 
 static void devices_free(struct pa_classify_device *);
 static void devices_add(struct pa_classify_device **, char *,
-                        char *,  enum pa_classify_method, char *, uint32_t);
+                        char *,  enum pa_classify_method, char *, pa_hashmap *,
+                        uint32_t);
 static int devices_classify(struct pa_classify_device_def *, pa_proplist *,
                             char *, uint32_t, uint32_t, char *, int);
 static int devices_is_typeof(struct pa_classify_device_def *, pa_proplist *,
-                             char *, char *,struct pa_classify_device_data **);
+                             char *, const char *,
+                             struct pa_classify_device_data **);
 
 static void cards_free(struct pa_classify_card *);
 static void cards_add(struct pa_classify_card **, char *,
@@ -60,6 +64,10 @@ static int  cards_classify(struct pa_classify_card_def *, char *, char **,
                            uint32_t,uint32_t, char *,int);
 static int card_is_typeof(struct pa_classify_card_def *, char *,
                           char *, struct pa_classify_card_data **);
+
+static int port_device_is_typeof(struct pa_classify_device_def *, char *,
+                                 const char *,
+                                 struct pa_classify_device_data **);
 
 
 char *get_property(char *, pa_proplist *, char *);
@@ -94,7 +102,7 @@ void pa_classify_free(struct pa_classify *cl)
 
 void pa_classify_add_sink(struct userdata *u, char *type, char *prop,
                           enum pa_classify_method method, char *arg,
-                          uint32_t flags)
+                          pa_hashmap *ports, uint32_t flags)
 {
     struct pa_classify *classify;
 
@@ -105,12 +113,12 @@ void pa_classify_add_sink(struct userdata *u, char *type, char *prop,
     pa_assert(prop);
     pa_assert(arg);
 
-    devices_add(&classify->sinks, type, prop, method, arg, flags);
+    devices_add(&classify->sinks, type, prop, method, arg, ports, flags);
 }
 
 void pa_classify_add_source(struct userdata *u, char *type, char *prop,
                             enum pa_classify_method method, char *arg,
-                            uint32_t flags)
+                            pa_hashmap *ports, uint32_t flags)
 {
     struct pa_classify *classify;
 
@@ -121,7 +129,7 @@ void pa_classify_add_source(struct userdata *u, char *type, char *prop,
     pa_assert(prop);
     pa_assert(arg);
 
-    devices_add(&classify->sources, type, prop, method, arg, flags);
+    devices_add(&classify->sources, type, prop, method, arg, ports, flags);
 }
 
 void pa_classify_add_card(struct userdata *u, char *type,
@@ -304,7 +312,8 @@ int pa_classify_card(struct userdata *u, struct pa_card *card,
 }
 
 int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
-                               char *type, struct pa_classify_device_data **d)
+                               const char *type,
+                               struct pa_classify_device_data **d)
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
@@ -325,7 +334,8 @@ int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
 
 
 int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
-                                 char *type,struct pa_classify_device_data **d)
+                                 const char *type,
+                                 struct pa_classify_device_data **d)
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
@@ -363,6 +373,51 @@ int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
     name = pa_card_ext_get_name(card);
 
     return card_is_typeof(defs, name, type, d);
+}
+
+
+int pa_classify_is_port_sink_typeof(struct userdata *u, struct pa_sink *sink,
+                                    const char *type,
+                                    struct pa_classify_device_data **d)
+{
+    struct pa_classify *classify;
+    struct pa_classify_device_def *defs;
+    char *name;
+
+    pa_assert(u);
+    pa_assert_se((classify = u->classify));
+    pa_assert(classify->sinks);
+    pa_assert_se((defs = classify->sinks->defs));
+
+    if (!sink || !type)
+        return FALSE;
+
+    name = pa_sink_ext_get_name(sink);
+
+    return port_device_is_typeof(defs, name, type, d);
+}
+
+
+int pa_classify_is_port_source_typeof(struct userdata *u,
+                                      struct pa_source *source,
+                                      const char *type,
+                                      struct pa_classify_device_data **d)
+{
+    struct pa_classify *classify;
+    struct pa_classify_device_def *defs;
+    char *name;
+
+    pa_assert(u);
+    pa_assert_se((classify = u->classify));
+    pa_assert(classify->sources);
+    pa_assert_se((defs = classify->sources->defs));
+
+    if (!source || !type)
+        return FALSE;
+
+    name = pa_source_ext_get_name(source);
+
+    return port_device_is_typeof(defs, name, type, d);
 }
 
 
@@ -742,13 +797,30 @@ streams_find(struct pa_classify_stream_def **defs, pa_proplist *proplist,
 #undef ID_MATCH_OF
 }
 
-static void devices_free(struct pa_classify_device *sinks)
+void pa_classify_port_entry_free(struct pa_classify_port_entry *port) {
+    pa_assert(port);
+
+    pa_xfree(port->device_name);
+    pa_xfree(port->port_name);
+    pa_xfree(port);
+}
+
+static void devices_free(struct pa_classify_device *devices)
 {
     struct pa_classify_device_def *d;
 
-    if (sinks) {
-        for (d = sinks->defs;  d->type;  d++) {
+    if (devices) {
+        for (d = devices->defs;  d->type;  d++) {
             pa_xfree((void *)d->type);
+
+            if (d->data.ports) {
+                struct pa_classify_port_entry *port;
+
+                while ((port = pa_hashmap_steal_first(d->data.ports)))
+                    pa_classify_port_entry_free(port);
+
+                pa_hashmap_free(d->data.ports, NULL, NULL);
+            }
 
             if (d->method == pa_classify_method_matches)
                 regfree(&d->arg.rexp);
@@ -756,18 +828,20 @@ static void devices_free(struct pa_classify_device *sinks)
                 pa_xfree((void *)d->arg.string);
         }
 
-        pa_xfree(sinks);
+        pa_xfree(devices);
     }
 }
 
 static void devices_add(struct pa_classify_device **p_devices, char *type,
                         char *prop, enum pa_classify_method method, char *arg,
-                        uint32_t flags)
+                        pa_hashmap *ports, uint32_t flags)
 {
     struct pa_classify_device *devs;
     struct pa_classify_device_def *d;
     size_t newsize;
     char *method_name;
+    char *ports_string = NULL; /* Just for log output. */
+    pa_strbuf *buf; /* For building ports_string. */
 
     pa_assert(p_devices);
     pa_assert_se((devs = *p_devices));
@@ -782,6 +856,35 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
     d->type  = pa_xstrdup(type);
     d->prop  = pa_xstrdup(prop);
+
+    buf = pa_strbuf_new();
+
+    if (ports && !pa_hashmap_isempty(ports)) {
+        struct pa_classify_port_entry *port;
+        void *state;
+        pa_bool_t first = TRUE;
+
+        /* Copy the ports hashmap to d->data.ports. */
+
+        d->data.ports = pa_hashmap_new(pa_idxset_string_hash_func,
+                                       pa_idxset_string_compare_func);
+        PA_HASHMAP_FOREACH(port, ports, state) {
+            struct pa_classify_port_entry *port_copy =
+                pa_xnew(struct pa_classify_port_entry, 1);
+
+            port_copy->device_name = pa_xstrdup(port->device_name);
+            port_copy->port_name = pa_xstrdup(port->port_name);
+
+            pa_hashmap_put(d->data.ports, port_copy->device_name, port_copy);
+
+            if (!first) {
+                pa_strbuf_putc(buf, ',');
+            }
+            first = FALSE;
+
+            pa_strbuf_printf(buf, "%s:%s", port->device_name, port->port_name);
+        }
+    }
 
     d->data.flags = flags;
 
@@ -815,8 +918,12 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 
     devs->ndef++;
 
-    pa_log_info("device '%s' added (%s|%s|%s|0x%04x)",
-                type, d->prop, method_name, arg, d->data.flags);
+    ports_string = pa_strbuf_tostring_free(buf);
+
+    pa_log_info("device '%s' added (%s|%s|%s|%s|0x%04x)",
+                type, d->prop, method_name, arg, ports_string, d->data.flags);
+
+    pa_xfree(ports_string);
 }
 
 static int devices_classify(struct pa_classify_device_def *defs,
@@ -860,7 +967,8 @@ static int devices_classify(struct pa_classify_device_def *defs,
 }
 
 static int devices_is_typeof(struct pa_classify_device_def *defs,
-                             pa_proplist *proplist, char *name, char *type,
+                             pa_proplist *proplist, char *name,
+                             const char *type,
                              struct pa_classify_device_data **data)
 {
     struct pa_classify_device_def *d;
@@ -1017,6 +1125,26 @@ static int card_is_typeof(struct pa_classify_card_def *defs, char *name,
     for (d = defs;  d->type;  d++) {
         if (!strcmp(type, d->type)) {
             if (d->method(name, &d->arg)) {
+                if (data != NULL)
+                    *data = &d->data;
+
+                return TRUE;
+            }
+        }
+    }
+
+    return FALSE;
+}
+
+static int port_device_is_typeof(struct pa_classify_device_def *defs,
+                                 char *name, const char *type,
+                                 struct pa_classify_device_data **data)
+{
+    struct pa_classify_device_def *d;
+
+    for (d = defs;  d->type;  d++) {
+        if (pa_streq(type, d->type)) {
+            if (d->data.ports && pa_hashmap_get(d->data.ports, name)) {
                 if (data != NULL)
                     *data = &d->data;
 
