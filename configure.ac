@@ -1,11 +1,8 @@
+m4_define(PAVER, esyscmd(/usr/bin/pkg-config --silence-errors --modversion pulsecore | tr -d \\n))
 
 AC_PREREQ(2.61)
 
-m4_define(PA_MAJOR, [0])
-m4_define(PA_MINOR, [9])
-m4_define(PA_MICRO, [15])
-
-AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.PA_MICRO],[janos.f.kovacs@nokia.com])
+AC_INIT([pulseaudio-policy-enforcement],[PAVER],[janos.f.kovacs@nokia.com])
 
 DOC_SUPPORT_INIT()
 
@@ -17,9 +14,7 @@ AM_INIT_AUTOMAKE([foreign 1.8.5 -Wall])
 AS_IF([test x${exec_prefix} = xNONE], [LIBDIR=$ac_default_prefix/lib], [LIBDIR=${libdir}])
 AC_SUBST(LIBDIR)
 
-
-AC_SUBST(PA_MAJORMINOR, "PA_MAJOR.PA_MINOR.PA_MICRO")
-
+AC_SUBST(PA_MAJORMINOR, [PAVER])
 
 AC_PROG_MKDIR_P
 AC_PROG_CC
@@ -102,6 +97,7 @@ echo "
     prefix:               ${prefix}
     sysconfdir:           ${sysconfdir}
     localstatedir:        ${localstatedir}
+    modlibexecdir:        ${modlibexecdir}
     Compiler:             ${CC}
     CFLAGS:               ${CFLAGS}
     LIBDIR:               ${LIBDIR}
@@ -109,6 +105,7 @@ echo "
     LIBPULSE_LIBS:        ${LIBPULSE_LIBS}
     LIBPULSECORE_CFLAGS:  ${LIBPULSECORE_CFLAGS}
     LIBPULSECORE_LIBS:    ${LIBPULSECORE_LIBS}
+    MAJORMINOR:           ${PA_MAJORMINOR}
     PULSEAUDIO_HAS_PORTS: ${PULSEAUDIO_HAS_PORTS}
     DBUS_CFLAGS:          ${DBUS_CFLAGS}
     DBUS_LIBS:            ${DBUS_LIBS}
