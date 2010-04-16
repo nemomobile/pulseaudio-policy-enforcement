@@ -1,4 +1,5 @@
-m4_define(PAVER, esyscmd(/usr/bin/pkg-config --silence-errors --modversion pulsecore | tr -d \\n))
+m4_define(FULL_PAVER, esyscmd(/usr/bin/pkg-config --silence-errors --modversion pulsecore | tr -d \\n))
+m4_define(PAVER, regexp(FULL_PAVER, [\([0123456789.]+\).*], [\1]))
 
 AC_PREREQ(2.61)
 
