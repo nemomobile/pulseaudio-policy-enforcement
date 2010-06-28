@@ -527,14 +527,16 @@ static void pid_hash_insert(struct pa_classify_pid_hash **hash, pid_t pid,
     pa_assert(group);
 
 
-    if ((st = pid_hash_find(hash, pid, stnam, &prev)) != NULL) {
+    if ((st = pid_hash_find(hash, pid, stnam, &prev)) &&
+        (!stnam || (stnam && !strcmp(stnam, "*"))))
+    {
         pa_xfree(st->group);
         st->group = pa_xstrdup(group);
     }
     else {
         st  = pa_xnew0(struct pa_classify_pid_hash, 1);
 
-        st->next  = NULL;
+        st->next  = prev->next;
         st->pid   = pid;
         st->stnam = stnam ? pa_xstrdup(stnam) : NULL;
         st->group = pa_xstrdup(group);
@@ -593,9 +595,16 @@ pa_classify_pid_hash *pid_hash_find(struct pa_classify_pid_hash **hash,
          prev = prev->next)
     {
         if (pid && pid == st->pid) {
-            if ((!stnam && !st->stnam) ||
-                ( stnam &&  st->stnam && !strcmp(stnam,st->stnam)))
+            if (!stnam && !st->stnam)
                 break;
+
+            if (st->stnam) {
+                if (!strcmp(st->stnam, "*"))
+                    break;
+
+                if (stnam && !strcmp(stnam, st->stnam))
+                    break;
+            }
         }
     }
 
