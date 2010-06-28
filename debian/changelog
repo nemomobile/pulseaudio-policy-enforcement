@@ -1,3 +1,10 @@
+pulseaudio-policy-enforcement (1:1.5) unstable; urgency=low
+
+  * Support for wildcard stream name in dynamic stream identification
+  * Fixes: NB#161198
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Tue, 08 Jun 2010 17:10:03 +0300
+
 pulseaudio-policy-enforcement (1:1.4) unstable; urgency=low
 
   * Merge in PulseAudio port support
