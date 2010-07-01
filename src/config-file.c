@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <dirent.h>
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -26,7 +27,8 @@
 #include "classify.h"
 #include "context.h"
 
-#define DEFAULT_CONFIG_FILE "policy.conf"
+#define DEFAULT_CONFIG_FILE        "policy.conf"
+#define DEFAULT_CONFIG_DIRECTORY   "/etc/pulse/xpolicy.conf.d"
 
 enum section_type {
     section_unknown = 0,
@@ -184,7 +186,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
         cfgfile = DEFAULT_CONFIG_FILE;
 
     pa_policy_file_path(cfgfile, cfgpath, PATH_MAX);
-    pa_log_info("policy config file is '%s'", cfgpath);
+    pa_log_info("parsing config file '%s'", cfgpath);
 
     if ((f = fopen(cfgpath, "r")) == NULL) {
         pa_log("Can't open config file '%s': %s", cfgpath, strerror(errno));
@@ -269,6 +271,104 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     }
 
     return success;
+}
+
+int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
+{
+#define BUFSIZE 512
+
+    DIR               *d;
+    FILE              *f;
+    struct dirent     *e;
+    const char        *p;
+    char              *q;
+    int                l;
+    char               cfgpath[PATH_MAX];
+    char               buf[BUFSIZE];
+    char               line[BUFSIZE];
+    int                lineno;
+    enum section_type  newsect;
+    struct section     section;
+
+    pa_assert(u);
+
+    if (!cfgdir)
+        cfgdir = DEFAULT_CONFIG_DIRECTORY;
+
+    pa_log_info("policy config directory is '%s'", cfgdir);
+
+    if ((d = opendir(cfgdir)) == NULL)
+        pa_log("Can't find config directory '%s'", cfgdir);
+    else {
+        for (p = cfgdir, q = cfgpath;  (q-cfgpath < PATH_MAX) && *p;   p++,q++)
+            *q = *p;
+        if (q == cfgpath || q[-1] != '/')
+            *q++ = '/'; 
+        l = (cfgpath + PATH_MAX) - q;
+
+        errno = 0;
+
+        while (l > 1 && (e = readdir(d)) != NULL) {
+            if (!(p = strstr(e->d_name, ".conf")) || p[5])
+                continue;       /* does not match '*.conf' */
+
+            strncpy(q, e->d_name, l);
+            cfgpath[PATH_MAX-1] = '\0';
+
+            pa_log_info("parsing config file '%s'", cfgpath);
+
+
+            if ((f = fopen(cfgpath, "r")) == NULL) {
+                pa_log("Can't open config file '%s': %s",
+                       cfgpath, strerror(errno));
+                continue;
+            }
+
+            memset(&section, 0, sizeof(section));
+
+            for (errno = 0, lineno = 1;  fgets(buf, BUFSIZE, f);   lineno++) {
+
+                if (preprocess_buffer(lineno, buf, line) < 0)
+                    break;
+
+                if (*line == '\0')
+                    continue;
+
+                if (section_header(lineno, line, &newsect)) {
+                    section_close(u, &section);
+
+                    if ((section.type = newsect) == section_stream)
+                        section_open(u, newsect, &section);
+                    else {
+                        pa_log("line %d: only [stream] section is allowed",
+                               lineno);
+                    }
+                }
+                else {
+                    switch (section.type) {
+                    case section_stream:
+                        streamdef_parse(lineno, line, section.def.stream);
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            } /* for fgets() */
+
+            section_close(u, &section);
+            endpwent();
+
+            if (fclose(f) != 0) {
+                pa_log("Can't close config file '%s': %s",
+                       cfgpath, strerror(errno));
+            }
+        } /* while readdir() */
+
+        closedir(d);
+
+    } /* if opendir() */
+
+    return TRUE;
 }
 
 static int preprocess_buffer(int lineno, char *inbuf, char *outbuf)
