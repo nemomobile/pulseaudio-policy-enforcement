@@ -4,7 +4,7 @@ Maintainer: Resource Policy Team <resource-policy@projects.maemo.org>
 Build-Depends: debhelper (>= 5.0.0), cdbs, automake, diff,
  libglib2.0-dev,
  libdbus-1-dev,
- libltdl-dev | libltdl7-dev (>= 2.2.6a-1~maemo1),
+ libltdl-dev,
  libpulse-dev (>= 0.9.15~git20090203-0maemo1),
  pulseaudio-dev (>= 0.9.15~git20090203-0maemo1)
 Standards-Version: 3.7.2.2
