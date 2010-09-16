@@ -32,6 +32,13 @@
 #define POLICY_ACTIONS              "audio_actions"
 #define POLICY_STATUS               "status"
 
+#define PROP_ROUTE_SINK_TARGET      "policy.sink_route.target"
+#define PROP_ROUTE_SINK_MODE        "policy.sink_route.mode"
+#define PROP_ROUTE_SINK_HWID        "policy.sink_route.hwid"
+#define PROP_ROUTE_SOURCE_TARGET    "policy.source_route.target"
+#define PROP_ROUTE_SOURCE_MODE      "policy.source_route.mode"
+#define PROP_ROUTE_SOURCE_HWID      "policy.source_route.hwid"
+
 
 #define STRUCT_OFFSET(s,m) ((char *)&(((s *)0)->m) - (char *)0)
 
@@ -606,6 +613,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
     char *target;
     char *mode;
     char *hwid;
+    pa_proplist *p = NULL;
 
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
@@ -626,6 +634,21 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
         hwid   = (args.hwid && strcmp(args.hwid, "na")) ? args.hwid : "";
 
         pa_log_debug("route %s to %s (%s|%s)", args.type, target, mode, hwid);
+
+        p = pa_proplist_new();
+
+        if (class == pa_policy_route_to_sink) {
+            pa_proplist_sets(p, PROP_ROUTE_SINK_TARGET, target);
+            pa_proplist_sets(p, PROP_ROUTE_SINK_MODE, mode);
+            pa_proplist_sets(p, PROP_ROUTE_SINK_HWID, hwid);
+        } else {
+            pa_proplist_sets(p, PROP_ROUTE_SOURCE_TARGET, target);
+            pa_proplist_sets(p, PROP_ROUTE_SOURCE_MODE, mode);
+            pa_proplist_sets(p, PROP_ROUTE_SOURCE_HWID, hwid);
+        }
+
+        pa_module_update_proplist(u->module, PA_UPDATE_REPLACE, p);
+        pa_proplist_free(p);
 
         if (pa_card_ext_set_profile(u, target) < 0 ||
             (class == pa_policy_route_to_sink && 
