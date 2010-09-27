@@ -1,3 +1,9 @@
+pulseaudio-policy-enforcement (1:1.7) unstable; urgency=low 
+
+  * Bumping the version due to the problem with the alsaped massacre build
+
+ -- Nippan Singam <ext-nippan.singam@nokia.com>  Mon, 27 Sep 2010 15:21:12 +0300
+
 pulseaudio-policy-enforcement (1:1.6) unstable; urgency=low
 
   * Support modular configuration (ie. /etc/pulse/xpolicy.conf.d/*.conf files)
