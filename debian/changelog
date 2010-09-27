@@ -1,4 +1,4 @@
-pulseaudio-policy-enforcement (1:1.7) unstable; urgency=low
+pulseaudio-policy-enforcement (1:1.9) unstable; urgency=low
 
   [Tanu Kaskinen]
   * Store routing data in the module property list.
