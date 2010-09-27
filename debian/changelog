@@ -1,9 +1,20 @@
 pulseaudio-policy-enforcement (1:1.9) unstable; urgency=low
 
+  * Bumping the version due to the problem with the alsaped massacre build.
+  * Fixed: NB#194797.
+
+ -- Nippan Singam <ext-nippan.singam@nokia.com>  Mon, 27 Sep 2010 18:19:11 +0300
+
+pulseaudio-policy-enforcement (1:1.8) unstable; urgency=low
+
+  * Bumping the version due to the problem with the alsaped massacre build.
+
+ -- Nippan Singam <ext-nippan.singam@nokia.com>  Mon, 27 Sep 2010 18:18:11 +0300
+
+pulseaudio-policy-enforcement (1:1.7) unstable; urgency=low
+
   [Tanu Kaskinen]
   * Store routing data in the module property list.
-  [Nippan Singam]
-  * Bumping the version due to the problem with the alsaped massacre build.
 
  -- Nippan Singam <ext-nippan.singam@nokia.com>  Mon, 27 Sep 2010 16:18:11 +0300
 
