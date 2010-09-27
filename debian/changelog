@@ -1,4 +1,4 @@
-pulseaudio-policy-enforcement (1:1.7) unstable; urgency=low 
+pulseaudio-policy-enforcement (1:1.7) unstable; urgency=low
 
   * Bumping the version due to the problem with the alsaped massacre build.
 
