@@ -1,3 +1,15 @@
+pulseaudio-policy-enforcement (1:1.9) unstable; urgency=low
+
+  * double bump the version as the package version is 1.8.999.
+
+ -- Nippan Singam <ext-nippan.singam@nokia.com>  Mon, 27 Sep 2010 18:19:11 +0300
+
+pulseaudio-policy-enforcement (1:1.8) unstable; urgency=low
+
+  * Bumping the version due to the problem with the alsaped massacre build.
+
+ -- Nippan Singam <ext-nippan.singam@nokia.com>  Mon, 27 Sep 2010 18:18:11 +0300
+
 pulseaudio-policy-enforcement (1:1.7) unstable; urgency=low
 
   * Bumping the version due to the problem with the alsaped massacre build.
