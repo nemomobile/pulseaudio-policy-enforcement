@@ -2,7 +2,7 @@ Summary: Pulseaudio module for enforcing policy decisions in the audio domain
 Name: pulseaudio-policy-enforcement
 Version:  ##__VERSION__##
 Release: 0
-License: LGPLv2.1
+License: GPLv2
 Group: System Environment/Daemons
 URL: http://meego.gitorious.org/maemo-multimedia/pulseaudio-policy-enforcement
 Source0: %{name}-%{version}.tar.gz
