@@ -224,9 +224,16 @@ static void client_ext_set_arg0(struct pa_client *client)
     int   fd, len;
     pid_t pid;
 
-    pid = pa_client_ext_pid(client);
+    if (!(pid = pa_client_ext_pid(client))) {
+        /*
+          application.process.id property is set not for all kinds
+          of pulseaudio clients, and not right after a client creation
+        */
+        pa_log_debug("no pid property for client %u, skip it", client->index);
+        return;
+    }
+
     snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
-    
     if ((fd = open(path, O_RDONLY)) < 0) {
         pa_log("%s: Can't obtain command line", __FILE__);
         return;
