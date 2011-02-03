@@ -36,8 +36,17 @@ union pa_classify_arg {
 
 struct pa_classify_pid_hash {
     struct pa_classify_pid_hash *next;
-    pid_t                        pid;   /* process id (or parent process id)*/
-    char                        *stnam; /* stream's name, if any */
+    pid_t                        pid;   /* process id (or parent process id) */
+                                        /* for stream classification */
+    char                        *prop;  /*     stream property, if any  */
+    struct {
+        enum pa_classify_method type;
+        int                   (*func)(const char *,union pa_classify_arg *);
+    }                            method;
+    struct {
+        char                 *def;
+        union pa_classify_arg value;
+    }                            arg;   /*     argument */
     char                        *group; /* policy group name */
 };
 
@@ -121,13 +130,15 @@ void  pa_classify_add_source(struct userdata *, char *, char *,
                              uint32_t);
 void  pa_classify_add_card(struct userdata *, char *,
                            enum pa_classify_method, char *, char *, uint32_t);
-void pa_classify_add_stream(struct userdata *, char *, enum pa_classify_method,
-                            char *, char *, uid_t, char *, char *);
+void  pa_classify_add_stream(struct userdata *, char *,enum pa_classify_method,
+                             char *, char *, uid_t, char *, char *);
 
-void pa_classify_port_entry_free(struct pa_classify_port_entry *);
+void  pa_classify_port_entry_free(struct pa_classify_port_entry *);
 
-void  pa_classify_register_pid(struct userdata *, pid_t, char *, char *);
-void  pa_classify_unregister_pid(struct userdata *, pid_t, char *);
+void  pa_classify_register_pid(struct userdata *, pid_t, char *,
+                               enum pa_classify_method, char *, char *);
+void  pa_classify_unregister_pid(struct userdata *, pid_t, char *,
+                                 enum pa_classify_method, char *);
 
 char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *);
 char *pa_classify_sink_input_by_data(struct userdata *,

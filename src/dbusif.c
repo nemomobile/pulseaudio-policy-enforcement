@@ -421,7 +421,10 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
     dbus_uint32_t  pid;
     char          *oper;
     char          *group;
-    char          *stnam;
+    char          *arg;
+    char          *method_str;
+    enum pa_classify_method method;
+    char          *prop;
     int            success;
 
     success = dbus_message_get_args(msg, NULL,
@@ -429,12 +432,45 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
                                     DBUS_TYPE_STRING, &oper,
                                     DBUS_TYPE_STRING, &group,
                                     DBUS_TYPE_UINT32, &pid,
-                                    DBUS_TYPE_STRING, &stnam,
+                                    DBUS_TYPE_STRING, &arg,
+                                    DBUS_TYPE_STRING, &method_str,
+                                    DBUS_TYPE_STRING, &prop,
                                     DBUS_TYPE_INVALID);
     if (!success) {
-        pa_log("%s: failed to parse message", __FILE__);
+        pa_log("%s: failed to parse info message", __FILE__);
         return;
     }
+
+    if (!method_str)
+        method = pa_method_unknown;
+    else {
+        switch (method_str[0]) {
+        case 'e':
+            if (!strcmp(method_str, "equals"))
+                method = pa_method_equals;
+            break;
+        case 's':
+            if (!strcmp(method_str, "startswith"))
+                method = pa_method_startswith;
+            break;
+        case 'm':
+            if (!strcmp(method_str, "matches"))
+                method = pa_method_matches;
+            break;
+        case 't':
+            if (!strcmp(method_str, "true"))
+                method = pa_method_true;
+            break;
+        default:
+            method = pa_method_unknown;
+            break;
+        }
+    }
+
+    if (!arg)
+        method = pa_method_unknown;
+    else if (!strcmp(arg, "*"))
+        method = pa_method_true;
 
     if (!strcmp(oper, "register")) {
 
@@ -443,14 +479,14 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
                          group, pid);
         }
         else {
-            pa_log_debug("register client (%s|%u|%s)", group, pid, stnam);
-            pa_classify_register_pid(u, (pid_t)pid, stnam, group);
+            pa_log_debug("register client (%s|%u)", group, pid);
+            pa_classify_register_pid(u, (pid_t)pid, prop, method, arg, group);
         }
         
     }
     else if (!strcmp(oper, "unregister")) {
         pa_log_debug("unregister client (%s|%u)", group, pid);
-        pa_classify_unregister_pid(u, (pid_t)pid, stnam);
+        pa_classify_unregister_pid(u, (pid_t)pid, prop, method, arg);
     }
     else {
         pa_log("%s: invalid operation: '%s'", __FILE__, oper);

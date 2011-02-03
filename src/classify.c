@@ -27,13 +27,16 @@ static char *arg_dump(int, char **, char *, size_t);
 
 static void  pid_hash_free(struct pa_classify_pid_hash **);
 static void  pid_hash_insert(struct pa_classify_pid_hash **, pid_t,
+                             const char *, enum pa_classify_method,
                              const char *, const char *);
 static void  pid_hash_remove(struct pa_classify_pid_hash **, pid_t,
+                             const char *, enum pa_classify_method,
                              const char *);
 static char *pid_hash_get_group(struct pa_classify_pid_hash **, pid_t,
-                                const char *);
+                                pa_proplist *);
 static struct pa_classify_pid_hash
-            *pid_hash_find(struct pa_classify_pid_hash **, pid_t, const char *,
+            *pid_hash_find(struct pa_classify_pid_hash **, pid_t,
+                           const char *, enum pa_classify_method, const char *,
                            struct pa_classify_pid_hash **);
 
 static void streams_free(struct pa_classify_stream_def *);
@@ -69,6 +72,7 @@ static int port_device_is_typeof(struct pa_classify_device_def *, char *,
                                  const char *,
                                  struct pa_classify_device_data **);
 
+static const char *method_str(enum pa_classify_method);
 
 char *get_property(char *, pa_proplist *, char *);
 
@@ -163,7 +167,8 @@ void pa_classify_add_stream(struct userdata *u, char *prop,
     }
 }
 
-void pa_classify_register_pid(struct userdata *u, pid_t pid, char *stnam,
+void pa_classify_register_pid(struct userdata *u, pid_t pid, char *prop,
+                              enum pa_classify_method method, char *arg,
                               char *group)
 {
     struct pa_classify *classify;
@@ -172,11 +177,13 @@ void pa_classify_register_pid(struct userdata *u, pid_t pid, char *stnam,
     pa_assert_se((classify = u->classify));
 
     if (pid && group) {
-        pid_hash_insert(classify->streams.pid_hash, pid, stnam, group);
+        pid_hash_insert(classify->streams.pid_hash, pid,
+                        prop, method, arg, group);
     }
 }
 
-void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *stnam)
+void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *prop,
+                                enum pa_classify_method method, char *arg)
 {
     struct pa_classify *classify;
     
@@ -184,7 +191,7 @@ void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *stnam)
     pa_assert_se((classify = u->classify));
 
     if (pid) {
-        pid_hash_remove(classify->streams.pid_hash, pid, stnam);
+        pid_hash_remove(classify->streams.pid_hash, pid, prop, method, arg);
     }
 }
 
@@ -434,7 +441,6 @@ static char *find_group_for_client(struct userdata  *u,
     char    *exe   = (char *)"";  /* client's binary path */
     char    *arg0;
     char    *group = NULL;
-    char    *stnam = NULL;
 
     assert(u);
     pa_assert_se((classify = u->classify));
@@ -447,12 +453,7 @@ static char *find_group_for_client(struct userdata  *u,
     else {
         pid = pa_client_ext_pid(client);
 
-        if (proplist)
-            stnam = (char *)pa_proplist_gets(proplist, PA_PROP_MEDIA_NAME);
-        else
-            stnam = NULL;
- 
-        if ((group = pid_hash_get_group(hash, pid, stnam)) == NULL) {
+        if ((group = pid_hash_get_group(hash, pid, proplist)) == NULL) {
             clnam = pa_client_ext_name(client);
             uid   = pa_client_ext_uid(client);
             exe   = pa_client_ext_exe(client);
@@ -465,8 +466,7 @@ static char *find_group_for_client(struct userdata  *u,
     if (group == NULL)
         group = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
 
-    pa_log_debug("%s (%s|%s|%d|%d|%s) => %s", __FUNCTION__,
-                 clnam?clnam:"<null>", stnam?stnam:"<null>",
+    pa_log_debug("%s (%s|%d|%d|%s) => %s", __FUNCTION__, clnam?clnam:"<null>",
                  pid, uid, exe?exe:"<null>", group?group:"<null>");
 
     return group;
@@ -509,8 +509,12 @@ static void pid_hash_free(struct pa_classify_pid_hash **hash)
         while ((st = hash[i]) != NULL) {
             hash[i] = st->next;
 
-            pa_xfree(st->stnam);
+            pa_xfree(st->prop);
             pa_xfree(st->group);
+            pa_xfree(st->arg.def);
+
+            if (st->method.type == pa_method_matches)
+                regfree(&st->arg.value.rexp);
 
             pa_xfree(st);
         }
@@ -518,7 +522,8 @@ static void pid_hash_free(struct pa_classify_pid_hash **hash)
 }
 
 static void pid_hash_insert(struct pa_classify_pid_hash **hash, pid_t pid,
-                            const char *stnam, const char *group)
+                            const char *prop, enum pa_classify_method method,
+                            const char *arg, const char *group)
 {
     struct pa_classify_pid_hash *st;
     struct pa_classify_pid_hash *prev;
@@ -526,62 +531,124 @@ static void pid_hash_insert(struct pa_classify_pid_hash **hash, pid_t pid,
     pa_assert(hash);
     pa_assert(group);
 
-
-    if ((st = pid_hash_find(hash, pid, stnam, &prev)) &&
-        (!stnam || (stnam && !strcmp(stnam, "*"))))
-    {
+    if ((st = pid_hash_find(hash, pid, prop,method,arg, &prev))) {
         pa_xfree(st->group);
         st->group = pa_xstrdup(group);
+
+        pa_log_debug("pid hash group changed (%u|%s|%s|%s|%s)", st->pid,
+                     st->prop ? st->prop : "", method_str(st->method.type),
+                     st->arg.def ? st->arg.def : "", st->group);
     }
     else {
         st  = pa_xnew0(struct pa_classify_pid_hash, 1);
 
         st->next  = prev->next;
         st->pid   = pid;
-        st->stnam = stnam ? pa_xstrdup(stnam) : NULL;
+        st->prop  = prop ? pa_xstrdup(prop) : NULL;
         st->group = pa_xstrdup(group);
 
+        if (!prop)
+            st->arg.def = pa_xstrdup("");
+        else {
+            st->method.type = method;
+
+            switch (method) {
+
+            case pa_method_equals:
+                st->method.func = pa_classify_method_equals;
+                st->arg.value.string = st->arg.def = pa_xstrdup(arg ? arg:"");
+                break;
+
+            case pa_method_startswith:
+                st->method.func = pa_classify_method_startswith;
+                st->arg.value.string = st->arg.def = pa_xstrdup(arg ? arg:"");
+                break;
+
+            case pa_method_matches:
+                st->method.func = pa_classify_method_matches;
+                st->arg.def = pa_xstrdup(arg ? arg:"");
+                if (!arg || regcomp(&st->arg.value.rexp, arg, 0) != 0) {
+                    st->method.type = pa_method_true;
+                    st->method.func = pa_classify_method_true;
+                }
+                break;
+
+            default:
+            case pa_method_true:
+                st->method.func = pa_classify_method_true;
+                break;
+            }
+        }
+
         prev->next = st;
+
+        pa_log_debug("pid hash added (%u|%s|%s|%s|%s)", st->pid,
+                     st->prop ? st->prop : "", method_str(st->method.type),
+                     st->arg.def ? st->arg.def : "", st->group);
     }
 }
 
 static void pid_hash_remove(struct pa_classify_pid_hash **hash,
-                            pid_t pid, const char *stnam)
+                            pid_t pid, const char *prop,
+                            enum pa_classify_method method, const char *arg)
 {
     struct pa_classify_pid_hash *st;
     struct pa_classify_pid_hash *prev;
 
     pa_assert(hash);
 
-    if ((st = pid_hash_find(hash, pid, stnam, &prev)) != NULL) {
+    if ((st = pid_hash_find(hash, pid, prop,method,arg, &prev)) != NULL) {
         prev->next = st->next;
 
-        pa_xfree(st->stnam);
+        pa_xfree(st->prop);
         pa_xfree(st->group);
+        pa_xfree(st->arg.def);
+
+        if (st->method.type == pa_method_matches)
+            regfree(&st->arg.value.rexp);
         
         pa_xfree(st);
     }
 }
 
 static char *pid_hash_get_group(struct pa_classify_pid_hash **hash,
-                                pid_t pid, const char *stnam)
+                                pid_t pid, pa_proplist *proplist)
 {
     struct pa_classify_pid_hash *st;
-    char *group;
+    int idx;
+    char *propval;
+    char *group = NULL;
 
     pa_assert(hash);
  
-    if (!pid || (st = pid_hash_find(hash, pid, stnam, NULL)) == NULL)
-        group = NULL;
-    else
-        group = st->group;
+    if (pid) {
+        idx = pid & PA_POLICY_PID_HASH_MASK;
+
+        for (st = hash[idx];  st != NULL;  st = st->next) {
+            if (pid == st->pid) {
+                if (!st->prop) {
+                    group = st->group;
+                    break;
+                }
+
+                if ((propval = (char *)pa_proplist_gets(proplist, st->prop)) &&
+                    st->method.func(propval, &st->arg.value))
+                {
+                    group = st->group;
+                    break;
+                }
+            }
+        }
+    }
 
     return group;
 }
 
 static struct
 pa_classify_pid_hash *pid_hash_find(struct pa_classify_pid_hash **hash,
-                                    pid_t pid, const char *stnam,
+                                    pid_t pid, const char *prop,
+                                    enum pa_classify_method method,
+                                    const char *arg,
                                     struct pa_classify_pid_hash **prev_ret)
 {
     struct pa_classify_pid_hash *st;
@@ -595,14 +662,14 @@ pa_classify_pid_hash *pid_hash_find(struct pa_classify_pid_hash **hash,
          prev = prev->next)
     {
         if (pid && pid == st->pid) {
-            if (!stnam && !st->stnam)
+            if (!prop && !st->prop)
                 break;
 
-            if (st->stnam) {
-                if (!strcmp(st->stnam, "*"))
+            if (st->prop && method == st->method.type) {
+                if (method == pa_method_true)
                     break;
 
-                if (stnam && !strcmp(stnam, st->stnam))
+                if (arg && st->arg.def && !strcmp(arg, st->arg.def))
                     break;
             }
         }
@@ -1245,6 +1312,17 @@ int pa_classify_method_true(const char *string,
     (void)arg;
 
     return TRUE;
+}
+
+static const char *method_str(enum pa_classify_method method)
+{
+    switch (method) {
+    case pa_method_unknown:      return "unknown";
+    case pa_method_equals:       return "equals";
+    case pa_method_startswith:   return "startswith";
+    case pa_method_matches:      return "matches";
+    case pa_method_true:         return "true";
+    }
 }
                                   
 /*
