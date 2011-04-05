@@ -42,6 +42,15 @@
 
 #define STRUCT_OFFSET(s,m) ((char *)&(((s *)0)->m) - (char *)0)
 
+#define MAX_ROUTING_DECISIONS 2
+
+struct routing_decision {      /* temporary storage for routing decision information */
+    enum pa_policy_route_class class;
+    char *target;
+    char *mode;
+    char *hwid;
+};
+
 struct pa_policy_dbusif {
     pa_dbus_connection *conn;
     char               *ifnam;   /* signal interface */
@@ -645,13 +654,23 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
     };
 
     struct argrt args;
-    enum pa_policy_route_class class;
-    char *target;
-    char *mode;
-    char *hwid;
     pa_proplist *p = NULL;
+    struct routing_decision decisions[MAX_ROUTING_DECISIONS];
+    int num_decisions = 0;
+    int i = 0;
+    int num_moving = 0;
+    pa_bool_t result = TRUE;
 
+    /* Parse message. It's safe to bail out here, because we're not moving any streams yet. */
     do {
+        i = num_decisions;
+        num_decisions++;
+
+        if (num_decisions > MAX_ROUTING_DECISIONS) {
+            pa_log_error("Too many routing decisions (max %d)", MAX_ROUTING_DECISIONS);
+            return FALSE;
+        }
+
         if (!action_parser(actit, descs, &args, sizeof(args)))
             return FALSE;
 
@@ -659,47 +678,84 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
             return FALSE;
 
         if (!strcmp(args.type, "sink"))
-            class = pa_policy_route_to_sink;
+            decisions[i].class = pa_policy_route_to_sink;
         else if (!strcmp(args.type, "source"))
-            class = pa_policy_route_to_source;
+            decisions[i].class = pa_policy_route_to_source;
         else
             return FALSE;
 
-        target = args.device;
-        mode   = (args.mode && strcmp(args.mode, "na")) ? args.mode : ""; 
-        hwid   = (args.hwid && strcmp(args.hwid, "na")) ? args.hwid : "";
+        decisions[i].target = args.device;
+        decisions[i].mode   = (args.mode && strcmp(args.mode, "na")) ? args.mode : "";
+        decisions[i].hwid   = (args.hwid && strcmp(args.hwid, "na")) ? args.hwid : "";
 
-        pa_log_debug("route %s to %s (%s|%s)", args.type, target, mode, hwid);
+        pa_log_debug("route %s to %s (%s|%s)", args.type, decisions[i].target,
+                                                          decisions[i].mode,
+                                                          decisions[i].hwid);
+    } while (dbus_message_iter_next(actit));
 
+    /* Detach groups. */
+    num_moving = pa_policy_group_start_move_all(u);
+
+    /* Set profiles and ports while the groups are detached. */
+    for (i = 0; i < num_decisions; i++) {
         p = pa_proplist_new();
 
-        if (class == pa_policy_route_to_sink) {
-            pa_proplist_sets(p, PROP_ROUTE_SINK_TARGET, target);
-            pa_proplist_sets(p, PROP_ROUTE_SINK_MODE, mode);
-            pa_proplist_sets(p, PROP_ROUTE_SINK_HWID, hwid);
+        if (decisions[i].class == pa_policy_route_to_sink) {
+            pa_proplist_sets(p, PROP_ROUTE_SINK_TARGET, decisions[i].target);
+            pa_proplist_sets(p, PROP_ROUTE_SINK_MODE,   decisions[i].mode);
+            pa_proplist_sets(p, PROP_ROUTE_SINK_HWID,   decisions[i].hwid);
         } else {
-            pa_proplist_sets(p, PROP_ROUTE_SOURCE_TARGET, target);
-            pa_proplist_sets(p, PROP_ROUTE_SOURCE_MODE, mode);
-            pa_proplist_sets(p, PROP_ROUTE_SOURCE_HWID, hwid);
+            pa_proplist_sets(p, PROP_ROUTE_SOURCE_TARGET, decisions[i].target);
+            pa_proplist_sets(p, PROP_ROUTE_SOURCE_MODE,   decisions[i].mode);
+            pa_proplist_sets(p, PROP_ROUTE_SOURCE_HWID,   decisions[i].hwid);
         }
 
         pa_module_update_proplist(u->module, PA_UPDATE_REPLACE, p);
         pa_proplist_free(p);
 
-        if (pa_card_ext_set_profile(u, target) < 0 ||
-            (class == pa_policy_route_to_sink && 
-                pa_sink_ext_set_ports(u, target) < 0) ||
-            (class == pa_policy_route_to_source &&
-                pa_source_ext_set_ports(u, target) < 0) ||
-            pa_policy_group_move_to(u, NULL, class, target, mode, hwid) < 0)
+        if (pa_card_ext_set_profile(u, decisions[i].target) < 0 ||
+              (decisions[i].class == pa_policy_route_to_sink &&
+                 pa_sink_ext_set_ports(u, decisions[i].target) < 0) ||
+              (decisions[i].class == pa_policy_route_to_source &&
+                 pa_source_ext_set_ports(u, decisions[i].target) < 0))
         {
-            pa_log("%s: can't route to %s %s", __FILE__, args.type, target);
-            return FALSE;
+            result = FALSE; /* Continue anyway to avoid leaving streams detached. */
+            pa_log_error("can't set profiles/ports to %s %s",
+                         (decisions[i].class == pa_policy_route_to_sink ? "sink" : "source"),
+                          decisions[i].target);
         }
+    }
 
-    } while (dbus_message_iter_next(actit));
+    /* Attach groups to their new positions and re-attach those that were not moved. */
+    for (i = 0; i < num_decisions; i++) {
+        if (pa_policy_group_move_to(u, NULL, decisions[i].class,
+                                             decisions[i].target,
+                                             decisions[i].mode,
+                                             decisions[i].hwid) < 0) {
+            result = FALSE;
+            pa_log_error("Failed to move group %s %s %s", decisions[i].target,
+                                                          decisions[i].mode,
+                                                          decisions[i].hwid);
+        } else
+            num_moving--;
+    }
 
-    return TRUE;
+    /* Test that no moving groups exist */
+    if (num_moving != 0) {
+        void *cursor = NULL;
+        struct pa_policy_group *group = NULL;
+
+        pa_log_error("Got %d routing decisions. %d groups are still moving or have failed to move.",
+                num_decisions, num_moving);
+
+        while ((group = pa_policy_group_scan(u->groups, &cursor)) != NULL) {
+            if (group->num_moving > 0)
+                pa_log_error("Group %s still has %s moving streams", group->name, group->num_moving);
+        }
+        result = FALSE;
+    }
+
+    return result;
 }
 
 static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)

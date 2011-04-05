@@ -57,6 +57,7 @@ struct pa_policy_group {
     struct pa_source_output_list *soutls;   /* source output list */
     int                           sinpcnt;  /* sink input counter */
     int                           soutcnt;  /* source output counter */
+    int                           num_moving;   /* Number of moving streams */
 };
 
 struct pa_policy_groupset {
