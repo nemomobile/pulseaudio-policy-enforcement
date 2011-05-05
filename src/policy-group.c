@@ -890,8 +890,8 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,
         group = find_group_by_name(gset, name, NULL);
 
     if (group == NULL) {
-        pa_log("%s: can't set volume limit: don't know group '%s'",
-               __FILE__, name ? name : PA_POLICY_DEFAULT_GROUP_NAME);
+        pa_log("can't set volume limit: don't know group '%s'",
+               name ? name : PA_POLICY_DEFAULT_GROUP_NAME);
         ret = -1;
     }
     else {

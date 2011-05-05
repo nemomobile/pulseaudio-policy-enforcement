@@ -134,10 +134,8 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
                     sts = -1;
                     pa_log("failed to set card '%s' profile to '%s'", cn, pn);
                 }
-                else {
-                    pa_log_debug("%s: changed card '%s' profile to '%s'",
-                                 __FILE__, cn, pn);
-                }
+                else
+                    pa_log_debug("changed card '%s' profile to '%s'", cn, pn);
             }
 
             break;

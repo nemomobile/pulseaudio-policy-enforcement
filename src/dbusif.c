@@ -139,8 +139,7 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     dbusif->conn = pa_dbus_bus_get(m->core, DBUS_BUS_SYSTEM, &error);
 
     if (dbusif->conn == NULL || dbus_error_is_set(&error)) {
-        pa_log("%s: failed to get SYSTEM Bus: %s: %s",
-               __FILE__, error.name, error.message);
+        pa_log("failed to get SYSTEM Bus: %s: %s", error.name, error.message);
         goto fail;
     }
 
@@ -152,14 +151,13 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
 
     if (result != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER &&
         result != DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER    ) {
-        pa_log("%s: D-Bus name request failed: %s: %s",
-               __FILE__, error.name, error.message);
+        pa_log("D-Bus name request failed: %s: %s", error.name, error.message);
         goto fail;
     }
 #endif
  
     if (!dbus_connection_add_filter(dbusconn, filter,u, NULL)) {
-        pa_log("%s: failed to add filter function", __FILE__);
+        pa_log("failed to add filter function");
         goto fail;
     }
 
@@ -182,8 +180,8 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     dbus_bus_add_match(dbusconn, admrule, &error);
 
     if (dbus_error_is_set(&error)) {
-        pa_log("%s: unable to subscribe name change signals on %s: %s: %s",
-               __FILE__, ADMIN_DBUS_INTERFACE, error.name, error.message);
+        pa_log("unable to subscribe name change signals on %s: %s: %s",
+               ADMIN_DBUS_INTERFACE, error.name, error.message);
         goto fail;
     }
 
@@ -193,8 +191,8 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     dbus_bus_add_match(dbusconn, actrule, &error);
 
     if (dbus_error_is_set(&error)) {
-        pa_log("%s: unable to subscribe policy %s signal on %s: %s: %s",
-               __FILE__, POLICY_ACTIONS, ifnam, error.name, error.message);
+        pa_log("unable to subscribe policy %s signal on %s: %s: %s",
+               POLICY_ACTIONS, ifnam, error.name, error.message);
         goto fail;
     }
 
@@ -204,12 +202,12 @@ struct pa_policy_dbusif *pa_policy_dbusif_init(struct userdata *u,
     dbus_bus_add_match(dbusconn, strrule, &error);
 
     if (dbus_error_is_set(&error)) {
-        pa_log("%s: unable to subscribe policy %s signal on %s: %s: %s",
-               __FILE__, POLICY_STREAM_INFO, ifnam, error.name, error.message);
+        pa_log("unable to subscribe policy %s signal on %s: %s: %s",
+               POLICY_STREAM_INFO, ifnam, error.name, error.message);
         goto fail;
     }
 
-    pa_log_info("%s: subscribed policy signals on %s", __FILE__, ifnam);
+    pa_log_info("subscribed policy signals on %s", ifnam);
 
     dbusif->ifnam   = pa_xstrdup(ifnam);
     dbusif->mypath  = pa_xstrdup(mypath);
@@ -288,7 +286,7 @@ void pa_policy_dbusif_send_device_state(struct userdata *u, char *state,
     msg = dbus_message_new_signal(path, dbusif->ifnam, "info");
 
     if (msg == NULL) {
-        pa_log("%s: failed to make new info message", __FILE__);
+        pa_log("failed to make new info message");
         goto fail;
     }
 
@@ -296,13 +294,13 @@ void pa_policy_dbusif_send_device_state(struct userdata *u, char *state,
 
     if (!dbus_message_iter_append_basic(&mit, DBUS_TYPE_STRING, &state) ||
         !dbus_message_iter_open_container(&mit, DBUS_TYPE_ARRAY,"s", &dit)){
-        pa_log("%s: failed to build info message", __FILE__);
+        pa_log("failed to build info message");
         goto fail;
     }
 
     for (i = 0; i < ntype; i++) {
         if (!dbus_message_iter_append_basic(&dit, DBUS_TYPE_STRING,&types[i])){
-            pa_log("%s: failed to build info message", __FILE__);
+            pa_log("failed to build info message");
             goto fail;
         }
     }
@@ -312,7 +310,7 @@ void pa_policy_dbusif_send_device_state(struct userdata *u, char *state,
     sts = dbus_connection_send(conn, msg, NULL);
 
     if (!sts) {
-        pa_log("%s: Can't send info message: out of memory", __FILE__);
+        pa_log("Can't send info message: out of memory");
     }
 
  fail:
@@ -334,7 +332,7 @@ void pa_policy_dbusif_send_media_status(struct userdata *u, const char *media,
     msg = dbus_message_new_signal(path, dbusif->ifnam, "info");
 
     if (msg == NULL)
-        pa_log("%s: failed to make new info message", __FILE__);
+        pa_log("failed to make new info message");
     else {
         state = active ? "active" : "inactive";
 
@@ -346,10 +344,10 @@ void pa_policy_dbusif_send_media_status(struct userdata *u, const char *media,
                                            DBUS_TYPE_INVALID);
         
         if (!success)
-            pa_log("%s: Can't build D-Bus info message", __FILE__);
+            pa_log("Can't build D-Bus info message");
         else {
             if (!dbus_connection_send(conn, msg, NULL)) {
-                pa_log("%s: Can't send info message: out of memory", __FILE__);
+                pa_log("Can't send info message: out of memory");
             }
         }
 
@@ -446,7 +444,7 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
                                     DBUS_TYPE_STRING, &prop,
                                     DBUS_TYPE_INVALID);
     if (!success) {
-        pa_log("%s: failed to parse info message", __FILE__);
+        pa_log("failed to parse info message");
         return;
     }
 
@@ -491,14 +489,13 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
             pa_log_debug("register client (%s|%u)", group, pid);
             pa_classify_register_pid(u, (pid_t)pid, prop, method, arg, group);
         }
-        
     }
     else if (!strcmp(oper, "unregister")) {
         pa_log_debug("unregister client (%s|%u)", group, pid);
         pa_classify_unregister_pid(u, (pid_t)pid, prop, method, arg);
     }
     else {
-        pa_log("%s: invalid operation: '%s'", __FILE__, oper);
+        pa_log("invalid operation: '%s'", oper);
     }
 }
 
@@ -610,7 +607,7 @@ static int action_parser(DBusMessageIter *actit, struct argdsc *descs,
             return FALSE;
 
         dbus_message_iter_get_basic(&argit, (void *)&argname);
-            
+
         if (!dbus_message_iter_next(&argit))
             return FALSE;
 
@@ -618,12 +615,12 @@ static int action_parser(DBusMessageIter *actit, struct argdsc *descs,
             return FALSE;
 
         dbus_message_iter_recurse(&argit, &valit);
-                    
+
         for (desc = descs;  desc->name != NULL;  desc++) {
             if (!strcmp(argname, desc->name)) {
                 if (desc->offs + (int)sizeof(char *) > len) {
-                    pa_log("%s: %s() desc offset %d  is out of range %d",
-                           __FILE__, __FUNCTION__, desc->offs, len);
+                    pa_log("%s(): desc offset %d is out of range %d",
+                           __FUNCTION__, desc->offs, len);
                     return FALSE;
                 }
                 else {
@@ -897,7 +894,7 @@ static void registration_cb(DBusPendingCall *pend, void *data)
     int              success;
 
     if ((reply = dbus_pending_call_steal_reply(pend)) == NULL || u == NULL) {
-        pa_log("%s: registartion setting failed: invalid argument", __FILE__);
+        pa_log("registartion setting failed: invalid argument");
         return;
     }
 
@@ -909,8 +906,8 @@ static void registration_cb(DBusPendingCall *pend, void *data)
         if (!success)
             error_descr = dbus_message_get_error_name(reply);
 
-        pa_log_info("%s: registration to policy decision point failed: %s",
-                    __FILE__, error_descr);
+        pa_log_info("registration to policy decision point failed: %s",
+                    error_descr);
     }
     else {
         pa_log_info("got reply to registration");
@@ -935,14 +932,14 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
     int              i;
     int              success;
 
-    pa_log_info("%s: registering to policy daemon: name='%s' path='%s' if='%s'"
-                , __FILE__, dbusif->pdnam, dbusif->pdpath, dbusif->ifnam);
+    pa_log_info("registering to policy daemon: name='%s' path='%s' if='%s'",
+                dbusif->pdnam, dbusif->pdpath, dbusif->ifnam);
 
     msg = dbus_message_new_method_call(dbusif->pdnam, dbusif->pdpath,
                                        dbusif->ifnam, "register");
 
     if (msg == NULL) {
-        pa_log("%s: Failed to create D-Bus message to register", __FILE__);
+        pa_log("Failed to create D-Bus message to register");
         success = FALSE;
         goto failed;
     }
@@ -956,21 +953,21 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
                                        DBUS_TYPE_STRING, &v_ARRAY, i+1,
                                        DBUS_TYPE_INVALID);
     if (!success) {
-        pa_log("%s: Failed to build D-Bus message to register", __FILE__);
+        pa_log("Failed to build D-Bus message to register");
         goto failed;
     }
 
 
     success = dbus_connection_send_with_reply(conn, msg, &pend, 10000);
     if (!success) {
-        pa_log("%s: Failed to register", __FILE__);
+        pa_log("Failed to register");
         goto failed;
     }
 
     success = dbus_pending_call_set_notify(pend, registration_cb, u, NULL);
 
     if (!success) {
-        pa_log("%s: Can't set notification for registartion", __FILE__);
+        pa_log("Can't set notification for registartion");
     }
 
  failed:
@@ -1005,7 +1002,7 @@ static int signal_status(struct userdata *u, uint32_t txid, uint32_t status)
     msg = dbus_message_new_signal(path, dbusif->ifnam, POLICY_STATUS);
 
     if (msg == NULL) {
-        pa_log("%s: failed to make new status message", __FILE__);
+        pa_log("failed to make new status message");
         goto fail;
     }
 
@@ -1015,14 +1012,14 @@ static int signal_status(struct userdata *u, uint32_t txid, uint32_t status)
             DBUS_TYPE_INVALID);
 
     if (!ret) {
-        pa_log("%s: Can't build D-Bus status message", __FILE__);
+        pa_log("Can't build D-Bus status message");
         goto fail;
     }
 
     ret = dbus_connection_send(conn, msg, NULL);
 
     if (!ret) {
-        pa_log("%s: Can't send status message: out of memory", __FILE__);
+        pa_log("Can't send status message: out of memory");
         goto fail;
     }
 

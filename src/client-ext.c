@@ -196,7 +196,7 @@ static void handle_client_events(pa_core *c,pa_subscription_event_type_t t,
         break;
         
     default:
-        pa_log("%s: unknown client event type %d", __FILE__, et);
+        pa_log("unknown client event type %d", et);
         break;
     }
     
@@ -235,11 +235,10 @@ static void client_ext_set_arg0(struct pa_client *client)
 
     snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
     if ((fd = open(path, O_RDONLY)) < 0) {
-        pa_log("%s: Can't obtain command line", __FILE__);
+        pa_log("can't obtain command line");
         return;
     }
-    
-    
+
     for (;;) {
         if ((len = read(fd, arg0, sizeof(arg0)-1)) < 0) {
             if (errno == EINTR)
@@ -275,7 +274,7 @@ static void client_ext_set_args(struct pa_client *client)
     snprintf(path, sizeof(path), "/proc/%d/cmdline", ext->pid);
     
     if ((fd = open(path, O_RDONLY)) < 0) {
-        pa_log("%s: Can't obtain command line", __FILE__);
+        pa_log("can't obtain command line");
         return;
     }
     

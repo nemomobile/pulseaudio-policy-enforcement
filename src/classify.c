@@ -749,14 +749,14 @@ static void streams_add(struct pa_classify_stream_def **defs, char *prop,
     }
 
     if ((d = streams_find(defs, proplist, clnam, uid, exe, &prev)) != NULL) {
-        pa_log_info("%s: redefinition of stream", __FILE__);
+        pa_log_info("redefinition of stream");
         pa_xfree(d->group);
     }
     else {
         d = pa_xnew0(struct pa_classify_stream_def, 1);
 
         snprintf(method_def, sizeof(method_def), "<no-property-check>");
-        
+
         if (prop && arg && method > pa_method_min && method < pa_method_max) {
             d->prop = pa_xstrdup(prop);
 
@@ -1056,7 +1056,7 @@ static int devices_classify(struct pa_classify_device_def *defs,
     e = (p = buf) + len;
     p[0] = '\0';
     s = "";
-        
+
     for (d = defs, i = 0;  d->type;  d++) {
         propval = get_property(d->prop, proplist, name);
 
@@ -1064,9 +1064,9 @@ static int devices_classify(struct pa_classify_device_def *defs,
             if ((d->data.flags & flag_mask) == flag_value) {
                 p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
                 s  = " ";
-                
+
                 if (p > e) {
-                    pa_log("%s: %s() buffer overflow", __FILE__, __FUNCTION__);
+                    pa_log("%s() buffer overflow", __FUNCTION__);
                     *buf = '\0';
                     p = e;
                     break;
@@ -1215,9 +1215,9 @@ static int cards_classify(struct pa_classify_card_def *defs,
             if (supports_profile && (d->data.flags & flag_mask) == flag_value){
                 p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
                 s  = " ";
-                
+
                 if (p > e) {
-                    pa_log("%s: %s() buffer overflow", __FILE__, __FUNCTION__);
+                    pa_log("%s(): buffer overflow", __FUNCTION__);
                     *buf = '\0';
                     p = e;
                     break;
