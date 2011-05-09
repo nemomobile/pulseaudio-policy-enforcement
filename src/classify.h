@@ -16,6 +16,7 @@
 /* stream flags */
 #define PA_POLICY_LOCAL_ROUTE    (1UL << 0)
 #define PA_POLICY_LOCAL_MUTE     (1UL << 1)
+#define PA_POLICY_LOCAL_VOLMAX   (1UL << 2)
 
 struct pa_sink;
 struct pa_source;

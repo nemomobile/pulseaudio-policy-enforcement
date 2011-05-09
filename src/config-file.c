@@ -1389,6 +1389,8 @@ static int flags_parse(int lineno, char  *flagdef,
             flags |= PA_POLICY_DISABLE_NOTIFY;
         else if (stream && !strcmp(flagname, "mute_if_active"))
             flags |= PA_POLICY_LOCAL_MUTE;
+        else if (stream && !strcmp(flagname, "max_volume"))
+            flags |= PA_POLICY_LOCAL_VOLMAX;
         else {
             pa_log("invalid flag '%s' in line %d", flagname, lineno);
             return -1;

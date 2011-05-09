@@ -186,8 +186,10 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
 static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                                        void *slot_data)
 {
-    static uint32_t route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
-                                  PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+    static uint32_t         route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
+                                          PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+    static pa_volume_t      max_volume  = PA_VOLUME_NORM;
+
 
     struct pa_sink_input_new_data
                            *data = (struct pa_sink_input_new_data *)call_data;
@@ -197,6 +199,7 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
     const char             *sinp_name;
     char                   *sink_name;
     int                     local_route;
+    int                     local_volume;
     struct pa_policy_group *group;
 
     pa_assert(u);
@@ -211,23 +214,39 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
             if (!sinp_name)
                 sinp_name = "<unknown>";
 
-            local_route = flags & PA_POLICY_LOCAL_ROUTE;
+            local_route  = flags & PA_POLICY_LOCAL_ROUTE;
+            local_volume = flags & PA_POLICY_LOCAL_VOLMAX;
 
             if (group->mutebyrt && !local_route) {
                 sink_name = u->nullsink->name;
 
-                pa_log_debug("force sink input '%s' to sink '%s' due to "
-                             "mute-by-route", sinp_name, sink_name);
+                pa_log_debug("force stream '%s'/'%s' to sink '%s' due to "
+                             "mute-by-route", group_name,sinp_name, sink_name);
 
                 data->sink = u->nullsink->sink;
             }
             else if (group->flags & route_flags) {
                 sink_name = pa_sink_ext_get_name(group->sink);
 
-                pa_log_debug("force sink input '%s' to sink '%s'",
-                             sinp_name, sink_name); 
+                pa_log_debug("force stream '%s'/'%s' to sink '%s'",
+                             group_name, sinp_name, sink_name); 
 
                 data->sink = group->sink;
+            }
+
+            if (local_volume) {
+                pa_log_debug("force stream '%s'/'%s' volume to %d",
+                             group_name, sinp_name,
+                             (max_volume * 100) / PA_VOLUME_NORM);
+                
+                pa_cvolume_set(&data->volume, data->channel_map.channels,
+                               max_volume);
+
+                data->volume_is_set      = TRUE;
+#if 0
+                data->volume_is_absolute = TRUE;
+#endif
+                data->save_volume        = FALSE;
             }
         }
 
