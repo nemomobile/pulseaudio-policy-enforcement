@@ -170,6 +170,8 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 
     FILE              *f;
     char               cfgpath[PATH_MAX];
+    char               ovrpath[PATH_MAX];
+    char              *path;
     char               buf[BUFSIZE];
     char               line[BUFSIZE];
     int                lineno;
@@ -188,12 +190,18 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
         cfgfile = DEFAULT_CONFIG_FILE;
 
     pa_policy_file_path(cfgfile, cfgpath, PATH_MAX);
-    pa_log_info("parsing config file '%s'", cfgpath);
+    snprintf(ovrpath, PATH_MAX, "%s.override", cfgpath);
 
-    if ((f = fopen(cfgpath, "r")) == NULL) {
+    if ((f = fopen(ovrpath,"r")) != NULL)
+        path = ovrpath;
+    else if ((f = fopen(cfgpath, "r")) != NULL)
+        path = cfgpath;
+    else {
         pa_log("Can't open config file '%s': %s", cfgpath, strerror(errno));
         return 0;
     }
+
+    pa_log_info("parsing config file '%s'", path);
 
     success = TRUE;                    /* assume successful operation */
 
@@ -269,7 +277,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     endpwent();
 
     if (fclose(f) != 0) {
-        pa_log("Can't close config file '%s': %s", cfgpath, strerror(errno));
+        pa_log("Can't close config file '%s': %s", path, strerror(errno));
     }
 
     return success;
@@ -286,11 +294,14 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
     char              *q;
     int                l;
     char               cfgpath[PATH_MAX];
+    char             **overrides;
+    int                noverride;
     char               buf[BUFSIZE];
     char               line[BUFSIZE];
     int                lineno;
     enum section_type  newsect;
     struct section     section;
+    int                i;
 
     pa_assert(u);
 
@@ -298,6 +309,25 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
         cfgdir = DEFAULT_CONFIG_DIRECTORY;
 
     pa_log_info("policy config directory is '%s'", cfgdir);
+
+    overrides = NULL;
+    noverride = 0;
+
+    if ((d = opendir(cfgdir)) != NULL) {
+        while ((e = readdir(d)) != NULL) {
+            if ((p = strstr(e->d_name, ".conf.override")) == NULL || p[14])
+                continue;       /* does not match '*.conf.override' */
+
+            l = (p + 5) - e->d_name; /* length of '*.conf' */
+            q = pa_xmalloc(l + 1);
+            strncpy(q, e->d_name, l);
+            q[l] = '\0';
+
+            overrides = pa_xrealloc(overrides, (noverride+1) * sizeof(char *));
+            overrides[noverride++] = q;
+        }
+        closedir(d);
+    }
 
     if ((d = opendir(cfgdir)) == NULL)
         pa_log("Can't find config directory '%s'", cfgdir);
@@ -311,8 +341,21 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
         errno = 0;
 
         while (l > 1 && (e = readdir(d)) != NULL) {
-            if (!(p = strstr(e->d_name, ".conf")) || p[5])
-                continue;       /* does not match '*.conf' */
+            if ((p = strstr(e->d_name, ".conf")) != NULL && !p[5]) {
+                for (i = 0;  i < noverride; i++) {
+                    if (!strcmp(e->d_name, overrides[i]))
+                        break;
+                }
+
+                if (i < noverride) {
+                    strncpy(q, e->d_name, l);
+                    cfgpath[PATH_MAX-1] = '\0';
+                    pa_log_info("skip overriden config file '%s'", cfgpath);
+                    continue;
+                }
+            }
+            else if ((p = strstr(e->d_name,".conf.override")) == NULL || p[14])
+                continue;       /* neither '*.conf' nor '*.conf.override' */
 
             strncpy(q, e->d_name, l);
             cfgpath[PATH_MAX-1] = '\0';
@@ -369,6 +412,13 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
         closedir(d);
 
     } /* if opendir() */
+
+
+    for (i = 0; i < noverride; i++)
+        pa_xfree(overrides[i]);
+
+    pa_xfree(overrides);
+
 
     return TRUE;
 }
