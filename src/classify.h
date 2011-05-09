@@ -10,8 +10,12 @@
 #define PA_POLICY_PID_HASH_MAX   (1 << PA_POLICY_PID_HASH_BITS)
 #define PA_POLICY_PID_HASH_MASK  (PA_POLICY_PID_HASH_MAX - 1)
 
-/* flags */
+/* card flags */
 #define PA_POLICY_DISABLE_NOTIFY (1UL << 0)
+
+/* stream flags */
+#define PA_POLICY_LOCAL_ROUTE    (1UL << 0)
+#define PA_POLICY_LOCAL_MUTE     (1UL << 1)
 
 struct pa_sink;
 struct pa_source;
@@ -61,12 +65,15 @@ struct pa_classify_stream_def {
     char                          *exe;   /* exe name, if any */
     char                          *clnam; /* client name, if any */
     char                          *group; /* policy group name */
+    uint32_t                       flags; /* PA_POLICY_LOCAL_ROUTE |
+                                             PA_POLICY_LOCAL_MUTE   */
 };
 
 struct pa_classify_stream {
     struct pa_classify_pid_hash   *pid_hash[PA_POLICY_PID_HASH_MAX];
     struct pa_classify_stream_def *defs;
 };
+
 
 struct pa_classify_port_entry {
     char *device_name; /* Sink or source name */
@@ -131,7 +138,8 @@ void  pa_classify_add_source(struct userdata *, char *, char *,
 void  pa_classify_add_card(struct userdata *, char *,
                            enum pa_classify_method, char *, char *, uint32_t);
 void  pa_classify_add_stream(struct userdata *, char *,enum pa_classify_method,
-                             char *, char *, uid_t, char *, char *);
+                             char *, char *, uid_t, char *, char *,
+                             uint32_t, char *);
 
 void  pa_classify_port_entry_free(struct pa_classify_port_entry *);
 
@@ -140,9 +148,11 @@ void  pa_classify_register_pid(struct userdata *, pid_t, char *,
 void  pa_classify_unregister_pid(struct userdata *, pid_t, char *,
                                  enum pa_classify_method, char *);
 
-char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *);
+char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *,
+                             uint32_t *);
 char *pa_classify_sink_input_by_data(struct userdata *,
-                                     struct pa_sink_input_new_data *);
+                                     struct pa_sink_input_new_data *,
+                                     uint32_t *);
 char *pa_classify_source_output(struct userdata *, struct pa_source_output *);
 char *pa_classify_source_output_by_data(struct userdata *,
                                         struct pa_source_output_new_data *);

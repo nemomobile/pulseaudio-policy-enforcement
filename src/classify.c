@@ -10,6 +10,7 @@
 #include <pulsecore/strbuf.h>
 
 #include "classify.h"
+#include "policy-group.h"
 #include "client-ext.h"
 #include "sink-ext.h"
 #include "source-ext.h"
@@ -19,8 +20,8 @@
 
 
 
-static char *find_group_for_client(struct userdata *,
-                                   struct pa_client *, pa_proplist *);
+static char *find_group_for_client(struct userdata *, struct pa_client *,
+                                   pa_proplist *, uint32_t *);
 #if 0
 static char *arg_dump(int, char **, char *, size_t);
 #endif
@@ -42,9 +43,9 @@ static struct pa_classify_pid_hash
 static void streams_free(struct pa_classify_stream_def *);
 static void streams_add(struct pa_classify_stream_def **, char *, 
                         enum pa_classify_method, char *, char *,
-                        uid_t, char *, char *);
-static char *streams_get_group(struct pa_classify_stream_def **,
-                               pa_proplist *, char *, uid_t, char *);
+                        uid_t, char *, char *, uint32_t);
+static char *streams_get_group(struct pa_classify_stream_def **, pa_proplist *,
+                               char *, uid_t, char *, uint32_t *);
 static struct pa_classify_stream_def
             *streams_find(struct pa_classify_stream_def **, pa_proplist *,
                           char *, uid_t, char *,
@@ -154,16 +155,29 @@ void pa_classify_add_card(struct userdata *u, char *type,
 
 void pa_classify_add_stream(struct userdata *u, char *prop,
                             enum pa_classify_method method, char *arg,
-                            char *clnam, uid_t uid, char *exe, char *group)
+                            char *clnam, uid_t uid, char *exe, char *grnam,
+                            uint32_t flags, char *port)
 {
-    struct pa_classify *classify;
+    struct pa_classify     *classify;
+    struct pa_policy_group *group;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
 
-    if (((prop && method && arg) || uid != (uid_t)-1 || exe) && group) {
+    if (((prop && method && arg) || uid != (uid_t)-1 || exe) && grnam) {
+        if (port) {
+            if ((group = pa_policy_group_find(u, grnam)) == NULL) {
+                flags &= ~PA_POLICY_LOCAL_ROUTE;
+                pa_log("can't find group '%s' for stream", grnam);
+            }
+            else {
+                group->portname = pa_xstrdup(port);
+                pa_log_debug("set portname '%s' for group '%s'", port, grnam);
+            }
+        }
+
         streams_add(&classify->streams.defs, prop,method,arg,
-                    clnam, uid, exe, group);
+                    clnam, uid, exe, grnam, flags);
     }
 }
 
@@ -195,7 +209,8 @@ void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *prop,
     }
 }
 
-char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
+char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp,
+                             uint32_t *flags)
 {
     struct pa_client     *client;
     char                 *group;
@@ -204,13 +219,14 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp)
     pa_assert(sinp);
 
     client = sinp->client;
-    group  = find_group_for_client(u, client, sinp->proplist);
+    group  = find_group_for_client(u, client, sinp->proplist, flags);
 
     return group;
 }
 
 char *pa_classify_sink_input_by_data(struct userdata *u,
-                                     struct pa_sink_input_new_data *data)
+                                     struct pa_sink_input_new_data *data,
+                                     uint32_t *flags)
 {
     struct pa_client     *client;
     char                 *group;
@@ -219,7 +235,7 @@ char *pa_classify_sink_input_by_data(struct userdata *u,
     pa_assert(data);
 
     client = data->client;
-    group  = find_group_for_client(u, client, data->proplist);
+    group  = find_group_for_client(u, client, data->proplist, flags);
 
     return group;
 }
@@ -234,7 +250,7 @@ char *pa_classify_source_output(struct userdata *u,
     pa_assert(sout);
 
     client = sout->client;
-    group  = find_group_for_client(u, client, sout->proplist);
+    group  = find_group_for_client(u, client, sout->proplist, NULL);
 
     return group;
 }
@@ -250,7 +266,7 @@ pa_classify_source_output_by_data(struct userdata *u,
     pa_assert(data);
 
     client = data->client;
-    group  = find_group_for_client(u, client, data->proplist);
+    group  = find_group_for_client(u, client, data->proplist, NULL);
 
     return group;
 }
@@ -430,17 +446,19 @@ int pa_classify_is_port_source_typeof(struct userdata *u,
 
 static char *find_group_for_client(struct userdata  *u,
                                    struct pa_client *client,
-                                   pa_proplist      *proplist)
+                                   pa_proplist      *proplist,
+                                   uint32_t         *flags_ret)
 {
     struct pa_classify *classify;
     struct pa_classify_pid_hash **hash;
     struct pa_classify_stream_def **defs;
-    pid_t    pid   = 0;           /* client processs PID */
-    char    *clnam = (char *)"";  /* client's name in PA */
-    uid_t    uid   = (uid_t)-1;   /* client process user ID */
-    char    *exe   = (char *)"";  /* client's binary path */
-    char    *arg0;
-    char    *group = NULL;
+    pid_t     pid   = 0;           /* client processs PID */
+    char     *clnam = (char *)"";  /* client's name in PA */
+    uid_t     uid   = (uid_t)-1;   /* client process user ID */
+    char     *exe   = (char *)"";  /* client's binary path */
+    char     *arg0;
+    char     *group = NULL;
+    uint32_t  flags = 0;
 
     assert(u);
     pa_assert_se((classify = u->classify));
@@ -449,7 +467,7 @@ static char *find_group_for_client(struct userdata  *u,
     defs = &classify->streams.defs;
 
     if (client == NULL)
-        group = streams_get_group(defs, proplist, clnam, uid, exe);
+        group = streams_get_group(defs, proplist, clnam, uid, exe, &flags);
     else {
         pid = pa_client_ext_pid(client);
 
@@ -459,15 +477,19 @@ static char *find_group_for_client(struct userdata  *u,
             exe   = pa_client_ext_exe(client);
             arg0  = pa_client_ext_arg0(client);
 
-            group = streams_get_group(defs, proplist, clnam, uid, exe);
+            group = streams_get_group(defs, proplist, clnam, uid, exe, &flags);
         }
     }
 
     if (group == NULL)
         group = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
 
-    pa_log_debug("%s (%s|%d|%d|%s) => %s", __FUNCTION__, clnam?clnam:"<null>",
-                 pid, uid, exe?exe:"<null>", group?group:"<null>");
+    pa_log_debug("%s (%s|%d|%d|%s) => %s,0x%x", __FUNCTION__,
+                 clnam?clnam:"<null>", pid, uid, exe?exe:"<null>",
+                 group?group:"<null>", flags);
+
+    if (flags_ret != NULL)
+        *flags_ret = flags;
 
     return group;
 }
@@ -710,7 +732,7 @@ static void streams_free(struct pa_classify_stream_def *defs)
 
 static void streams_add(struct pa_classify_stream_def **defs, char *prop,
                         enum pa_classify_method method,char *arg, char *clnam,
-                        uid_t uid, char *exe, char *group)
+                        uid_t uid, char *exe, char *group, uint32_t flags)
 {
     struct pa_classify_stream_def *d;
     struct pa_classify_stream_def *prev;
@@ -790,23 +812,33 @@ static void streams_add(struct pa_classify_stream_def **defs, char *prop,
     }
 
     d->group = pa_xstrdup(group);
+    d->flags = flags;
 
     pa_proplist_free(proplist);
 }
 
 static char *streams_get_group(struct pa_classify_stream_def **defs,
                                pa_proplist *proplist,
-                               char *clnam, uid_t uid, char *exe)
+                               char *clnam, uid_t uid, char *exe,
+                               uint32_t *flags_ret)
 {
     struct pa_classify_stream_def *d;
     char *group;
+    uint32_t flags;
 
     pa_assert(defs);
 
-    if ((d = streams_find(defs, proplist, clnam, uid, exe, NULL)) == NULL)
+    if ((d = streams_find(defs, proplist, clnam, uid, exe, NULL)) == NULL) {
         group = NULL;
-    else
+        flags = 0;
+    }
+    else {
         group = d->group;
+        flags = d->flags;
+    }
+
+    if (flags_ret != NULL)
+        *flags_ret = flags;
 
     return group;
 }
@@ -1317,6 +1349,7 @@ int pa_classify_method_true(const char *string,
 static const char *method_str(enum pa_classify_method method)
 {
     switch (method) {
+    default:
     case pa_method_unknown:      return "unknown";
     case pa_method_equals:       return "equals";
     case pa_method_startswith:   return "startswith";

@@ -2,6 +2,7 @@ modlibexec_LTLIBRARIES = module-policy-enforcement.la
 
 module_policy_enforcement_la_SOURCES = \
 			module-policy-enforcement.c \
+			index-hash.c \
 			config-file.c \
 			client-ext.c \
 			sink-ext.c \

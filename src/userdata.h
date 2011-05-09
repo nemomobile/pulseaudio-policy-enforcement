@@ -15,6 +15,7 @@
 #define PA_PROP_MAEMO_AUDIO_MODE         "x-maemo.mode"
 #define PA_PROP_MAEMO_ACCESSORY_HWID     "x-maemo.accessory_hwid"
 
+struct pa_index_hash;
 struct pa_client_evsubscr;
 struct pa_sink_evsubscr;
 struct pa_source_evsubscr;
@@ -31,6 +32,8 @@ struct userdata {
     pa_core                   *core;
     pa_module                 *module;
     struct pa_null_sink       *nullsink;
+    struct pa_index_hash      *hsnk;     /* sink index hash */
+    struct pa_index_hash      *hsi;      /* sink input index hash */
     struct pa_client_evsubscr *scl;      /* client event susbscription */
     struct pa_sink_evsubscr   *ssnk;     /* sink event subscription */
     struct pa_source_evsubscr *ssrc;     /* source event subscription */

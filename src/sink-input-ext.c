@@ -12,6 +12,7 @@
 #include <pulsecore/sink-input.h>
 
 #include "userdata.h"
+#include "index-hash.h"
 #include "policy-group.h"
 #include "sink-input-ext.h"
 #include "sink-ext.h"
@@ -83,6 +84,19 @@ void pa_sink_input_ext_discover(struct userdata *u)
         handle_new_sink_input(u, sinp);
 }
 
+struct pa_sink_input_ext *pa_sink_input_ext_lookup(struct userdata      *u,
+                                                   struct pa_sink_input *sinp)
+{
+    struct pa_sink_input_ext *ext;
+
+    pa_assert(u);
+    pa_assert(sinp);
+
+    ext = pa_index_hash_lookup(u->hsi, sinp->index);
+
+    return ext;
+}
+
 
 int pa_sink_input_ext_set_policy_group(struct pa_sink_input *sinp,
                                          char *group)
@@ -103,7 +117,7 @@ char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *sinp)
 {
     const char *group;
 
-    assert(sinp);
+    pa_assert(sinp);
 
     group = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP);
 
@@ -178,16 +192,18 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
     struct pa_sink_input_new_data
                            *data = (struct pa_sink_input_new_data *)call_data;
     struct userdata        *u    = (struct userdata *)slot_data;
+    uint32_t                flags;
     char                   *group_name;
     const char             *sinp_name;
     char                   *sink_name;
+    int                     local_route;
     struct pa_policy_group *group;
 
     pa_assert(u);
     pa_assert(data);
 
-    if ((group_name = pa_classify_sink_input_by_data(u, data)) != NULL &&
-        (group      = pa_policy_group_find(u, group_name)    ) != NULL    ) {
+    if ((group_name = pa_classify_sink_input_by_data(u,data,&flags)) != NULL &&
+        (group      = pa_policy_group_find(u, group_name)          ) != NULL ){
 
         if (group->sink != NULL) {
             sinp_name = pa_proplist_gets(data->proplist, PA_PROP_MEDIA_NAME);
@@ -195,9 +211,9 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
             if (!sinp_name)
                 sinp_name = "<unknown>";
 
-            pa_log_debug("**** mutebyrt %d ****", group->mutebyrt);
+            local_route = flags & PA_POLICY_LOCAL_ROUTE;
 
-            if (group->mutebyrt) {
+            if (group->mutebyrt && !local_route) {
                 sink_name = u->nullsink->name;
 
                 pa_log_debug("force sink input '%s' to sink '%s' due to "
@@ -248,18 +264,26 @@ static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
 static void handle_new_sink_input(struct userdata      *u,
                                   struct pa_sink_input *sinp)
 {
-    char *snam;
-    char *gnam;
+    struct pa_sink_input_ext *ext;
+    uint32_t  idx;
+    char     *snam;
+    char     *gnam;
+    uint32_t  flags;
 
     if (sinp && u) {
+        idx  = sinp->index;
         snam = pa_sink_input_ext_get_name(sinp);
-        gnam = pa_classify_sink_input(u, sinp);
+        gnam = pa_classify_sink_input(u, sinp, &flags);
+
+        ext = pa_xmalloc0(sizeof(struct pa_sink_input_ext));
+        ext->local.route = (flags & PA_POLICY_LOCAL_ROUTE) ? TRUE : FALSE;
+        ext->local.mute  = (flags & PA_POLICY_LOCAL_MUTE ) ? TRUE : FALSE;
+        pa_index_hash_add(u->hsi, idx, ext);
 
         pa_policy_context_register(u, pa_policy_object_sink_input, snam, sinp);
-        pa_policy_group_insert_sink_input(u, gnam, sinp);
+        pa_policy_group_insert_sink_input(u, gnam, sinp, flags);
 
-        pa_log_debug("new sink_input %s (idx=%d) (group=%s)",
-                     snam, sinp->index, gnam);
+        pa_log_debug("new sink_input %s (idx=%d) (group=%s)", snam, idx, gnam);
     }
 }
 
@@ -267,19 +291,37 @@ static void handle_new_sink_input(struct userdata      *u,
 static void handle_removed_sink_input(struct userdata      *u,
                                       struct pa_sink_input *sinp)
 {
-    char *snam;
-    char *gnam;
+    struct pa_sink_input_ext *ext;
+    struct pa_sink *sink;
+    uint32_t        idx;
+    char           *snam;
+    char           *gnam;
+    uint32_t        flags;
 
     if (sinp && u) {
+        idx  = sinp->index;
+        sink = sinp->sink;
         snam = pa_sink_input_ext_get_name(sinp);
-        gnam = pa_classify_sink_input(u, sinp);
+        gnam = pa_classify_sink_input(u, sinp, &flags);
 
+        if (flags & PA_POLICY_LOCAL_ROUTE)
+            pa_sink_ext_restore_port(u, sink);
+
+        if (flags & PA_POLICY_LOCAL_MUTE)
+            pa_policy_groupset_restore_volume(u, sink);
+            
         pa_policy_context_unregister(u, pa_policy_object_sink_input,
                                      snam, sinp, sinp->index);
         pa_policy_group_remove_sink_input(u, sinp->index);
 
-        pa_log_debug("removed sink_input %s (idx=%d) (group=%s)",
-                     snam, sinp->index, gnam);
+        if ((ext = pa_index_hash_remove(u->hsi, idx)) == NULL)
+            pa_log("no extension found for sink-input '%s' (idx=%u)",snam,idx);
+        else {
+            pa_xfree(ext);
+        }
+
+        pa_log_debug("removed sink_input '%s' (idx=%d) (group=%s)",
+                     snam, idx, gnam);
     }
 }
 

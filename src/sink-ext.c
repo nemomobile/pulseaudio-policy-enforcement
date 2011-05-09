@@ -11,6 +11,7 @@
 #include <pulsecore/sink.h>
 
 #include "sink-ext.h"
+#include "index-hash.h"
 #include "classify.h"
 #include "context.h"
 #include "policy-group.h"
@@ -100,6 +101,19 @@ void pa_sink_ext_discover(struct userdata *u)
 }
 
 
+struct pa_sink_ext *pa_sink_ext_lookup(struct userdata *u,struct pa_sink *sink)
+{
+    struct pa_sink_ext *ext;
+
+    pa_assert(u);
+    pa_assert(sink);
+
+    ext = pa_index_hash_lookup(u->hsnk, sink->index);
+
+    return ext;
+}
+
+
 char *pa_sink_ext_get_name(struct pa_sink *sink)
 {
     return sink->name ? sink->name : (char *)"<unknown>";
@@ -112,6 +126,10 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 #if PULSEAUDIO_HAS_PORTS
     pa_sink *sink;
     struct pa_classify_device_data *data;
+    struct pa_classify_port_entry *port_entry;
+    char *name;
+    char *port;
+    struct pa_sink_ext *ext;
     uint32_t idx;
 
     pa_assert(u);
@@ -120,29 +138,119 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
     PA_IDXSET_FOREACH(sink, u->core->sinks, idx) {
         /* Check whether the port of this sink should be changed. */
         if (pa_classify_is_port_sink_typeof(u, sink, type, &data)) {
-            struct pa_classify_port_entry *port_entry;
 
             pa_assert_se(port_entry = pa_hashmap_get(data->ports, sink->name));
+            pa_assert_se(port = port_entry->port_name);
 
-            if (!sink->active_port ||
-                    !pa_streq(port_entry->port_name,
-                              sink->active_port->name)) {
+            name = pa_sink_ext_get_name(sink);
+            ext  = pa_sink_ext_lookup(u, sink);
 
-                if (pa_sink_set_port(sink, port_entry->port_name, FALSE) < 0) {
-                    ret = -1;
-                    pa_log("failed to set sink '%s' port to '%s'",
-                           sink->name, port_entry->port_name);
+            if (ext && ext->overridden_port) {
+                free(ext->overridden_port);
+                ext->overridden_port = pa_xstrdup(port);
+                continue;
+            }
+
+            if (!sink->active_port || !pa_streq(port,sink->active_port->name)){
+
+                if (!ext->overridden_port) {
+                    if (pa_sink_set_port(sink, port, FALSE) < 0) {
+                        ret = -1;
+                        pa_log("failed to set sink '%s' port to '%s'",
+                               name, port);
+                    }
+                    else {
+                        pa_log_debug("changed sink '%s' port to '%s'",
+                                     name, port);
+                    }
                 }
-                else {
-                    pa_log_debug("changed sink '%s' port to '%s'",
-                                 sink->name, port_entry->port_name);
-                }
+                continue;
             }
         }
-    }
+    } /* for */
 #endif
 
     return ret;
+}
+
+void pa_sink_ext_override_port(struct userdata *u, struct pa_sink *sink,
+                               char *port)
+{
+    struct pa_sink_ext *ext;
+    char               *name;
+    uint32_t            idx;
+    char               *active_port;
+
+    if (!sink || !u || !port)
+        return;
+
+    name = pa_sink_ext_get_name(sink);
+    idx  = sink->index;
+    ext  = pa_sink_ext_lookup(u, sink);
+
+    if (ext == NULL) {
+        pa_log("no extension found for sink '%s' (idx=%u)", name, idx);
+        return;
+    }
+
+    active_port = sink->active_port ? sink->active_port->name : "";
+
+    if (ext->overridden_port) {
+        if (strcmp(port, active_port)) {
+            pa_log_debug("attempt to multiple time to override "
+                         "port on sink '%s'", name);
+        }
+    }
+    else {
+        ext->overridden_port = pa_xstrdup(active_port);
+
+        if (strcmp(port, active_port)) {
+            if (pa_sink_set_port(sink, port, FALSE) < 0)
+                pa_log("failed to override sink '%s' port to '%s'", name,port);
+            else
+                pa_log_debug("overrode sink '%s' port to '%s'", name, port);
+        }
+    }
+}
+
+void pa_sink_ext_restore_port(struct userdata *u, struct pa_sink *sink)
+{
+    struct pa_sink_ext *ext;
+    char               *name;
+    uint32_t            idx;
+    char               *active_port;
+    char               *overridden_port;
+
+    if (!sink || !u)
+        return;
+
+    name = pa_sink_ext_get_name(sink);
+    idx  = sink->index;
+    ext  = pa_sink_ext_lookup(u, sink);
+
+    if (ext == NULL) {
+        pa_log("no extension found for sink '%s' (idx=%u)", name, idx);
+        return;
+    }
+
+    active_port     = sink->active_port ? sink->active_port->name : "";
+    overridden_port = ext->overridden_port;
+
+    if (overridden_port) {
+        if (strcmp(overridden_port, active_port)) {
+            if (pa_sink_set_port(sink, overridden_port, FALSE) < 0) {
+                pa_log("failed to restore sink '%s' port to '%s'",
+                       name, overridden_port);
+            }
+            else {
+                pa_log_debug("restore sink '%s' port to '%s'",
+                             name, overridden_port);
+            }
+        }
+
+        pa_xfree(overridden_port);
+        ext->overridden_port = NULL;
+    }
 }
 
 static pa_hook_result_t sink_put(void *hook_data, void *call_data,
@@ -178,6 +286,7 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
     int       ret;
     int       is_null_sink;
     struct pa_null_sink *ns;
+    struct pa_sink_ext  *ext;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);
@@ -212,6 +321,9 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
                 pa_log_debug("new sink '%s' (idx=%d) (type %s)",
                              name, idx, buf);
 
+                ext = pa_xmalloc0(sizeof(struct pa_sink_ext));
+                pa_index_hash_add(u->hsnk, idx, ext);
+
                 pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
                 pa_policy_groupset_register_sink(u, sink);
 
@@ -232,6 +344,7 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
     char                 buf[1024];
     int                  len;
     struct pa_null_sink *ns;
+    struct pa_sink_ext  *ext;
 
     if (sink && u) {
         name = pa_sink_ext_get_name(sink);
@@ -240,7 +353,7 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
         ns   = u->nullsink;
 
         if (ns->sink == sink) {
-            pa_log_debug("cease to use sink '%s' (idx=%d) to mute-by-route",
+            pa_log_debug("cease to use sink '%s' (idx=%u) to mute-by-route",
                          name, idx);
 
             /* TODO: move back the streams of this sink to their
@@ -252,12 +365,19 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
         pa_policy_context_unregister(u, pa_policy_object_sink, name, sink,idx);
 
         if (len <= 0)
-            pa_log_debug("remove sink '%s' (idx=%d)", name, idx);
+            pa_log_debug("remove sink '%s' (idx=%u)", name, idx);
         else {
             pa_log_debug("remove sink '%s' (idx=%d, type=%s)", name,idx, buf);
-            
+
             pa_policy_groupset_update_default_sink(u, idx);
             pa_policy_groupset_unregister_sink(u, idx);
+
+            if ((ext = pa_index_hash_remove(u->hsnk, idx)) == NULL)
+                pa_log("no extension found for sink '%s' (idx=%u)",name,idx);
+            else {
+                pa_xfree(ext->overridden_port);
+                pa_xfree(ext);
+            }
 
             len = pa_classify_sink(u, sink, PA_POLICY_DISABLE_NOTIFY,0,
                                    buf, sizeof(buf));
@@ -268,7 +388,6 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
         }
     }
 }
-
 
 void pa_policy_send_device_state(struct userdata *u, const char *state,
                                  char *typelist) 

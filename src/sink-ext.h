@@ -15,13 +15,20 @@ struct pa_sink_evsubscr {
     pa_hook_slot    *unlink;
 };
 
+struct pa_sink_ext {
+    char *overridden_port;
+};
+
 struct pa_null_sink *pa_sink_ext_init_null_sink(const char *);
 void pa_sink_ext_null_sink_free(struct pa_null_sink *);
 struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *);
 void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
 void  pa_sink_ext_discover(struct userdata *);
+struct pa_sink_ext *pa_sink_ext_lookup(struct userdata *, struct pa_sink *);
 char *pa_sink_ext_get_name(struct pa_sink *);
 int pa_sink_ext_set_ports(struct userdata *, const char *);
+void pa_sink_ext_override_port(struct userdata *, struct pa_sink *, char *);
+void pa_sink_ext_restore_port(struct userdata *, struct pa_sink *);
 
 void pa_policy_send_device_state(struct userdata *, const char *, char *);
 

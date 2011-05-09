@@ -114,6 +114,8 @@ struct streamdef {
     uid_t                    uid;    /* client's user id */
     char                    *exe;    /* the executable name (i.e. argv[0]) */
     char                    *group;  /* group name the stream belong to */
+    uint32_t                 flags;  /* stream flags */
+    char                    *port;   /* port for local routing, if any */
 };
 
 
@@ -158,7 +160,7 @@ static int contextsetprop_parse(int, char *, struct contextdef *);
 static int contextdelprop_parse(int, char *, struct contextdef *);
 static int contextanyprop_parse(int, char *, char *, struct anyprop *);
 static int cardname_parse(int, char *, struct carddef *);
-static int flags_parse(int lineno, char *, uint32_t *);
+static int flags_parse(int, char *, enum section_type, uint32_t *);
 static int valid_label(int, char *);
 
 
@@ -579,15 +581,19 @@ static int section_close(struct userdata *u, struct section *sec)
             status = 0;
             strdef = sec->def.stream;
 
+            if (strdef->port)
+                strdef->flags |= PA_POLICY_LOCAL_ROUTE;
+
             pa_classify_add_stream(u, strdef->prop,strdef->method,strdef->arg,
                                    strdef->clnam, strdef->uid, strdef->exe,
-                                   strdef->group);
+                                   strdef->group, strdef->flags, strdef->port);
 
             pa_xfree(strdef->prop);
             pa_xfree(strdef->arg);
             pa_xfree(strdef->clnam);
             pa_xfree(strdef->exe);
             pa_xfree(strdef->group);
+            pa_xfree(strdef->port);
             pa_xfree(strdef);
 
             break;
@@ -783,7 +789,7 @@ static int devicedef_parse(int lineno, char *line, struct devicedef *devdef)
             sts = ports_parse(lineno, line+6, devdef);
         }
         else if (!strncmp(line, "flags=", 6)) {
-            sts = flags_parse(lineno, line+6, &devdef->flags);
+            sts = flags_parse(lineno, line+6, section_device, &devdef->flags);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
@@ -820,7 +826,7 @@ static int carddef_parse(int lineno, char *line, struct carddef *carddef)
             carddef->profile = pa_xstrdup(line+8);
         }
         else if (!strncmp(line, "flags=", 6)) {
-            sts = flags_parse(lineno, line+6, &carddef->flags);
+            sts = flags_parse(lineno, line+6, section_card, &carddef->flags);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
@@ -889,6 +895,12 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
         }
         else if (!strncmp(line, "group=", 6)) {
             strdef->group = pa_xstrdup(line+6);
+        }
+        else if (!strncmp(line, "flags=", 6)) {
+            sts = flags_parse(lineno, line+6, section_stream, &strdef->flags);
+        }
+        else if (!strncmp(line, "port_if_active=", 15)) {
+            strdef->port = pa_xstrdup(line+15);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
@@ -1344,13 +1356,26 @@ static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
     return 0;
 }
 
-static int flags_parse(int lineno, char *flagdef, uint32_t *flags_ret)
+static int flags_parse(int lineno, char  *flagdef,
+                       enum section_type  sectn,
+                       uint32_t          *flags_ret)
 {
     char     *comma;
     char     *flagname;
     uint32_t  flags;
+    int       device, card, stream;
 
     flags = 0;
+
+    device = card = stream = FALSE;
+
+    switch (sectn) {
+    case section_device:   device = TRUE;   break;
+    case section_card:     card   = TRUE;   break;
+    case section_stream:   stream = TRUE;   break;
+    default:                                break;
+    }
+
 
     while (*(flagname = flagdef) != '\0') {
         if ((comma = strchr(flagdef, ',')) == NULL)
@@ -1360,8 +1385,10 @@ static int flags_parse(int lineno, char *flagdef, uint32_t *flags_ret)
             flagdef = comma + 1;
         }
 
-        if (!strcmp(flagname, "disable_notify"))
+        if ((device || card) && !strcmp(flagname, "disable_notify"))
             flags |= PA_POLICY_DISABLE_NOTIFY;
+        else if (stream && !strcmp(flagname, "mute_if_active"))
+            flags |= PA_POLICY_LOCAL_MUTE;
         else {
             pa_log("invalid flag '%s' in line %d", flagname, lineno);
             return -1;

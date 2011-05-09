@@ -39,16 +39,18 @@ struct pa_source_output_list {
 };
 
 struct pa_policy_group {
-    struct pa_policy_group       *next;
+    struct pa_policy_group       *next;     /* hash link*/
     uint32_t                      flags;    /* or'ed PA_POLICY_GROUP_FLAG_x's*/
     char                         *name;     /* name of the policy group */
     char                         *sinkname; /* name of the default sink */
+    char                         *portname; /* name of the default port */
     struct pa_sink               *sink;     /* default sink for the group */
     uint32_t                      sinkidx;  /* index of the default sink */
     char                         *srcname;  /* name of the default source */
     struct pa_source             *source;   /* default source fror the group */
     uint32_t                      srcidx;   /* index of the default source */
     pa_volume_t                   limit;    /* volume limit for the group */
+    int                           locmute;  /* mute by local policy */
     int                           corked;
     int                           mutebyrt; /* muted by routing to null sink */
     struct pa_sink_input_list    *sinpls;   /* sink input list */
@@ -78,6 +80,7 @@ void pa_policy_groupset_unregister_sink(struct userdata *, uint32_t);
 void pa_policy_groupset_register_source(struct userdata *, struct pa_source *);
 void pa_policy_groupset_unregister_source(struct userdata *, uint32_t);
 void pa_policy_groupset_create_default_group(struct userdata *, const char *);
+int pa_policy_groupset_restore_volume(struct userdata *, struct pa_sink *);
 
 struct pa_policy_group *pa_policy_group_new(struct userdata *, char*,
                                             char *, char *, uint32_t);
@@ -86,7 +89,7 @@ struct pa_policy_group *pa_policy_group_find(struct userdata *, char *);
 
 
 void pa_policy_group_insert_sink_input(struct userdata *, char *,
-                                       struct pa_sink_input *);
+                                       struct pa_sink_input *, uint32_t);
 void pa_policy_group_remove_sink_input(struct userdata *, uint32_t);
 
 

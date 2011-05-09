@@ -27,6 +27,7 @@
 
 #include "module-policy-enforcement-symdef.h"
 #include "userdata.h"
+#include "index-hash.h"
 #include "config-file.h"
 #include "policy-group.h"
 #include "classify.h"
@@ -105,6 +106,8 @@ int pa__init(pa_module *m) {
     u->core     = m->core;
     u->module   = m;
     u->nullsink = pa_sink_ext_init_null_sink(nsnam);
+    u->hsnk     = pa_index_hash_init(8);
+    u->hsi      = pa_index_hash_init(10);
     u->scl      = pa_client_ext_subscription(u);
     u->ssnk     = pa_sink_ext_subscription(u);
     u->ssrc     = pa_source_ext_subscription(u);
@@ -176,7 +179,10 @@ void pa__done(pa_module *m) {
     pa_policy_groupset_free(u->groups);
     pa_classify_free(u->classify);
     pa_policy_context_free(u->context);
+    pa_index_hash_free(u->hsnk);
+    pa_index_hash_free(u->hsi);
     pa_sink_ext_null_sink_free(u->nullsink);
+
     
     pa_xfree(u);
 }

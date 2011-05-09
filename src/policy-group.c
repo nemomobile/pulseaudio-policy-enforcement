@@ -11,6 +11,9 @@
 #include "classify.h"
 #include "dbusif.h"
 
+#define MUTE   1
+#define UNMUTE 0
+
 
 struct target {
     enum pa_policy_route_class  class;
@@ -37,8 +40,9 @@ static uint32_t          defsrcidx  = PA_IDXSET_INVALID;
 
 static int move_group(struct pa_policy_group *, struct target *);
 static int volset_group(struct pa_policy_group *, pa_volume_t);
-static int mute_group_by_route(struct pa_policy_group *, int,
-                               struct pa_null_sink *);
+static int mute_group_by_route(struct pa_policy_group *,
+                               int, struct pa_null_sink *);
+static int mute_group_locally(struct userdata *, struct pa_policy_group *,int);
 static int cork_group(struct pa_policy_group *, int);
 
 static struct pa_policy_group *find_group_by_name(struct pa_policy_groupset *,
@@ -280,6 +284,23 @@ void pa_policy_groupset_create_default_group(struct userdata *u,
     gset->dflt = pa_policy_group_new(u, name, NULL, NULL, flags);
 }
 
+int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)
+{
+    struct pa_policy_group *group;
+    void *cursor = NULL;
+    int ret = 0;
+  
+    if (sink) {
+        while ((group = pa_policy_group_scan(u->groups, &cursor)) != NULL) {
+            if (sink == group->sink) {
+                if (mute_group_locally(u, group, UNMUTE) < 0)
+                    ret = -1;
+            }
+        } 
+    }
+
+    return ret;
+}
 
 
 struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name, 
@@ -391,6 +412,7 @@ void pa_policy_group_free(struct pa_policy_groupset *gset, char *name)
 
                 pa_xfree(group->name);
                 pa_xfree(group->sinkname);
+                pa_xfree(group->portname);
                 pa_xfree(group->srcname);
 
                 prev->next = group->next;
@@ -416,18 +438,24 @@ struct pa_policy_group *pa_policy_group_find(struct userdata *u, char *name)
 
 void pa_policy_group_insert_sink_input(struct userdata      *u,
                                        char                 *name,
-                                       struct pa_sink_input *si)
+                                       struct pa_sink_input *si,
+                                       uint32_t              flags)
 {
-    static const char *media      = "audio_playback";
-    static uint32_t   route_flags = PA_POLICY_GROUP_FLAG_SET_SINK |
-                                    PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+    static const char *media        = "audio_playback";
+    static uint32_t    route_flags  = PA_POLICY_GROUP_FLAG_SET_SINK |
+                                      PA_POLICY_GROUP_FLAG_ROUTE_AUDIO;
+    static uint32_t    setsink_flag = PA_POLICY_GROUP_FLAG_SET_SINK;
 
     struct pa_policy_groupset *gset;
-    struct pa_policy_group    *group;
+    struct pa_policy_group    *group, *g;
     struct pa_sink_input_list *sl;
     struct pa_null_sink       *ns;
     char                      *sinp_name;
     char                      *sink_name;
+    int                        local_route;
+    int                        local_mute;
+    int                        static_route;
+    void                      *cursor = NULL;
 
 
     pa_assert(u);
@@ -453,8 +481,10 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
             sinp_name = pa_sink_input_ext_get_name(si);
             sink_name = pa_sink_ext_get_name(group->sink);
 
+            local_route = flags & PA_POLICY_LOCAL_ROUTE;
+            local_mute  = flags & PA_POLICY_LOCAL_MUTE;
 
-            if (group->mutebyrt) {
+            if (group->mutebyrt & !local_route) {
                 ns = u->nullsink;
 
                 pa_log_debug("move sink input '%s' to sink '%s'",
@@ -463,24 +493,38 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
                 pa_sink_input_move_to(si, ns->sink, TRUE);
             }
             else if (group->flags & route_flags) {
-                pa_log_debug("move sink input '%s' to sink '%s'",
-                             sinp_name, sink_name);
+                static_route = ((group->flags & route_flags) == setsink_flag);
+
+                pa_log_debug("move stream '%s'/'%s' to sink '%s'",
+                             group->name, sinp_name, sink_name);
 
                 pa_sink_input_move_to(si, group->sink, TRUE);
+
+                if (local_route && group->portname && static_route) {
+                    pa_sink_ext_override_port(u, group->sink, group->portname);
+                }
             }
 
 
             if (group->flags & PA_POLICY_GROUP_FLAG_CORK_STREAM) {
                 if (group->corked) {
-                    pa_log_debug("sink input '%s' %s", sinp_name,
-                                 group->corked ? "corked" : "uncorked");
+                    pa_log_debug("stream '%s'/'%s' %scorked",
+                                 group->name, sinp_name,
+                                 group->corked ? "" : "un");
                     
                     pa_sink_input_cork(si, group->corked);
                 }
             }
 
 
-            if (group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME) {
+            if (local_mute) {
+                while ((g = pa_policy_group_scan(u->groups, &cursor)) != NULL){
+                    if (g->sink && g->sink == group->sink) {
+                        mute_group_locally(u, g, MUTE);
+                    }
+                }
+            }
+            else if (group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME) {
                 pa_log_debug("set volume limit %d for sink input '%s'",
                              (group->limit * 100) / PA_VOLUME_NORM,sinp_name);
 
@@ -789,6 +833,7 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,
     return ret;
 }
 
+
 struct pa_policy_group *pa_policy_group_scan(struct pa_policy_groupset *gset,
                                              void **pcursor)
 {
@@ -963,14 +1008,16 @@ static int volset_group(struct pa_policy_group *group, pa_volume_t percent)
     else {
         group->limit = limit;
 
-        for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
-            sinp = sl->sink_input;
-
-            if (pa_sink_input_ext_set_volume_limit(sinp, limit) < 0)
-                ret = -1;
-            else
-                pa_log_debug("set volume limit %d for sink input '%s'",
-                             percent, pa_sink_input_ext_get_name(sinp));
+        if (!group->locmute) {
+            for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
+                sinp = sl->sink_input;
+                
+                if (pa_sink_input_ext_set_volume_limit(sinp, limit) < 0)
+                    ret = -1;
+                else
+                    pa_log_debug("set volume limit %d for sink input '%s'",
+                                 percent, pa_sink_input_ext_get_name(sinp));
+            }
         }
     }
 
@@ -978,8 +1025,9 @@ static int volset_group(struct pa_policy_group *group, pa_volume_t percent)
 }
 
 
-static int mute_group_by_route(struct pa_policy_group *group, int mute,
-                               struct pa_null_sink *ns)
+static int mute_group_by_route(struct pa_policy_group *group,
+                               int                     mute,
+                               struct pa_null_sink    *ns)
 {
     struct pa_sink_input_list *sl;
     struct pa_sink_input *sinp;
@@ -1008,15 +1056,92 @@ static int mute_group_by_route(struct pa_policy_group *group, int mute,
 
             group->mutebyrt = mute;
 
-            for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
-                sinp = sl->sink_input;
+            if (!group->locmute) {
+                for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
+                    sinp = sl->sink_input;
+                    
+                    pa_log_debug("move sink input '%s' to sink '%s' by "
+                                 "mute-by-route",
+                                 pa_sink_input_ext_get_name(sinp), sink_name);
+                    
+                    if (pa_sink_input_move_to(sinp, sink, TRUE) < 0)
+                        ret = -1;
+                }
+            }
+        }
+    }
 
-                pa_log_debug("move sink input '%s' to sink '%s' by "
-                             "mute-by-route",
-                             pa_sink_input_ext_get_name(sinp), sink_name);
+    return ret;
+}
+
+static int mute_group_locally(struct userdata        *u,
+                              struct pa_policy_group *group,
+                              int                     locmute)
+{
+    struct pa_sink_input_list *sl;
+    struct pa_sink_input *sinp;
+    struct pa_sink_input_ext *ext;
+    struct pa_sink *sink;
+    char *sink_name;
+    char *sinp_name;
+    pa_volume_t volume;
+    int mutebyrt;
+    int mark;
+    int mute;
+    int percent;
+    const char *prefix;
+    const char *method;
+    int ret = 0;
+
+
+    if (locmute != group->locmute) {
+        group->locmute = locmute;
+
+        mutebyrt = group->flags & PA_POLICY_GROUP_FLAG_MUTE_BY_ROUTE;
+        prefix   = locmute  ? "" : "un";
+        method   = mutebyrt ? " using mute-by-route" : "";
+
+        pa_log_debug("group '%s' locally %smuted%s",group->name,prefix,method);
+
+
+        for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
+            sinp = sl->sink_input;
+            ext  = pa_sink_input_ext_lookup(u, sinp);
+            mark = (ext && ext->local.mute);
+            mute = mark ? !locmute : locmute;
+            sink = mute ? u->nullsink->sink : group->sink;
+
+            sink_name = sink ? pa_sink_ext_get_name(sink) : "<unknown sink>";
+            sinp_name = pa_sink_input_ext_get_name(sinp);
+
+            if (mutebyrt)
+                volume = group->limit;
+            else
+                volume = mute ? 0 : (mark ? PA_VOLUME_NORM : group->limit);
+
+            percent = (volume * 100) / PA_VOLUME_NORM;
+
+            
+            if (mutebyrt && sink && sink != sinp->sink) {
+                pa_log_debug("moving stream '%s'/'%s' to sink '%s'",
+                             group->name, sinp_name, sink_name);
 
                 if (pa_sink_input_move_to(sinp, sink, TRUE) < 0)
                     ret = -1;
+                else {
+                    pa_log_debug("stream '%s'/'%s' is now at sink '%s'",
+                                 group->name, sinp_name, sink_name);
+                }
+            }
+
+            pa_log_debug("set volume limit %d for sink input '%s'/'%s'",
+                         percent, group->name, sinp_name);
+
+            if (pa_sink_input_ext_set_volume_limit(sinp, volume) < 0)
+                ret = -1;
+            else {
+                pa_log_debug("now volume limit %d for sink input '%s'/'%s'",
+                             percent, group->name, sinp_name);
             }
         }
     }
