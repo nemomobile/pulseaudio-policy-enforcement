@@ -711,13 +711,18 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
     };
 
     struct argvol  args;
+    int            success = TRUE;
 
     do {
-        if (!action_parser(actit, descs, &args, sizeof(args)))
-            return FALSE;
+        if (!action_parser(actit, descs, &args, sizeof(args))) {
+            success = FALSE;
+            break;
+        }
 
-        if (args.group == NULL || args.limit < 0 || args.limit > 100)
-            return FALSE;
+        if (args.group == NULL || args.limit < 0 || args.limit > 100) {
+            success = FALSE;
+            break;
+        }
 
         pa_log_debug("volume limit (%s|%d)", args.group, args.limit); 
 
@@ -725,7 +730,9 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
 
     } while (dbus_message_iter_next(actit));
 
-    return TRUE;
+    pa_sink_ext_set_volumes(u);
+
+    return success;
 }
 
 static int audio_cork_parser(struct userdata *u, DBusMessageIter *actit)

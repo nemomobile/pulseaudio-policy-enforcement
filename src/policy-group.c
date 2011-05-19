@@ -37,9 +37,11 @@ static struct pa_sink   *defsink;
 static struct pa_source *defsource;
 static uint32_t          defsinkidx = PA_IDXSET_INVALID;
 static uint32_t          defsrcidx  = PA_IDXSET_INVALID;
+static pa_volume_t       dbtbl[300];
 
 static int move_group(struct pa_policy_group *, struct target *);
-static int volset_group(struct pa_policy_group *, pa_volume_t);
+static int volset_group(struct userdata *, struct pa_policy_group *,
+                        pa_volume_t);
 static int mute_group_by_route(struct pa_policy_group *,
                                int, struct pa_null_sink *);
 static int mute_group_locally(struct userdata *, struct pa_policy_group *,int);
@@ -53,12 +55,27 @@ static struct pa_source *find_source_by_type(struct userdata *, char *);
 
 static uint32_t hash_value(char *);
 
+static pa_volume_t dB_to_sw_volume(int);
+
 
 struct pa_policy_groupset *pa_policy_groupset_new(struct userdata *u)
 {
+    static int initialized;
+
+    double dB;
     struct pa_policy_groupset *gset;
+    int i;
 
     pa_assert(u);
+
+    if (!initialized) {
+        initialized = TRUE;
+
+        for (i = 0;   i < (sizeof(dbtbl) / sizeof(dbtbl[0]));  i++) {
+            dB = -(double)i;
+            dbtbl[i] = pa_sw_volume_from_dB(dB);
+        }
+    }
     
     gset = pa_xnew0(struct pa_policy_groupset, 1);
 
@@ -815,16 +832,16 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,
             ret = 0;
         else {
             if (!(group->flags & PA_POLICY_GROUP_FLAG_MUTE_BY_ROUTE))
-                ret = volset_group(group, percent);
+                ret = volset_group(u, group, percent);
             else {
                 if (ns->sink == NULL)
-                    ret = volset_group(group, percent);
+                    ret = volset_group(u, group, percent);
                 else {
                     mute = percent > 0 ? FALSE : TRUE;
                     ret  = mute_group_by_route(group, mute, ns); 
                     
                     if (!mute)
-                        volset_group(group, percent);
+                        volset_group(u, group, percent);
                 }
             }
         }
@@ -991,15 +1008,21 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 }
 
 
-static int volset_group(struct pa_policy_group *group, pa_volume_t percent)
+static int volset_group(struct userdata        *u,
+                        struct pa_policy_group *group,
+                        pa_volume_t             percent)
 {
     pa_volume_t limit;
     struct pa_sink_input_list *sl;
     struct pa_sink_input *sinp;
-    int ret = 0;
+    struct pa_sink *sink;
+    struct pa_sink_ext *ext;
+    int vset;
+    int flat;
+    int retval;
 
-
-    limit = ((percent > 100 ? 100 : percent) * PA_VOLUME_NORM) / 100;
+    limit  = ((percent > 100 ? 100 : percent) * PA_VOLUME_NORM) / 100;
+    retval = 0;
 
     if (limit == group->limit) {
         pa_log_debug("group '%s' volume limit is already %d",
@@ -1011,17 +1034,26 @@ static int volset_group(struct pa_policy_group *group, pa_volume_t percent)
         if (!group->locmute) {
             for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
                 sinp = sl->sink_input;
-                
-                if (pa_sink_input_ext_set_volume_limit(sinp, limit) < 0)
-                    ret = -1;
-                else
+                vset = pa_sink_input_ext_set_volume_limit(sinp, limit);
+
+                if (vset < 0)
+                    retval = -1;
+                else {
+                    sink = sinp->sink;
+                    ext  = pa_sink_ext_lookup(u, sink);
+
+                    pa_assert(ext);
+
                     pa_log_debug("set volume limit %d for sink input '%s'",
                                  percent, pa_sink_input_ext_get_name(sinp));
+
+                    ext->need_volume_setting |= vset;
+                }
             }
         }
     }
 
-    return ret;
+    return 0;
 }
 
 
@@ -1249,6 +1281,20 @@ static uint32_t hash_value(char *s)
     }
 
     return hash & PA_POLICY_GROUP_HASH_MASK;
+}
+
+static pa_volume_t dB_to_sw_volume(int dB)
+{
+    int         idx = -dB;
+    pa_volume_t volume;
+
+    if (idx < 0)
+        return PA_VOLUME_NORM;
+
+    if (idx > (sizeof(dbtbl) / sizeof(dbtbl[0])))
+        return PA_VOLUME_MUTED;
+
+    return dbtbl[idx];
 }
 
 

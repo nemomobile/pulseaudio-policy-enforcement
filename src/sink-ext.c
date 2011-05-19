@@ -173,6 +173,28 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
     return ret;
 }
 
+void pa_sink_ext_set_volumes(struct userdata *u)
+{
+    struct pa_sink     *sink;
+    struct pa_sink_ext *ext;
+    uint32_t            idx;
+
+    pa_assert(u);
+    pa_assert(u->core);
+
+    PA_IDXSET_FOREACH(sink, u->core->sinks, idx) {
+        ext = pa_sink_ext_lookup(u, sink);
+
+        pa_assert(ext);
+
+        if (ext->need_volume_setting) {
+            pa_log_debug("set sink '%s' volume", pa_sink_ext_get_name(sink));
+            pa_sink_set_volume(sink, NULL, TRUE, FALSE);
+            ext->need_volume_setting = FALSE;
+        }
+    }
+}
+
 void pa_sink_ext_override_port(struct userdata *u, struct pa_sink *sink,
                                char *port)
 {

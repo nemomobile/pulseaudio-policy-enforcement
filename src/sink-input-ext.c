@@ -145,40 +145,64 @@ char *pa_sink_input_ext_get_name(struct pa_sink_input *sinp)
 int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
                                        pa_volume_t limit)
 {
-    pa_sink    *sink;
-#if 0
-    pa_cvolume *vol;
-    int         i;
-#endif
+    pa_sink     *sink;
+    int          retval;
+    uint64_t     limit64;
+    pa_volume_t  value;
+    pa_cvolume  *factor;
+    pa_cvolume  *real;
+    int          changed;
+    int          i;
 
     pa_assert(sinp);
     pa_assert_se((sink = sinp->sink));
+
+    retval = 0;
 
     if (limit == 0)
         pa_sink_input_set_mute(sinp, TRUE, TRUE);
     else {
         pa_sink_input_set_mute(sinp, FALSE, TRUE);
 
-#if 0
         if (limit > PA_VOLUME_NORM)
             limit = PA_VOLUME_NORM;
 
-        vol = pa_xnewdup(struct pa_cvolume, &sinp->virtual_volume, 1);
-        
-        pa_assert(vol->channels <= PA_CHANNELS_MAX);
-        
-        for (i = 0;  i < vol->channels;  i++) {
-            if (vol->values[i] > limit)
-                vol->values[i] = limit;
+        factor  = &sinp->volume_factor;
+        real    = &sinp->real_ratio;
+        limit64 = (uint64_t)limit * (uint64_t)PA_VOLUME_NORM;
+        changed = FALSE;
+
+        if (real->channels != factor->channels) {
+            pa_log_debug("channel number mismatch");
+            retval = -1;
         }
-        
-        pa_asyncmsgq_post(sink->asyncmsgq, PA_MSGOBJECT(sinp),
-                          PA_SINK_INPUT_MESSAGE_SET_SOFT_VOLUME,
-                          vol, 0,NULL, pa_xfree);
-#endif
+        else {
+            for (i = 0;   i < factor->channels;   i++) {
+                if (limit < real->values[i])
+                    value = limit64 / (uint64_t)real->values[i];
+                else
+                    value = PA_VOLUME_NORM;
+
+                if (value != factor->values[i]) {
+                    changed = 1;
+                    factor->values[i] = value;
+                }
+            }
+
+            if (changed) {
+                if (sink->flags & PA_SINK_FLAT_VOLUME)
+                    retval = 1;
+                else {
+                    pa_sw_cvolume_multiply(&sinp->soft_volume, real, factor);
+                    pa_asyncmsgq_send(sink->asyncmsgq, PA_MSGOBJECT(sinp),
+                                      PA_SINK_INPUT_MESSAGE_SET_SOFT_VOLUME,
+                                      NULL, 0, NULL);
+                }
+            }        
+        }
     }
 
-    return 0;
+    return retval;
 }
 
 
@@ -198,8 +222,10 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
     char                   *group_name;
     const char             *sinp_name;
     char                   *sink_name;
+    int                     group_volume;
     int                     local_route;
     int                     local_volume;
+    pa_cvolume              group_limit;
     struct pa_policy_group *group;
 
     pa_assert(u);
@@ -214,6 +240,7 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
             if (!sinp_name)
                 sinp_name = "<unknown>";
 
+            group_volume = group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME;
             local_route  = flags & PA_POLICY_LOCAL_ROUTE;
             local_volume = flags & PA_POLICY_LOCAL_VOLMAX;
 
@@ -243,10 +270,19 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                                max_volume);
 
                 data->volume_is_set      = TRUE;
-#if 0
-                data->volume_is_absolute = TRUE;
-#endif
                 data->save_volume        = FALSE;
+            }
+            else if (group_volume && !group->mutebyrt &&
+                     group->limit > 0 && group->limit < PA_VOLUME_NORM)
+            {
+                pa_log_debug("set stream '%s'/'%s' volume factor to %d",
+                             group_name, sinp_name,
+                             (group->limit * 100) / PA_VOLUME_NORM);
+
+                pa_cvolume_set(&group_limit, data->channel_map.channels,
+                               group->limit);
+
+                pa_sink_input_new_data_apply_volume_factor(data, &group_limit);
             }
         }
 
