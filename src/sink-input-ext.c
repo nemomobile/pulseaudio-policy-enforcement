@@ -190,7 +190,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
             }
 
             if (changed) {
-                if (sink->flags & PA_SINK_FLAT_VOLUME)
+                if (pa_sink_flat_volume_enabled(sink))
                     retval = 1;
                 else {
                     pa_sw_cvolume_multiply(&sinp->soft_volume, real, factor);
