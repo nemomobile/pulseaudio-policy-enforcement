@@ -84,6 +84,7 @@ struct groupdef {
     char                    *name;
     char                    *sink;
     char                    *source;
+    pa_proplist             *properties;
     uint32_t                 flags;
 };
 
@@ -561,8 +562,10 @@ static int section_close(struct userdata *u, struct section *sec)
             status = 0;
             grdef  = sec->def.group;
 
-            pa_policy_group_new(u, grdef->name, grdef->sink,
-                                grdef->source, grdef->flags);
+            /* Transfer ownership of grdef->properties */
+            pa_policy_group_new(u, grdef->name,   grdef->sink,
+                                   grdef->source, grdef->properties,
+                                   grdef->flags);
 
             pa_xfree(grdef->name);
             pa_xfree(grdef->sink);
@@ -749,6 +752,12 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
         }
         else if (!strncmp(line, "source=", 7)) {
             grdef->source = pa_xstrdup(line+7);
+        }
+        else if (!strncmp(line, "properties=", 11)) {
+            grdef->properties = pa_proplist_from_string(line + 11);
+
+            if (!grdef->properties)
+                pa_log("incorrect syntax in line %d (%s)", lineno, line + 11);
         }
         else if (!strncmp(line, "flags=", 6)) { 
             fldef = line + 6;

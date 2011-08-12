@@ -58,6 +58,7 @@ struct pa_policy_group {
     int                           sinpcnt;  /* sink input counter */
     int                           soutcnt;  /* source output counter */
     int                           num_moving;   /* Number of moving streams */
+    pa_proplist                  *properties;   /* properties to set for each sink input*/
 };
 
 struct pa_policy_groupset {
@@ -84,7 +85,7 @@ void pa_policy_groupset_create_default_group(struct userdata *, const char *);
 int pa_policy_groupset_restore_volume(struct userdata *, struct pa_sink *);
 
 struct pa_policy_group *pa_policy_group_new(struct userdata *, char*,
-                                            char *, char *, uint32_t);
+                                            char *, char *, pa_proplist*, uint32_t);
 void pa_policy_group_free(struct pa_policy_groupset *, char *);
 struct pa_policy_group *pa_policy_group_find(struct userdata *, char *);
 

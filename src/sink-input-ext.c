@@ -42,8 +42,9 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
 
     hooks  = core->hooks;
     
+    /* PA_HOOK_EARLY - 2, i.e. before module-match */
     neew   = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_NEW,
-                             PA_HOOK_EARLY, sink_input_neew, (void *)u);
+                             PA_HOOK_EARLY - 2, sink_input_neew, (void *)u);
     put    = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_PUT,
                              PA_HOOK_LATE, sink_input_put, (void *)u);
     unlink = pa_hook_connect(hooks + PA_CORE_HOOK_SINK_INPUT_UNLINK,
@@ -233,6 +234,13 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
 
     if ((group_name = pa_classify_sink_input_by_data(u,data,&flags)) != NULL &&
         (group      = pa_policy_group_find(u, group_name)          ) != NULL ){
+
+        if (group->properties != NULL) {
+            pa_proplist_update(data->proplist, PA_UPDATE_REPLACE, group->properties);
+            pa_log_debug("new sink input inserted into %s. "
+                         "force the following properties:", group_name);
+            pa_log_debug(pa_proplist_to_string(group->properties));
+        }
 
         if (group->sink != NULL) {
             sinp_name = pa_proplist_gets(data->proplist, PA_PROP_MEDIA_NAME);

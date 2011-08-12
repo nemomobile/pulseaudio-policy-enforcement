@@ -299,7 +299,7 @@ void pa_policy_groupset_create_default_group(struct userdata *u,
                 (flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) ? "on" : "off");
 
 
-    gset->dflt = pa_policy_group_new(u, name, NULL, NULL, flags);
+    gset->dflt = pa_policy_group_new(u, name, NULL, NULL, NULL, flags);
 }
 
 int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)
@@ -323,6 +323,7 @@ int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)
 
 struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name, 
                                             char *sinkname, char *srcname,
+                                            pa_proplist *properties,
                                             uint32_t flags)
 {
     struct pa_policy_groupset *gset;
@@ -347,6 +348,7 @@ struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name,
     group->srcname  = srcname  ? pa_xstrdup(srcname) : NULL;
     group->source   = srcname  ? NULL : defsource;
     group->srcidx   = srcname  ? PA_IDXSET_INVALID : defsrcidx;
+    group->properties = properties;
 
     gset->hash_tbl[idx] = group;
 
@@ -432,6 +434,8 @@ void pa_policy_group_free(struct pa_policy_groupset *gset, char *name)
                 pa_xfree(group->sinkname);
                 pa_xfree(group->portname);
                 pa_xfree(group->srcname);
+                if (group->properties)
+                    pa_proplist_free(group->properties);
 
                 prev->next = group->next;
 
