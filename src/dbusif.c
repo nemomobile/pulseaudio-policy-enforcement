@@ -747,7 +747,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
 
         while ((group = pa_policy_group_scan(u->groups, &cursor)) != NULL) {
             if (group->num_moving > 0)
-                pa_log_error("Group %s still has %s moving streams", group->name, group->num_moving);
+                pa_log_error("Group %s still has %d moving streams", group->name, group->num_moving);
         }
         result = FALSE;
     }
