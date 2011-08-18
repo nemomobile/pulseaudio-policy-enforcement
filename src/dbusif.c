@@ -53,6 +53,7 @@ struct routing_decision {      /* temporary storage for routing decision informa
 
 struct pa_policy_dbusif {
     pa_dbus_connection *conn;
+    DBusPendingCall    *pending_pdp_registration;
     char               *ifnam;   /* signal interface */
     char               *mypath;  /* my signal path */
     char               *pdpath;  /* policy daemon's signal path */
@@ -233,6 +234,14 @@ static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif,
     DBusConnection          *dbusconn;
 
     if (dbusif) {
+
+        if (dbusif->pending_pdp_registration) {
+            pa_log_debug("While freeing dbusif, the policy decision point "
+                         "registration seems to be still pending. Canceling "
+                         "the pending call.");
+            dbus_pending_call_cancel(dbusif->pending_pdp_registration);
+            dbus_pending_call_unref(dbusif->pending_pdp_registration);
+        }
 
         if (dbusif->conn) {
             dbusconn = pa_dbus_connection_get(dbusif->conn);
@@ -893,6 +902,8 @@ static void registration_cb(DBusPendingCall *pend, void *data)
     const char      *error_descr;
     int              success;
 
+    pa_assert(pend == u->dbusif->pending_pdp_registration);
+
     if ((reply = dbus_pending_call_steal_reply(pend)) == NULL || u == NULL) {
         pa_log("registartion setting failed: invalid argument");
         return;
@@ -918,6 +929,8 @@ static void registration_cb(DBusPendingCall *pend, void *data)
     }
 
     dbus_message_unref(reply);
+    dbus_pending_call_unref(pend);
+    u->dbusif->pending_pdp_registration = NULL;
 }
 
 static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
@@ -931,6 +944,8 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
     const char     **v_ARRAY;
     int              i;
     int              success;
+
+    pa_assert(!dbusif->pending_pdp_registration);
 
     pa_log_info("registering to policy daemon: name='%s' path='%s' if='%s'",
                 dbusif->pdnam, dbusif->pdpath, dbusif->ifnam);
@@ -963,6 +978,8 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
         pa_log("Failed to register");
         goto failed;
     }
+
+    dbusif->pending_pdp_registration = pend;
 
     success = dbus_pending_call_set_notify(pend, registration_cb, u, NULL);
 
