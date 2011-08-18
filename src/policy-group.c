@@ -56,8 +56,6 @@ static struct pa_source *find_source_by_type(struct userdata *, char *);
 
 static uint32_t hash_value(char *);
 
-static pa_volume_t dB_to_sw_volume(int);
-
 
 struct pa_policy_groupset *pa_policy_groupset_new(struct userdata *u)
 {
@@ -1163,7 +1161,6 @@ static int volset_group(struct userdata        *u,
     struct pa_sink *sink;
     struct pa_sink_ext *ext;
     int vset;
-    int flat;
     int retval;
 
     limit  = ((percent > 100 ? 100 : percent) * PA_VOLUME_NORM) / 100;
@@ -1442,21 +1439,6 @@ static uint32_t hash_value(char *s)
 
     return hash & PA_POLICY_GROUP_HASH_MASK;
 }
-
-static pa_volume_t dB_to_sw_volume(int dB)
-{
-    int         idx = -dB;
-    pa_volume_t volume;
-
-    if (idx < 0)
-        return PA_VOLUME_NORM;
-
-    if (idx > (sizeof(dbtbl) / sizeof(dbtbl[0])))
-        return PA_VOLUME_MUTED;
-
-    return dbtbl[idx];
-}
-
 
 /*
  * Local Variables:
