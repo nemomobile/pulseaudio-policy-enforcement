@@ -103,6 +103,7 @@ int pa__init(pa_module *m) {
 
     
     u = pa_xnew0(struct userdata, 1);
+    m->userdata = u;
     u->core     = m->core;
     u->module   = m;
     u->nullsink = pa_sink_ext_init_null_sink(nsnam);
@@ -132,8 +133,6 @@ int pa__init(pa_module *m) {
     if (!pa_policy_parse_config_file(u, cfgfile) ||
         !pa_policy_parse_files_in_configdir(u, cfgdir))
         goto fail;
-
-    m->userdata = u;
     
     pa_sink_ext_discover(u);
     pa_source_ext_discover(u);
