@@ -297,7 +297,9 @@ void pa_policy_groupset_create_default_group(struct userdata *u,
                 (flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) ? "on" : "off");
 
 
-    gset->dflt = pa_policy_group_new(u, name, NULL, NULL, NULL, flags);
+    gset->dflt = pa_policy_group_new(u, name, NULL, NULL,
+            pa_proplist_from_string(PA_POLICY_DEFAULT_GROUP_PROPERTIES),
+            flags);
 }
 
 int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)

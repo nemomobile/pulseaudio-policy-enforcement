@@ -3,9 +3,10 @@
 
 #include <pulsecore/core.h>
 
-#define PA_POLICY_DEFAULT_GROUP_NAME     "othermedia"
-#define PA_POLICY_CONNECTED              "1"
-#define PA_POLICY_DISCONNECTED           "0"
+#define PA_POLICY_DEFAULT_GROUP_NAME       "othermedia"
+#define PA_POLICY_DEFAULT_GROUP_PROPERTIES "media.role = x-maemo"
+#define PA_POLICY_CONNECTED                "1"
+#define PA_POLICY_DISCONNECTED             "0"
 
 #define PA_PROP_APPLICATION_PROCESS_ARGS "application.process.args"
 #define PA_PROP_APPLICATION_PROCESS_ARG0 "application.process.arg0"
