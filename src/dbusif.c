@@ -5,6 +5,7 @@
 
 #include <pulsecore/pulsecore-config.h>
 #include <pulsecore/dbus-shared.h>
+#include <pulsecore/core-util.h>
 
 #include "userdata.h"
 #include "dbusif.h"
@@ -666,6 +667,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
     int i = 0;
     int num_moving = 0;
     pa_bool_t result = TRUE;
+    pa_bool_t route_changed = FALSE;
 
     /* Parse message. It's safe to bail out here, because we're not moving any streams yet. */
     do {
@@ -697,7 +699,33 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
         pa_log_debug("route %s to %s (%s|%s)", args.type, decisions[i].target,
                                                           decisions[i].mode,
                                                           decisions[i].hwid);
+
+        p = u->module->proplist;
+
+        if (decisions[i].class == pa_policy_route_to_sink) {
+            if (!pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SINK_TARGET)), decisions[i].target) ||
+                !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SINK_MODE  )), decisions[i].mode)   ||
+                !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SINK_HWID  )), decisions[i].hwid)) {
+
+                route_changed = TRUE;
+                pa_log_debug("Sink route has changed");
+            }
+        } else {
+            if (!pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SOURCE_TARGET)), decisions[i].target) ||
+                !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SOURCE_MODE  )), decisions[i].mode)   ||
+                !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SOURCE_HWID  )), decisions[i].hwid)) {
+
+                route_changed = TRUE;
+                pa_log_debug("Source route has changed");
+            }
+        }
+
     } while (dbus_message_iter_next(actit));
+
+    if (!route_changed) {
+        pa_log_debug("New audio route is identical to the current one. No need to move streams.");
+        return TRUE;
+    }
 
     /* Detach groups. */
     num_moving = pa_policy_group_start_move_all(u);
