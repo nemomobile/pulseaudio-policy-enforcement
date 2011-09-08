@@ -796,6 +796,8 @@ static int groupdef_parse(int lineno, char *line, struct groupdef *grdef)
                             flags |= PA_POLICY_GROUP_FLAG_CORK_STREAM;
                         else if (!strcmp(flname, "mute_by_route"))
                             flags |= PA_POLICY_GROUP_FLAG_MUTE_BY_ROUTE;
+                        else if (!strcmp(flname, "media_notify"))
+                            flags |= PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY;
                         else {
                             pa_log("invalid flag '%s' in line %d",
                                    flname, lineno);
