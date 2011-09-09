@@ -24,6 +24,7 @@ static pa_hook_result_t sink_input_neew(void *, void *, void *);
 static pa_hook_result_t sink_input_put(void *, void *, void *);
 static pa_hook_result_t sink_input_unlink(void *, void *, void *);
 
+static char* get_group(struct userdata *, struct pa_sink_input *, uint32_t *);
 static void handle_new_sink_input(struct userdata *, struct pa_sink_input *);
 static void handle_removed_sink_input(struct userdata *,
                                       struct pa_sink_input *);
@@ -235,6 +236,13 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
     if ((group_name = pa_classify_sink_input_by_data(u,data,&flags)) != NULL &&
         (group      = pa_policy_group_find(u, group_name)          ) != NULL ){
 
+        /* Let's just set the policy group property here already so that we
+         * don't have to classify again when the sink input is put, because we
+         * can just retrieve the group from the proplist. Also, this prevents
+         * the classification from breaking later because of the proplist
+         * overwriting done below. */
+        pa_proplist_sets(data->proplist, PA_PROP_POLICY_GROUP, group_name);
+
         if (group->properties != NULL) {
             pa_proplist_update(data->proplist, PA_UPDATE_REPLACE, group->properties);
             pa_log_debug("new sink input inserted into %s. "
@@ -324,6 +332,29 @@ static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
     return PA_HOOK_OK;
 }
 
+static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t *flags_ret)
+{
+    char* group_name = NULL;
+    struct pa_policy_group *group = NULL;
+
+    pa_assert(flags_ret);
+
+    /* Just grab the group name from the proplist to avoid classifying multiple
+     * times (and to avoid classifying incorrectly if properties are
+     * overwritten when handling PA_CORE_HOOK_SINK_INPUT_NEW).*/
+    if ((group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP)) != NULL &&
+        (group = pa_policy_group_find(u, group_name)) != NULL) {
+
+        *flags_ret = group->flags;
+    } else {
+        pa_log_warn("Sink input %s is missing a policy group. "
+                "Classifying...", pa_sink_input_ext_get_name(sinp));
+        group_name = pa_classify_sink_input(u, sinp, flags_ret);
+    }
+
+    return group_name;
+}
+
 static void handle_new_sink_input(struct userdata      *u,
                                   struct pa_sink_input *sinp)
 {
@@ -336,7 +367,7 @@ static void handle_new_sink_input(struct userdata      *u,
     if (sinp && u) {
         idx  = sinp->index;
         snam = pa_sink_input_ext_get_name(sinp);
-        gnam = pa_classify_sink_input(u, sinp, &flags);
+        gnam = get_group(u, sinp, &flags);
 
         ext = pa_xmalloc0(sizeof(struct pa_sink_input_ext));
         ext->local.route = (flags & PA_POLICY_LOCAL_ROUTE) ? TRUE : FALSE;
@@ -349,7 +380,6 @@ static void handle_new_sink_input(struct userdata      *u,
         pa_log_debug("new sink_input %s (idx=%d) (group=%s)", snam, idx, gnam);
     }
 }
-
 
 static void handle_removed_sink_input(struct userdata      *u,
                                       struct pa_sink_input *sinp)
@@ -365,7 +395,7 @@ static void handle_removed_sink_input(struct userdata      *u,
         idx  = sinp->index;
         sink = sinp->sink;
         snam = pa_sink_input_ext_get_name(sinp);
-        gnam = pa_classify_sink_input(u, sinp, &flags);
+        gnam = get_group(u, sinp, &flags);
 
         if (flags & PA_POLICY_LOCAL_ROUTE)
             pa_sink_ext_restore_port(u, sink);
