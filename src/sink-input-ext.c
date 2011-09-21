@@ -346,6 +346,10 @@ static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t 
         (group = pa_policy_group_find(u, group_name)) != NULL) {
 
         *flags_ret = group->flags;
+        /* Make the return value point to the group name, because the proplist
+         * may change and the pointer may thus be invalidated.*/
+        group_name = group->name;
+
     } else {
         pa_log_warn("Sink input %s is missing a policy group. "
                 "Classifying...", pa_sink_input_ext_get_name(sinp));
@@ -377,7 +381,7 @@ static void handle_new_sink_input(struct userdata      *u,
         pa_policy_context_register(u, pa_policy_object_sink_input, snam, sinp);
         pa_policy_group_insert_sink_input(u, gnam, sinp, flags);
 
-        pa_log_debug("new sink_input %s (idx=%d) (group=%s)", snam, idx, gnam);
+        pa_log_debug("new sink_input %s (idx=%u) (group=%s)", snam, idx, gnam);
     }
 }
 
