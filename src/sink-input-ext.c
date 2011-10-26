@@ -243,6 +243,14 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
          * overwriting done below. */
         pa_proplist_sets(data->proplist, PA_PROP_POLICY_GROUP, group_name);
 
+        /* Proplist overwriting can also mess up the retrieval of
+         * stream-specific flags later on, so we need to store those to the
+         * proplist as well (ugly hack). We could probably cope without this
+         * one though, since the stream-specific flags don't really seem to be
+         * used. */
+        pa_proplist_set(data->proplist, PA_PROP_POLICY_STREAM_FLAGS,
+                        (void*)&flags, sizeof(flags));
+
         if (group->properties != NULL) {
             pa_proplist_update(data->proplist, PA_UPDATE_REPLACE, group->properties);
             pa_log_debug("new sink input inserted into %s. "
@@ -336,6 +344,8 @@ static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t 
 {
     char* group_name = NULL;
     struct pa_policy_group *group = NULL;
+    uint32_t *flags = NULL;
+    size_t len_flags = 0;
 
     pa_assert(flags_ret);
 
@@ -345,7 +355,15 @@ static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t 
     if ((group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP)) != NULL &&
         (group = pa_policy_group_find(u, group_name)) != NULL) {
 
-        *flags_ret = group->flags;
+        if (pa_proplist_get(sinp->proplist, PA_PROP_POLICY_STREAM_FLAGS, &flags, &len_flags) < 0 ||
+            len_flags != sizeof(uint32_t)) {
+
+            pa_log_warn("No stream flags in proplist or malformed flags.");
+            *flags_ret = 0;
+
+        } else
+            *flags_ret = *flags;
+
         /* Make the return value point to the group name, because the proplist
          * may change and the pointer may thus be invalidated.*/
         group_name = group->name;

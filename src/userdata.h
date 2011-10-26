@@ -11,6 +11,7 @@
 #define PA_PROP_APPLICATION_PROCESS_ARGS "application.process.args"
 #define PA_PROP_APPLICATION_PROCESS_ARG0 "application.process.arg0"
 #define PA_PROP_POLICY_GROUP             "policy.group"
+#define PA_PROP_POLICY_STREAM_FLAGS      "policy.stream_flags"
 #define PA_PROP_POLICY_DEVTYPELIST       "policy.device.typelist"
 #define PA_PROP_POLICY_CARDTYPELIST      "policy.card.typelist"
 #define PA_PROP_MAEMO_AUDIO_MODE         "x-maemo.mode"
