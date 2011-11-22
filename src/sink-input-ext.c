@@ -255,7 +255,6 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
             pa_proplist_update(data->proplist, PA_UPDATE_REPLACE, group->properties);
             pa_log_debug("new sink input inserted into %s. "
                          "force the following properties:", group_name);
-            pa_log_debug(pa_proplist_to_string(group->properties));
         }
 
         if (group->sink != NULL) {
