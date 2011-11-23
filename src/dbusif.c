@@ -772,16 +772,10 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
 
     /* Test that no moving groups exist */
     if (num_moving != 0) {
-        void *cursor = NULL;
-        struct pa_policy_group *group = NULL;
+        pa_log_error("Got %d routing decisions. %d groups are still moving "
+                     "or have failed to move.", num_decisions, num_moving);
 
-        pa_log_error("Got %d routing decisions. %d groups are still moving or have failed to move.",
-                num_decisions, num_moving);
-
-        while ((group = pa_policy_group_scan(u->groups, &cursor)) != NULL) {
-            if (group->num_moving > 0)
-                pa_log_error("Group %s still has %d moving streams", group->name, group->num_moving);
-        }
+        pa_policy_group_assert_moving(u);
         result = FALSE;
     }
 

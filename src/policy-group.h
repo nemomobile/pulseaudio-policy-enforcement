@@ -103,11 +103,9 @@ int  pa_policy_group_move_to(struct userdata *, char *,
                              enum pa_policy_route_class, char *,
                              char *, char *);
 int  pa_policy_group_start_move_all(struct userdata *u);
+void pa_policy_group_assert_moving(struct userdata *u);
 int  pa_policy_group_cork(struct userdata *u, char *, int);
 int  pa_policy_group_volume_limit(struct userdata *, char *, uint32_t);
-struct pa_policy_group *pa_policy_group_scan(struct pa_policy_groupset *,
-                                             void **);
-
 
 #endif
 
