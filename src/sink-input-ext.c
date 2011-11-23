@@ -341,9 +341,9 @@ static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
 
 static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t *flags_ret)
 {
-    char* group_name = NULL;
     struct pa_policy_group *group = NULL;
-    uint32_t *flags = NULL;
+    const char* group_name;
+    const void *flags;
     size_t len_flags = 0;
 
     pa_assert(flags_ret);
@@ -351,29 +351,25 @@ static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t 
     /* Just grab the group name from the proplist to avoid classifying multiple
      * times (and to avoid classifying incorrectly if properties are
      * overwritten when handling PA_CORE_HOOK_SINK_INPUT_NEW).*/
-    if ((group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP)) != NULL &&
-        (group = pa_policy_group_find(u, group_name)) != NULL) {
-
+    group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP);
+    if (group_name && (group = pa_policy_group_find(u, group_name)) != NULL) {
         if (pa_proplist_get(sinp->proplist, PA_PROP_POLICY_STREAM_FLAGS, &flags, &len_flags) < 0 ||
             len_flags != sizeof(uint32_t)) {
 
             pa_log_warn("No stream flags in proplist or malformed flags.");
             *flags_ret = 0;
-
         } else
-            *flags_ret = *flags;
+            *flags_ret = *(uint32_t *)flags;
 
         /* Make the return value point to the group name, because the proplist
          * may change and the pointer may thus be invalidated.*/
-        group_name = group->name;
-
-    } else {
-        pa_log_warn("Sink input %s is missing a policy group. "
-                "Classifying...", pa_sink_input_ext_get_name(sinp));
-        group_name = pa_classify_sink_input(u, sinp, flags_ret);
+        return group->name;
     }
 
-    return group_name;
+    pa_log_warn("Sink input %s is missing a policy group. "
+                "Classifying...", pa_sink_input_ext_get_name(sinp));
+
+    return pa_classify_sink_input(u, sinp, flags_ret);
 }
 
 static void handle_new_sink_input(struct userdata      *u,
