@@ -49,7 +49,7 @@ static int mute_group_locally(struct userdata *, struct pa_policy_group *,int);
 static int cork_group(struct pa_policy_group *, int);
 
 static struct pa_policy_group *group_scan(struct pa_policy_groupset *,
-                                          void **);
+                                          struct cursor *);
 static struct pa_policy_group *find_group_by_name(struct pa_policy_groupset *,
                                                   const char *, uint32_t *);
 
@@ -307,7 +307,7 @@ void pa_policy_groupset_create_default_group(struct userdata *u,
 int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)
 {
     struct pa_policy_group *group;
-    void *cursor = NULL;
+    struct cursor           cursor = { .idx = 0, .grp = NULL, };
     int ret = 0;
 
     if (sink) {
@@ -480,8 +480,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
     int                        local_route;
     int                        local_mute;
     int                        static_route;
-    void                      *cursor = NULL;
-
+    struct cursor              cursor = { .idx = 0, .grp = NULL, };
 
     pa_assert(u);
     pa_assert_se((gset = u->groups));
@@ -576,11 +575,10 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
 void pa_policy_group_remove_sink_input(struct userdata *u, uint32_t idx)
 {
     static const char         *media = "audio_playback";
-
     struct pa_policy_group    *group;
     struct pa_sink_input_list *prev;
     struct pa_sink_input_list *sl;
-    void                      *cursor = NULL;
+    struct cursor              cursor = { .idx = 0, .grp = NULL, };
 
     pa_assert(u);
     pa_assert(u->groups);
@@ -698,7 +696,7 @@ void pa_policy_group_remove_source_output(struct userdata *u, uint32_t idx)
     struct pa_policy_group       *group;
     struct pa_source_output_list *prev;
     struct pa_source_output_list *sl;
-    void                         *cursor = NULL;
+    struct cursor                 cursor = { .idx = 0, .grp = NULL, };
 
     pa_assert(u);
     pa_assert(u->groups);
@@ -750,9 +748,9 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
 {
     struct pa_policy_group   *grp;
     struct target             target;
-    void                     *curs;
     int                       target_is_sink;
     int                       ret = -1;
+    struct cursor             cursor = { .idx = 0, .grp = NULL, };
 
     pa_assert(u);
 
@@ -790,7 +788,7 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
         else {                  /* move all groups */
             ret = 0;
 
-            for (curs = NULL; (grp = group_scan(u->groups, &curs));){
+           while ((grp = group_scan(u->groups, &cursor)) != NULL) {
                 if ((grp->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO)) {
                     if (move_group(grp, &target) < 0)
                         ret = -1;
@@ -842,7 +840,7 @@ static int start_move_group(struct pa_policy_group *group)
 void pa_policy_group_assert_moving(struct userdata *u)
 {
     struct pa_policy_group *group = NULL;
-    void *cursor = NULL;
+    struct cursor           cursor = { .idx = 0, .grp = NULL, };
 
     while ((group = group_scan(u->groups, &cursor)) != NULL) {
         if (group->num_moving > 0)
@@ -853,13 +851,13 @@ void pa_policy_group_assert_moving(struct userdata *u)
 
 int pa_policy_group_start_move_all(struct userdata *u)
 {
-    void *curs = NULL;
     struct pa_policy_group *group = NULL;
+    struct cursor           cursor = { .idx = 0, .grp = NULL, };
     int ret = 0;
 
     pa_assert(u);
 
-    while ((group = group_scan(u->groups, &curs)) != NULL) {
+    while ((group = group_scan(u->groups, &cursor)) != NULL) {
         if (group->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO) {
             start_move_group(group);
             ret++;
@@ -938,31 +936,22 @@ int pa_policy_group_volume_limit(struct userdata *u, char *name,
 }
 
 static struct pa_policy_group *group_scan(struct pa_policy_groupset *gset,
-                                          void **pcursor)
+                                          struct cursor *cursor)
 {
-    struct cursor *cursor;
     struct pa_policy_group *grp;
 
     pa_assert(gset);
-    pa_assert(pcursor);
+    pa_assert(cursor);
 
-    if ((cursor = *pcursor) == NULL) {
-        cursor = pa_xnew0(struct cursor, 1);
-        *pcursor = cursor;
-    }
-
-    
     for (;;) {
-        if ((grp = cursor->grp) != NULL) {
+        if (cursor->grp) {
+            grp = cursor->grp;
             cursor->grp = grp->next;
             return grp;
         }
 
-        if (cursor->idx >= PA_POLICY_GROUP_HASH_DIM) {
-            pa_xfree(cursor);
-            *pcursor = NULL;
+        if (cursor->idx >= PA_POLICY_GROUP_HASH_DIM)
             return NULL;
-        }
 
         while (cursor->idx < PA_POLICY_GROUP_HASH_DIM &&
                (cursor->grp = gset->hash_tbl[cursor->idx++]) == NULL)
