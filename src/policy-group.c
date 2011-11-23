@@ -49,12 +49,12 @@ static int mute_group_locally(struct userdata *, struct pa_policy_group *,int);
 static int cork_group(struct pa_policy_group *, int);
 
 static struct pa_policy_group *find_group_by_name(struct pa_policy_groupset *,
-                                                  char *, uint32_t *);
+                                                  const char *, uint32_t *);
 
 static struct pa_sink   *find_sink_by_type(struct userdata *, char *);
 static struct pa_source *find_source_by_type(struct userdata *, char *);
 
-static uint32_t hash_value(char *);
+static uint32_t hash_value(const char *);
 
 
 struct pa_policy_groupset *pa_policy_groupset_new(struct userdata *u)
@@ -447,7 +447,8 @@ void pa_policy_group_free(struct pa_policy_groupset *gset, char *name)
     } /* if find_group */
 }
 
-struct pa_policy_group *pa_policy_group_find(struct userdata *u, char *name)
+struct pa_policy_group *pa_policy_group_find(struct userdata *u,
+                                             const char *name)
 {
     struct pa_policy_groupset *gset;
 
@@ -1369,8 +1370,8 @@ static int cork_group(struct pa_policy_group *group, int corked)
 }
 
 
-static struct pa_policy_group *
-find_group_by_name(struct pa_policy_groupset *gset, char *name,uint32_t *ridx)
+static struct pa_policy_group *find_group_by_name(struct pa_policy_groupset *gset,
+                                                  const char *name, uint32_t *ridx)
 {
     struct pa_policy_group *group = NULL;
     uint32_t                idx   = hash_value(name);
@@ -1428,7 +1429,7 @@ static struct pa_source *find_source_by_type(struct userdata *u, char *type)
     return source;
 }
 
-static uint32_t hash_value(char *s)
+static uint32_t hash_value(const char *s)
 {
     uint32_t hash = 0;
     unsigned char c;

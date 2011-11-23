@@ -87,7 +87,7 @@ int pa_policy_groupset_restore_volume(struct userdata *, struct pa_sink *);
 struct pa_policy_group *pa_policy_group_new(struct userdata *, char*,
                                             char *, char *, pa_proplist*, uint32_t);
 void pa_policy_group_free(struct pa_policy_groupset *, char *);
-struct pa_policy_group *pa_policy_group_find(struct userdata *, char *);
+struct pa_policy_group *pa_policy_group_find(struct userdata *, const char *);
 
 
 void pa_policy_group_insert_sink_input(struct userdata *, char *,
