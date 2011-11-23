@@ -440,9 +440,9 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
     char          *group;
     char          *arg;
     char          *method_str;
-    enum pa_classify_method method;
     char          *prop;
     int            success;
+    enum pa_classify_method method = pa_method_unknown;
 
     success = dbus_message_get_args(msg, NULL,
                                     DBUS_TYPE_UINT32, &txid,
@@ -458,9 +458,7 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
         return;
     }
 
-    if (!method_str)
-        method = pa_method_unknown;
-    else {
+    if (arg && method_str) {
         switch (method_str[0]) {
         case 'e':
             if (!strcmp(method_str, "equals"))
@@ -484,9 +482,7 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
         }
     }
 
-    if (!arg)
-        method = pa_method_unknown;
-    else if (!strcmp(arg, "*"))
+    if (arg && !strcmp(arg, "*"))
         method = pa_method_true;
 
     if (!strcmp(oper, "register")) {
