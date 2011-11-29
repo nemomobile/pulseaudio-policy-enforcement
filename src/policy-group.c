@@ -298,10 +298,7 @@ void pa_policy_groupset_create_default_group(struct userdata *u,
     pa_log_info("group '%s' preemption is %s", name,
                 (flags & PA_POLICY_GROUP_FLAG_MEDIA_NOTIFY) ? "on" : "off");
 
-
-    gset->dflt = pa_policy_group_new(u, name, NULL, NULL,
-            pa_proplist_from_string(PA_POLICY_DEFAULT_GROUP_PROPERTIES),
-            flags);
+    gset->dflt = pa_policy_group_new(u, name, NULL, NULL, NULL, flags);
 }
 
 int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)
