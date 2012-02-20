@@ -234,40 +234,38 @@ static void pa_policy_free_dbusif(struct pa_policy_dbusif *dbusif,
 {
     DBusConnection          *dbusconn;
 
-    if (dbusif) {
+    if (!dbusif)
+        return;
 
-        if (dbusif->pending_pdp_registration) {
-            pa_log_debug("While freeing dbusif, the policy decision point "
-                         "registration seems to be still pending. Canceling "
-                         "the pending call.");
-            dbus_pending_call_cancel(dbusif->pending_pdp_registration);
-            dbus_pending_call_unref(dbusif->pending_pdp_registration);
-        }
-
-        if (dbusif->conn) {
-            dbusconn = pa_dbus_connection_get(dbusif->conn);
-
-            if (u) {
-                dbus_connection_remove_filter(dbusconn, filter,u);
-            }
-
-            dbus_bus_remove_match(dbusconn, dbusif->admrule, NULL);
-            dbus_bus_remove_match(dbusconn, dbusif->actrule, NULL);
-            dbus_bus_remove_match(dbusconn, dbusif->strrule, NULL);
-
-            pa_dbus_connection_unref(dbusif->conn);
-        }
-
-        pa_xfree(dbusif->ifnam);
-        pa_xfree(dbusif->mypath);
-        pa_xfree(dbusif->pdpath);
-        pa_xfree(dbusif->pdnam);
-        pa_xfree(dbusif->admrule);
-        pa_xfree(dbusif->actrule);
-        pa_xfree(dbusif->strrule);
-
-        pa_xfree(dbusif);
+    if (dbusif->pending_pdp_registration) {
+        pa_log_debug("While freeing dbusif, the policy decision point "
+                     "registration seems to be still pending. Canceling "
+                     "the pending call.");
+        dbus_pending_call_cancel(dbusif->pending_pdp_registration);
+        dbus_pending_call_unref(dbusif->pending_pdp_registration);
     }
+
+    if (dbusif->conn) {
+        dbusconn = pa_dbus_connection_get(dbusif->conn);
+
+        if (u)
+            dbus_connection_remove_filter(dbusconn, filter, u);
+
+        dbus_bus_remove_match(dbusconn, dbusif->admrule, NULL);
+        dbus_bus_remove_match(dbusconn, dbusif->actrule, NULL);
+        dbus_bus_remove_match(dbusconn, dbusif->strrule, NULL);
+
+        pa_dbus_connection_unref(dbusif->conn);
+    }
+
+    pa_xfree(dbusif->ifnam);
+    pa_xfree(dbusif->mypath);
+    pa_xfree(dbusif->pdpath);
+    pa_xfree(dbusif->pdnam);
+    pa_xfree(dbusif->admrule);
+    pa_xfree(dbusif->actrule);
+    pa_xfree(dbusif->strrule);
+    pa_xfree(dbusif);
 }
 
 void pa_policy_dbusif_done(struct userdata *u)
