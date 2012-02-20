@@ -1023,6 +1023,7 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
     default:
         pa_log("%s: invalid device definition %s", __FUNCTION__, type);
         memset(d, 0, sizeof(*d));
+        pa_strbuf_free(buf);
         return;
     }
 
