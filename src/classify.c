@@ -456,7 +456,6 @@ static char *find_group_for_client(struct userdata  *u,
     char     *clnam = (char *)"";  /* client's name in PA */
     uid_t     uid   = (uid_t)-1;   /* client process user ID */
     char     *exe   = (char *)"";  /* client's binary path */
-    char     *arg0;
     char     *group = NULL;
     uint32_t  flags = 0;
 
@@ -475,7 +474,6 @@ static char *find_group_for_client(struct userdata  *u,
             clnam = pa_client_ext_name(client);
             uid   = pa_client_ext_uid(client);
             exe   = pa_client_ext_exe(client);
-            arg0  = pa_client_ext_arg0(client);
 
             group = streams_get_group(defs, proplist, clnam, uid, exe, &flags);
         }
