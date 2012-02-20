@@ -144,15 +144,16 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 
             name = pa_sink_ext_get_name(sink);
             ext  = pa_sink_ext_lookup(u, sink);
+            if (!ext)
+                continue;
 
-            if (ext && ext->overridden_port) {
+            if (ext->overridden_port) {
                 free(ext->overridden_port);
                 ext->overridden_port = pa_xstrdup(port);
                 continue;
             }
 
             if (!sink->active_port || !pa_streq(port,sink->active_port->name)){
-
                 if (!ext->overridden_port) {
                     if (pa_sink_set_port(sink, port, FALSE) < 0) {
                         ret = -1;
