@@ -918,9 +918,12 @@ static void registration_cb(DBusPendingCall *pend, void *data)
     const char      *error_descr;
     int              success;
 
+    pa_assert(u);
+    pa_assert(u->dbusif);
     pa_assert(pend == u->dbusif->pending_pdp_registration);
 
-    if ((reply = dbus_pending_call_steal_reply(pend)) == NULL || u == NULL) {
+    reply = dbus_pending_call_steal_reply(pend);
+    if (!reply) {
         pa_log("registartion setting failed: invalid argument");
         return;
     }
@@ -939,9 +942,8 @@ static void registration_cb(DBusPendingCall *pend, void *data)
     else {
         pa_log_info("got reply to registration");
 
-        if (u->dbusif) {
+        if (u->dbusif)
             u->dbusif->regist = 1;
-        }
     }
 
     dbus_message_unref(reply);
