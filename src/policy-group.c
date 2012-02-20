@@ -975,175 +975,182 @@ static int move_group(struct pa_policy_group *group, struct target *target)
     char                         *sinkname;
     int                           ret = 0;
 
-    if (group == NULL || target->any == NULL)
-        ret = -1;
-    else {
+    if (!group || !target->any)
+        return -1;
 
-        switch (target->class) {
-            
-        case pa_policy_route_to_sink:
-            sink = target->sink;
-            core = sink->core;
-            pl   = sink->proplist; 
+    switch (target->class) {
+    case pa_policy_route_to_sink:
+        sink = target->sink;
+        core = sink->core;
+        pl   = sink->proplist;
 
-            /* update sink properties if needed */
-            old_mode = pa_proplist_gets(pl, PA_PROP_MAEMO_AUDIO_MODE);
-            old_hwid = pa_proplist_gets(pl, PA_PROP_MAEMO_ACCESSORY_HWID);
+        /* update sink properties if needed */
+        old_mode = pa_proplist_gets(pl, PA_PROP_MAEMO_AUDIO_MODE);
+        old_hwid = pa_proplist_gets(pl, PA_PROP_MAEMO_ACCESSORY_HWID);
 
-            if (old_mode && !strcmp(target->mode, old_mode) &&
-                old_hwid && !strcmp(target->hwid, old_hwid)    )
-                prop_changed = FALSE;
-            else {
-                prop_changed = TRUE;
-                    
-                pa_proplist_sets(pl,PA_PROP_MAEMO_AUDIO_MODE    ,target->mode);
-                pa_proplist_sets(pl,PA_PROP_MAEMO_ACCESSORY_HWID,target->hwid);
+        if (old_mode && !strcmp(target->mode, old_mode) &&
+            old_hwid && !strcmp(target->hwid, old_hwid))
+            prop_changed = FALSE;
+        else {
+            prop_changed = TRUE;
+            pa_proplist_sets(pl, PA_PROP_MAEMO_AUDIO_MODE    , target->mode);
+            pa_proplist_sets(pl, PA_PROP_MAEMO_ACCESSORY_HWID, target->hwid);
+        }
+
+        /* move sink inputs to the sink */
+        sinkname = pa_sink_ext_get_name(sink);
+
+        if (sink == group->sink && group->num_moving == 0) {
+            if (!group->mutebyrt) {
+                pa_log_debug("group '%s' is aready routed to sink '%s'",
+                             group->name, sinkname);
             }
+        } else {
+            pa_xfree(group->sinkname);
+            group->sinkname = pa_xstrdup(sinkname);
+            group->sink = sink;
+            group->sinkidx = sink->index;
 
+            if (!group->mutebyrt) {
+                for (sil = group->sinpls; sil; sil = sil->next) {
+                    sinp = sil->sink_input;
 
-            /* move sink inputs to the sink */
-            sinkname = pa_sink_ext_get_name(sink);
+                    pa_log_debug("move sink input '%s' to sink '%s'",
+                                 pa_sink_input_ext_get_name(sinp),
+                                 sinkname);
 
-            if (sink == group->sink && group->num_moving == 0) {
-                if (!group->mutebyrt) {
-                    pa_log_debug("group '%s' is aready routed to sink '%s'",
-                                 group->name, sinkname);
-                }
-            }
-            else {
-                pa_xfree(group->sinkname);
-                group->sinkname = pa_xstrdup(sinkname);
-                group->sink = sink;
-                group->sinkidx = sink->index;
-
-                if (!group->mutebyrt) {
-                    for (sil = group->sinpls;    sil;   sil = sil->next) {
-                        sinp = sil->sink_input;
-
-                        pa_log_debug("move sink input '%s' to sink '%s'",
-                                pa_sink_input_ext_get_name(sinp),
-                                sinkname);
-
-                        if (!sinp->sink) {
-                            pa_assert(group->num_moving > 0);
-                            if (pa_sink_input_finish_move(sinp, sink, TRUE) >= 0)
-                                group->num_moving--;
-                            else {
-                                ret = -1;
-                                pa_log_error("Failed to finish moving %s to %s",
-                                        pa_sink_input_ext_get_name(sinp),
-                                        sinkname);
-                            }
-                        } else if (pa_sink_input_move_to(sinp, sink, TRUE) < 0) {
-                            ret = -1;
-                            pa_log_error("Failed to move %s to %s",
-                                    pa_sink_input_ext_get_name(sinp),
-                                    sinkname);
-                        }
-                    }
-                }
-            }
-
-            for (sol = group->soutls; sol ; sol = sol->next) {
-                sout = sol->source_output;
-                if (!sout->source) {
-                    pa_log_debug("Re-attaching %s to %s", pa_source_output_ext_get_name(sout),
-                                                          pa_source_ext_get_name(group->source));
-                    if (pa_source_output_finish_move(sout, group->source , TRUE) < 0) {
-                        ret = -1;
-                        pa_log_error("Failed to re-attach %s to %s", pa_source_output_ext_get_name(sout),
-                                                                     pa_source_ext_get_name(group->source));
-                    } else
-                        group->num_moving--;
-                }
-            }
-
-            /* Ideally, group->num_moving == 0 at this point, but maybe > 0 if errors occurred */
-            pa_assert(group->num_moving >= 0);
-
-            /* in case the sink properties changed announce it */
-            if (prop_changed) {
-                pa_subscription_post(sink->core, sinkev, sink->index);
-                pa_hook_fire(&core->hooks[PA_CORE_HOOK_SINK_PROPLIST_CHANGED],
-                        sink);
-            }
-            break;
-
-        case pa_policy_route_to_source:
-            source = target->source;
-            core   = source->core;
-            pl     = source->proplist;
-
-            /* move source outputs to the source */
-            if ((source = target->source) == group->source && group->num_moving == 0) {
-                pa_log_debug("group '%s' is aready routed to source '%s'",
-                        group->name, pa_source_ext_get_name(source));
-            }
-            else {
-                group->source = source;
-
-                for (sol = group->soutls;    sol;    sol = sol->next) {
-                    sout = sol->source_output;
-
-                    pa_log_debug("move source output '%s' to source '%s'",
-                            pa_source_output_ext_get_name(sout),
-                            pa_source_ext_get_name(source));
-
-                    if (!sout->source) {
+                    if (!sinp->sink) {
                         pa_assert(group->num_moving > 0);
-                        if (pa_source_output_finish_move(sout, source, TRUE) >= 0)
+                        if (pa_sink_input_finish_move(sinp, sink, TRUE) >= 0)
                             group->num_moving--;
                         else {
                             ret = -1;
                             pa_log_error("Failed to finish moving %s to %s",
-                                    pa_source_output_ext_get_name(sout),
-                                    pa_source_ext_get_name(source));
+                                         pa_sink_input_ext_get_name(sinp),
+                                         sinkname);
                         }
-                    } else if (pa_source_output_move_to(sout, source, TRUE) < 0) {
+                    } else if (pa_sink_input_move_to(sinp, sink, TRUE) < 0) {
                         ret = -1;
                         pa_log_error("Failed to move %s to %s",
-                                pa_source_output_ext_get_name(sout),
-                                pa_source_ext_get_name(source));
+                                     pa_sink_input_ext_get_name(sinp),
+                                     sinkname);
                     }
                 }
             }
+        }
 
-            for (sil = group->sinpls; sil; sil = sil->next) {
-                sinp = sil->sink_input;
-                if (!sinp->sink) {
-                    pa_log_debug("Re-attaching %s to %s", pa_sink_input_ext_get_name(sinp),
-                                                          pa_sink_ext_get_name(group->sink));
-                    if (pa_sink_input_finish_move(sinp, group->sink, TRUE) < 0) {
-                        ret = -1;
-                        pa_log_error("Failed to re-attach %s to %s", pa_sink_input_ext_get_name(sinp),
-                                                                     pa_sink_ext_get_name(group->sink));
-                    }
-                    else
+        for (sol = group->soutls; sol; sol = sol->next) {
+            sout = sol->source_output;
+            if (!sout->source) {
+                pa_log_debug("Re-attaching %s to %s",
+                             pa_source_output_ext_get_name(sout),
+                             pa_source_ext_get_name(group->source));
+                if (pa_source_output_finish_move(sout, group->source, TRUE) < 0) {
+                    ret = -1;
+                    pa_log_error("Failed to re-attach %s to %s",
+                                 pa_source_output_ext_get_name(sout),
+                                 pa_source_ext_get_name(group->source));
+                } else
+                    group->num_moving--;
+            }
+        }
+
+        /*
+         * Ideally, group->num_moving == 0 at this point,
+         * but maybe > 0 if errors occurred
+         */
+        pa_assert(group->num_moving >= 0);
+
+        /* in case the sink properties changed announce it */
+        if (prop_changed) {
+            pa_subscription_post(sink->core, sinkev, sink->index);
+            pa_hook_fire(&core->hooks[PA_CORE_HOOK_SINK_PROPLIST_CHANGED],
+                         sink);
+        }
+        break;
+
+    case pa_policy_route_to_source:
+        source = target->source;
+        core   = source->core;
+        pl     = source->proplist;
+
+        /* move source outputs to the source */
+        source = target->source;
+        if (source == group->source && group->num_moving == 0) {
+            pa_log_debug("group '%s' is aready routed to source '%s'",
+                         group->name, pa_source_ext_get_name(source));
+        } else {
+            group->source = source;
+
+            for (sol = group->soutls; sol; sol = sol->next) {
+                sout = sol->source_output;
+
+                pa_log_debug("move source output '%s' to source '%s'",
+                             pa_source_output_ext_get_name(sout),
+                             pa_source_ext_get_name(source));
+
+                if (!sout->source) {
+                    pa_assert(group->num_moving > 0);
+                    if (pa_source_output_finish_move(sout, source, TRUE) >= 0)
                         group->num_moving--;
+                    else {
+                        ret = -1;
+                        pa_log_error("Failed to finish moving %s to %s",
+                                     pa_source_output_ext_get_name(sout),
+                                     pa_source_ext_get_name(source));
+                    }
+                } else if (pa_source_output_move_to(sout, source, TRUE) < 0) {
+                    ret = -1;
+                    pa_log_error("Failed to move %s to %s",
+                                 pa_source_output_ext_get_name(sout),
+                                 pa_source_ext_get_name(source));
                 }
             }
+        }
 
-            /* Ideally, group->num_moving == 0 at this point, but maybe > 0 if errors occurred */
-            pa_assert(group->num_moving >= 0);
+        for (sil = group->sinpls; sil; sil = sil->next) {
+            sinp = sil->sink_input;
+            if (!sinp->sink) {
+                pa_log_debug("Re-attaching %s to %s",
+                             pa_sink_input_ext_get_name(sinp),
+                             pa_sink_ext_get_name(group->sink));
+                if (pa_sink_input_finish_move(sinp, group->sink, TRUE) < 0) {
+                    ret = -1;
+                    pa_log_error("Failed to re-attach %s to %s",
+                                 pa_sink_input_ext_get_name(sinp),
+                                 pa_sink_ext_get_name(group->sink));
+                }
+                else
+                    group->num_moving--;
+            }
+        }
 
-            break;
-            
-        default:
-            ret = -1;
-            break;
-        } /* switch class */
-    }
+        /*
+         * Ideally, group->num_moving == 0 at this point,
+         * but maybe > 0 if errors occurred
+         */
+        pa_assert(group->num_moving >= 0);
+
+        break;
+
+    default:
+        ret = -1;
+        break;
+    } /* switch class */
 
     /* Test that the group has no moving streams */
-    if (group->num_moving != 0) {
-        pa_log_error("Group %s still has %d streams moving", group->name, group->num_moving);
+    if (group->num_moving) {
+        pa_log_error("Group %s still has %d streams moving",
+                     group->name, group->num_moving);
         for (sil = group->sinpls; sil; sil = sil->next) {
             if (!sil->sink_input->sink)
-                pa_log_error("Sink input %s still moving", pa_sink_input_ext_get_name(sil->sink_input));
+                pa_log_error("Sink input %s still moving",
+                             pa_sink_input_ext_get_name(sil->sink_input));
         }
         for (sol = group->soutls; sol; sol = sol->next) {
             if (!sol->source_output->source)
-                pa_log_error("Source output %s still moving", pa_source_output_ext_get_name(sol->source_output));
+                pa_log_error("Source output %s still moving",
+                             pa_source_output_ext_get_name(sol->source_output));
         }
         ret = -1;
     }
