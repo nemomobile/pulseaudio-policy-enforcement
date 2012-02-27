@@ -27,15 +27,11 @@ static void handle_removed_sink(struct userdata *, struct pa_sink *);
 
 struct pa_null_sink *pa_sink_ext_init_null_sink(const char *name)
 {
-    struct pa_null_sink *null_sink;
+    struct pa_null_sink *null_sink = pa_xnew0(struct pa_null_sink, 1);
 
-    if ((null_sink = malloc(sizeof(*null_sink))) != NULL) {
-        memset(null_sink, 0, sizeof(*null_sink));
-
-        /* sink.null is temporary to de-couple PA releases from ours */
-        null_sink->name = pa_xstrdup(name ? name : /* "null" */ "sink.null");
-        null_sink->sink = NULL;
-    }
+    /* sink.null is temporary to de-couple PA releases from ours */
+    null_sink->name = pa_xstrdup(name ? name : /* "null" */ "sink.null");
+    null_sink->sink = NULL;
 
     return null_sink;
 }
@@ -148,7 +144,7 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
                 continue;
 
             if (ext->overridden_port) {
-                free(ext->overridden_port);
+                pa_xfree(ext->overridden_port);
                 ext->overridden_port = pa_xstrdup(port);
                 continue;
             }

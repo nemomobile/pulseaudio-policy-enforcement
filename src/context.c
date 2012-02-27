@@ -413,7 +413,7 @@ static void delete_action(struct pa_policy_context_rule  *rule,
                 setprop = &action->setprop;
 
                 match_cleanup(&setprop->object.match);
-                free(setprop->property);
+                pa_xfree(setprop->property);
                 value_cleanup(&setprop->value);
 
                 break;
@@ -424,7 +424,7 @@ static void delete_action(struct pa_policy_context_rule  *rule,
                 return;         /* better to leak than corrupt :) */
             }
 
-            free(action);
+            pa_xfree(action);
 
             return;
         }
