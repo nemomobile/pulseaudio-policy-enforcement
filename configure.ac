@@ -111,5 +111,5 @@ echo "
     PULSEAUDIO_HAS_PORTS: ${PULSEAUDIO_HAS_PORTS}
     DBUS_CFLAGS:          ${DBUS_CFLAGS}
     DBUS_LIBS:            ${DBUS_LIBS}
-    PD_SUPPORT:           ${PD_SUPPORT}
+    PD_SUPPORT:           ${doc_support}
 "

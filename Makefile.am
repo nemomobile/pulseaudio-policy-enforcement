@@ -1,4 +1,8 @@
-SUBDIRS = src doc
+SUBDIRS = src
+
+if PD_SUPPORT
+SUBDIRS += doc
+endif
 
 MAINTAINERCLEANFILES = \
         Makefile.in src/Makefile.in config.h.in configure \
