@@ -2,6 +2,9 @@
 #include <sys/types.h>
 #include <errno.h>
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <pulsecore/macro.h>
 #include <pulse/xmalloc.h>

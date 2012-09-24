@@ -1,4 +1,6 @@
-#include <pulsecore/pulsecore-config.h>
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <pulsecore/namereg.h>
 #include <pulsecore/core-util.h>

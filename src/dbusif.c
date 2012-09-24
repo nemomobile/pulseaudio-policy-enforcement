@@ -3,7 +3,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <pulsecore/pulsecore-config.h>
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 #include <pulsecore/dbus-shared.h>
 #include <pulsecore/core-util.h>
 

@@ -1,9 +1,10 @@
+AC_PREREQ(2.61)
+
 m4_define(FULL_PAVER, esyscmd(/usr/bin/pkg-config --silence-errors --modversion pulsecore | tr -d \\n))
 m4_define(PAVER, regexp(FULL_PAVER, [\([0123456789.]+\).*], [\1]))
 
-AC_PREREQ(2.61)
-
 AC_INIT([pulseaudio-policy-enforcement],[PAVER],[janos.f.kovacs@nokia.com])
+AC_CONFIG_HEADER([config.h])
 
 DOC_SUPPORT_INIT()
 

@@ -17,7 +17,9 @@
 #include <ctype.h>
 #endif
 
-#include <pulsecore/pulsecore-config.h>
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <pulsecore/core-util.h>
 #include <pulsecore/log.h>

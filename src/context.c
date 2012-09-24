@@ -1,6 +1,8 @@
 #include <stdarg.h>
 
-#include <pulsecore/pulsecore-config.h>
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include "context.h"
 #include "module-ext.h"
