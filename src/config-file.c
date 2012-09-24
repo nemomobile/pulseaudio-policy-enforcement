@@ -166,6 +166,7 @@ static int cardname_parse(int, char *, struct carddef *);
 static int flags_parse(int, char *, enum section_type, uint32_t *);
 static int valid_label(int, char *);
 
+static char **split_strv(const char *s, const char *delimiter);
 
 int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 {
@@ -1083,7 +1084,7 @@ static int ports_parse(int lineno, const char *portsdef,
     devdef->ports = pa_hashmap_new(pa_idxset_string_hash_func,
                                    pa_idxset_string_compare_func);
 
-    if ((entries = pa_split_strv(portsdef, ","))) {
+    if ((entries = split_strv(portsdef, ","))) {
         char *entry; /* This string has format "sinkname:portname". */
         int i = 0;
 
@@ -1484,6 +1485,31 @@ static int valid_label(int lineno, char *label)
     return 0;
 }
 
+/* Same functionality as in PulseAudio pulsecore/core-util.c
+ * pa_split_spaces_strv() with added user definable delimiter. */
+static char **split_strv(const char *s, const char *delimiter) {
+    char **t, *e;
+    unsigned i = 0, n = 8;
+    const char *state = NULL;
+
+    t = pa_xnew(char*, n);
+    while ((e = pa_split(s, delimiter, &state))) {
+        t[i++] = e;
+
+        if (i >= n) {
+            n *= 2;
+            t = pa_xrenew(char*, t, n);
+        }
+    }
+
+    if (i <= 0) {
+        pa_xfree(t);
+        return NULL;
+    }
+
+    t[i] = NULL;
+    return t;
+}
 
 /*
  * Local Variables:
