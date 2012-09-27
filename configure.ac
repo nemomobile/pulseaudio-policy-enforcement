@@ -1,9 +1,10 @@
 AC_PREREQ(2.61)
 
-m4_define(FULL_PAVER, esyscmd(/usr/bin/pkg-config --silence-errors --modversion pulsecore | tr -d \\n))
-m4_define(PAVER, regexp(FULL_PAVER, [\([0123456789.]+\).*], [\1]))
+m4_define(PA_MAJOR, [2])
+m4_define(PA_MINOR, [1])
+m4_define(NEMO_MICRO, [0])
 
-AC_INIT([pulseaudio-policy-enforcement],[PAVER],[janos.f.kovacs@nokia.com])
+AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.NEMO_MICRO],[janos.f.kovacs@nokia.com])
 AC_CONFIG_HEADER([config.h])
 
 DOC_SUPPORT_INIT()
@@ -16,7 +17,7 @@ AM_INIT_AUTOMAKE([foreign 1.8.5 -Wall])
 AS_IF([test x${exec_prefix} = xNONE], [LIBDIR=$ac_default_prefix/lib], [LIBDIR=${libdir}])
 AC_SUBST(LIBDIR)
 
-AC_SUBST(PA_MAJORMINOR, [PAVER])
+AC_SUBST(PA_MAJORMINOR, [PA_MAJOR.PA_MINOR])
 
 AC_PROG_MKDIR_P
 AC_PROG_CC
