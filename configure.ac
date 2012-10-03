@@ -80,11 +80,6 @@ AC_ARG_WITH(
         AS_HELP_STRING([--with-module-dir],[Directory where to install the modules to (defaults to ${LIBDIR}/pulse-${PA_MAJORMINOR}/modules/]),
         [modlibexecdir=$withval], [modlibexecdir=${LIBDIR}/pulse-${PA_MAJORMINOR}/modules])
 
-PULSEAUDIO_HAS_PORTS=0
-echo -e "#define PACKAGE 1\n#include <pulsecore/sink.h>\nint main() {\nreturn pa_sink_set_port((struct pa_sink *)0,\"\",0);\n}" | ${CC} ${CFLAGS} ${LIBPULSECORE_CFLAGS} ${LIBPULSE_CFLAGS} ${AM_LIBADD} ${LIBPULSECORE_LIBS} ${LIBPULSE_LIBS} -Wmissing-declarations -Werror -x c -o /dev/null - && PULSEAUDIO_HAS_PORTS=1
-AC_SUBST(PULSEAUDIO_HAS_PORTS)
-
-
 AC_SUBST(modlibexecdir)
 
 AC_CONFIG_FILES([
@@ -109,7 +104,6 @@ echo "
     LIBPULSECORE_CFLAGS:  ${LIBPULSECORE_CFLAGS}
     LIBPULSECORE_LIBS:    ${LIBPULSECORE_LIBS}
     MAJORMINOR:           ${PA_MAJORMINOR}
-    PULSEAUDIO_HAS_PORTS: ${PULSEAUDIO_HAS_PORTS}
     DBUS_CFLAGS:          ${DBUS_CFLAGS}
     DBUS_LIBS:            ${DBUS_LIBS}
     PD_SUPPORT:           ${doc_support}

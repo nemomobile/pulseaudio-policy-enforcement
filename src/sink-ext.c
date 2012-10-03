@@ -120,8 +120,6 @@ char *pa_sink_ext_get_name(struct pa_sink *sink)
 int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 {
     int ret = 0;
-
-#if PULSEAUDIO_HAS_PORTS
     pa_sink *sink;
     struct pa_classify_device_data *data;
     struct pa_classify_port_entry *port_entry;
@@ -167,7 +165,6 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
             }
         }
     } /* for */
-#endif
 
     return ret;
 }
