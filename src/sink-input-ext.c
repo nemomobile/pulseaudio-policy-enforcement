@@ -275,7 +275,7 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                 pa_log_debug("force stream '%s'/'%s' to sink '%s' due to "
                              "mute-by-route", group_name,sinp_name, sink_name);
 
-                data->sink = u->nullsink->sink;
+                pa_sink_input_new_data_set_sink(data, u->nullsink->sink, false);
             }
             else if (group->flags & route_flags) {
                 sink_name = pa_sink_ext_get_name(group->sink);
@@ -283,7 +283,7 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                 pa_log_debug("force stream '%s'/'%s' to sink '%s'",
                              group_name, sinp_name, sink_name); 
 
-                data->sink = group->sink;
+                pa_sink_input_new_data_set_sink(data, group->sink, false);
             }
 
             if (local_volume) {

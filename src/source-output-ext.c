@@ -154,7 +154,7 @@ static pa_hook_result_t source_output_neew(void *hook_data, void *call_data,
             pa_log_debug("force source output '%s' to source '%s'",
                          sout_name ? sout_name : "<unknown>", source_name); 
 
-            data->source = group->source;
+            pa_source_output_new_data_set_source(data, group->source, false);
         }
 
     }
