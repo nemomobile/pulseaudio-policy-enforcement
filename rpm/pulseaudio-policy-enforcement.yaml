@@ -1,0 +1,24 @@
+Name: pulseaudio-policy-enforcement
+Summary: Pulseaudio module for enforcing policy decisions in the audio domain
+Version: 2.1.2
+Release: 0
+Group: System/Daemons
+License: LGPLv2.1
+URL: https://github.com/nemomobile/pulseaudio-policy-enforcement
+Sources:
+    - "%{name}-%{version}.tar.gz"
+Description: |
+    This package contains a pulseaudio module that enforces (mostly audio) routing,
+    corking and muting policy decisions.
+
+PkgBR:
+    - libtool-ltdl-devel
+    - libatomic_ops-devel
+PkgConfigBR:
+    - pulsecore
+    - libpulse
+    - dbus-1
+Configure: autogen
+ConfigOptions:
+    - --with-module-dir=%{_libdir}/pulse-$PAVER/modules
+Builder: make
