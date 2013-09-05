@@ -602,14 +602,8 @@ static int section_close(struct userdata *u, struct section *sec)
                 break;
             }
 
-            if (devdef->ports) {
-                struct pa_classify_port_entry *port;
-
-                while ((port = pa_hashmap_steal_first(devdef->ports)))
-                    pa_classify_port_entry_free(port);
-
-                pa_hashmap_free(devdef->ports, NULL, NULL);
-            }
+            if (devdef->ports)
+                pa_hashmap_free(devdef->ports, (pa_free_cb_t) pa_classify_port_entry_free);
 
             pa_xfree(devdef->type);
             pa_xfree(devdef->prop);
@@ -1069,15 +1063,10 @@ static int ports_parse(int lineno, const char *portsdef,
     char **entries;
 
     if (devdef->ports) {
-        struct pa_classify_port_entry *port;
-
         pa_log("Duplicate ports= line in line %d, using the last "
                "occurrence.", lineno);
 
-        while ((port = pa_hashmap_steal_first(devdef->ports)))
-            pa_classify_port_entry_free(port);
-
-        pa_hashmap_free(devdef->ports, NULL, NULL);
+        pa_hashmap_free(devdef->ports, (pa_free_cb_t) pa_classify_port_entry_free);
     }
 
     devdef->ports = pa_hashmap_new(pa_idxset_string_hash_func,
@@ -1449,6 +1438,8 @@ static int flags_parse(int lineno, char  *flagdef,
 
         if ((device || card) && !strcmp(flagname, "disable_notify"))
             flags |= PA_POLICY_DISABLE_NOTIFY;
+        else if (device && !strcmp(flagname, "refresh_always"))
+            flags |= PA_POLICY_REFRESH_PORT_ALWAYS;
         else if (stream && !strcmp(flagname, "mute_if_active"))
             flags |= PA_POLICY_LOCAL_MUTE;
         else if (stream && !strcmp(flagname, "max_volume"))

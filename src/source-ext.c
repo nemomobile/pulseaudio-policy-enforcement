@@ -157,6 +157,16 @@ int pa_source_ext_set_ports(struct userdata *u, const char *type)
                     pa_log_debug("changed source '%s' port to '%s'",
                                  source->name, port_entry->port_name);
                 }
+                continue;
+            }
+
+            if (data->flags & PA_POLICY_REFRESH_PORT_ALWAYS) {
+                if (source->set_port) {
+                    pa_log_debug("refresh source '%s' port to '%s'",
+                            source->name, port_entry->port_name);
+                    source->set_port(source, source->active_port);
+                }
+                continue;
             }
         }
     }

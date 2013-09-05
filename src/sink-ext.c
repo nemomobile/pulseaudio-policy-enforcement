@@ -163,6 +163,16 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
                 }
                 continue;
             }
+
+            if ((data->flags & PA_POLICY_REFRESH_PORT_ALWAYS) && !ext->overridden_port) {
+                if (sink->set_port) {
+                    pa_log_debug("refresh sink '%s' port to '%s'",
+                                 name, port);
+                    sink->set_port(sink, sink->active_port);
+                }
+                continue;
+            }
+
         }
     } /* for */
 

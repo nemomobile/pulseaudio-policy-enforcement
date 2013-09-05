@@ -921,14 +921,8 @@ static void devices_free(struct pa_classify_device *devices)
         for (d = devices->defs;  d->type;  d++) {
             pa_xfree((void *)d->type);
 
-            if (d->data.ports) {
-                struct pa_classify_port_entry *port;
-
-                while ((port = pa_hashmap_steal_first(d->data.ports)))
-                    pa_classify_port_entry_free(port);
-
-                pa_hashmap_free(d->data.ports, NULL, NULL);
-            }
+            if (d->data.ports)
+                pa_hashmap_free(d->data.ports, (pa_free_cb_t) pa_classify_port_entry_free);
 
             if (d->method == pa_classify_method_matches)
                 regfree(&d->arg.rexp);
