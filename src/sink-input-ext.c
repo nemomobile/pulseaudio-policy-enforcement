@@ -315,7 +315,7 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                 pa_cvolume_set(&group_limit, data->channel_map.channels,
                                group->limit);
 
-                pa_sink_input_new_data_apply_volume_factor(data, &group_limit);
+                pa_sink_input_new_data_add_volume_factor(data, sinp_name, &group_limit);
             }
         }
 
