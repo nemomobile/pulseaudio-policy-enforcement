@@ -3,6 +3,7 @@
 #endif
 
 #include <pulse/def.h>
+#include <pulsecore/device-port.h>
 #include <pulsecore/card.h>
 
 #include "card-ext.h"
