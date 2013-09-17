@@ -781,7 +781,7 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
                 if (!(grp->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO))
                     ret = 0;
                 else
-                    ret = move_group(grp, &target);
+                    ret = move_group(grp, &target) == 0 ? 1 : -1;
             }
         }
         else {                  /* move all groups */
@@ -791,6 +791,8 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
                 if ((grp->flags & PA_POLICY_GROUP_FLAG_ROUTE_AUDIO)) {
                     if (move_group(grp, &target) < 0)
                         ret = -1;
+                    else
+                        ret++;
                 }
             }
         }
