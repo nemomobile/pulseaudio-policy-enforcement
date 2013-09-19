@@ -1000,6 +1000,8 @@ static int move_group(struct pa_policy_group *group, struct target *target)
             pa_proplist_sets(pl, PA_PROP_MAEMO_AUDIO_MODE    , target->mode);
             pa_proplist_sets(pl, PA_PROP_MAEMO_ACCESSORY_HWID, target->hwid);
         }
+        /* Note! Notify property change always, even when it really didn't change from previous values. */
+        prop_changed = TRUE;
 
         /* move sink inputs to the sink */
         sinkname = pa_sink_ext_get_name(sink);
