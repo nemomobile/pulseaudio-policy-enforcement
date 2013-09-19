@@ -20,6 +20,7 @@
 
 /* device flags */
 #define PA_POLICY_REFRESH_PORT_ALWAYS (1UL << 3)
+#define PA_POLICY_DELAYED_PORT_CHANGE (1UL << 4)
 
 struct pa_sink;
 struct pa_source;

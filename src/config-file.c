@@ -1465,6 +1465,8 @@ static int flags_parse(int lineno, char  *flagdef,
             flags |= PA_POLICY_DISABLE_NOTIFY;
         else if (device && !strcmp(flagname, "refresh_always"))
             flags |= PA_POLICY_REFRESH_PORT_ALWAYS;
+        else if (device && !strcmp(flagname, "delayed_port_change"))
+            flags |= PA_POLICY_DELAYED_PORT_CHANGE;
         else if (stream && !strcmp(flagname, "mute_if_active"))
             flags |= PA_POLICY_LOCAL_MUTE;
         else if (stream && !strcmp(flagname, "max_volume"))
