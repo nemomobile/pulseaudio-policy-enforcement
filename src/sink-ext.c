@@ -8,9 +8,12 @@
 #endif
 
 #include <pulse/def.h>
+#include <pulse/rtclock.h>
+#include <pulse/timeval.h>
 
 #include <pulsecore/core-util.h>
 #include <pulsecore/sink.h>
+#include <pulsecore/namereg.h>
 
 #include "sink-ext.h"
 #include "index-hash.h"
@@ -26,6 +29,7 @@ static pa_hook_result_t sink_unlink(void *, void *, void *);
 static void handle_new_sink(struct userdata *, struct pa_sink *);
 static void handle_removed_sink(struct userdata *, struct pa_sink *);
 
+static pa_time_event *delayed_port_change_event = NULL;
 
 struct pa_null_sink *pa_sink_ext_init_null_sink(const char *name)
 {
@@ -117,6 +121,114 @@ char *pa_sink_ext_get_name(struct pa_sink *sink)
     return sink->name ? sink->name : (char *)"<unknown>";
 }
 
+struct delayed_port_change {
+    char *sink_name;
+    char *port_name;
+    pa_bool_t refresh;
+};
+
+static struct delayed_port_change change_list[8];
+static int change_list_size = 0;
+
+static int set_port(pa_sink *sink, const char *port, pa_bool_t refresh);
+
+static void delay_cb(pa_mainloop_api *m, pa_time_event *e, const struct timeval *t, void *userdata) {
+    struct userdata *u = userdata;
+    pa_sink *sink;
+    int i;
+    int end;
+
+    pa_assert(u);
+    pa_assert(delayed_port_change_event == e);
+
+    if (delayed_port_change_event) {
+        u->core->mainloop->time_free(delayed_port_change_event);
+        delayed_port_change_event = NULL;
+    }
+
+    pa_log_info("start delayed port change (%d port changes).", change_list_size);
+
+    end = change_list_size;
+    change_list_size = 0;
+    for (i = 0; i < end; i++) {
+        struct delayed_port_change *c = &change_list[i];
+
+        if ((sink = pa_namereg_get(u->core, c->sink_name, PA_NAMEREG_SINK)))
+            set_port(sink, c->port_name, c->refresh);
+
+        pa_xfree(c->sink_name);
+        pa_xfree(c->port_name);
+    }
+}
+
+static void set_port_start(struct userdata *u) {
+    if (delayed_port_change_event) {
+        u->core->mainloop->time_free(delayed_port_change_event);
+        delayed_port_change_event = NULL;
+    }
+
+    if (change_list_size > 0) {
+        int i;
+        for (i = 0; i < change_list_size; i++) {
+            pa_xfree(change_list[i].sink_name);
+            pa_xfree(change_list[i].port_name);
+        }
+        change_list_size = 0;
+    }
+}
+
+static int set_port(pa_sink *sink, const char *port, pa_bool_t refresh) {
+    int ret = 0;
+
+    if (refresh) {
+        if (sink->set_port) {
+            pa_log_debug("refresh sink '%s' port to '%s'",
+                         sink->name, port);
+            sink->set_port(sink, sink->active_port);
+        }
+    } else {
+        if (pa_sink_set_port(sink, port, FALSE) < 0) {
+            ret = -1;
+            pa_log("failed to set sink '%s' port to '%s'",
+                   sink->name, port);
+        }
+        else {
+            pa_log_debug("changed sink '%s' port to '%s'",
+                         sink->name, port);
+        }
+    }
+
+    return ret;
+}
+
+static int set_port_add(struct userdata *u, pa_sink *sink, const char *port, pa_bool_t delay, pa_bool_t refresh) {
+    int ret = 0;
+
+    pa_assert(u);
+    pa_assert(sink);
+    pa_assert(port);
+
+    if (delay) {
+        pa_assert(change_list_size < 8);
+        change_list[change_list_size].sink_name = pa_xstrdup(sink->name);
+        change_list[change_list_size].port_name = pa_xstrdup(port);
+        change_list[change_list_size].refresh = refresh;
+        change_list_size++;
+
+        return ret;
+    }
+
+    return set_port(sink, port, refresh);
+}
+
+static void set_port_end(struct userdata *u) {
+    if (change_list_size == 0)
+        return;
+
+    pa_assert(!delayed_port_change_event);
+    delayed_port_change_event = pa_core_rttime_new(u->core, pa_rtclock_now() + 1 * PA_USEC_PER_SEC, delay_cb, u);
+}
+
 int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 {
     int ret = 0;
@@ -130,6 +242,8 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 
     pa_assert(u);
     pa_assert(u->core);
+
+    set_port_start(u);
 
     PA_IDXSET_FOREACH(sink, u->core->sinks, idx) {
         /* Check whether the port of this sink should be changed. */
@@ -151,30 +265,20 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 
             if (!sink->active_port || !pa_streq(port,sink->active_port->name)){
                 if (!ext->overridden_port) {
-                    if (pa_sink_set_port(sink, port, FALSE) < 0) {
-                        ret = -1;
-                        pa_log("failed to set sink '%s' port to '%s'",
-                               name, port);
-                    }
-                    else {
-                        pa_log_debug("changed sink '%s' port to '%s'",
-                                     name, port);
-                    }
+                    ret = set_port_add(u, sink, port, data->flags & PA_POLICY_DELAYED_PORT_CHANGE, FALSE);
                 }
                 continue;
             }
 
             if ((data->flags & PA_POLICY_REFRESH_PORT_ALWAYS) && !ext->overridden_port) {
-                if (sink->set_port) {
-                    pa_log_debug("refresh sink '%s' port to '%s'",
-                                 name, port);
-                    sink->set_port(sink, sink->active_port);
-                }
+                ret = set_port_add(u, sink, port, data->flags & PA_POLICY_DELAYED_PORT_CHANGE, TRUE);
                 continue;
             }
 
         }
     } /* for */
+
+    set_port_end(u);
 
     return ret;
 }

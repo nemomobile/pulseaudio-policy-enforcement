@@ -99,6 +99,7 @@ void pa_policy_group_insert_source_output(struct userdata *, char *,
                                           struct pa_source_output *);
 void pa_policy_group_remove_source_output(struct userdata *, uint32_t);
 
+/* Return number of successfully moved groups on success, or -1 on failure. */
 int  pa_policy_group_move_to(struct userdata *, char *,
                              enum pa_policy_route_class, char *,
                              char *, char *);

@@ -103,10 +103,10 @@ struct devicedef {
 
 struct carddef {
     char                    *type;
-    enum pa_classify_method  method;
-    char                    *arg;
-    char                    *profile;
-    uint32_t                 flags;
+    enum pa_classify_method  method[2];
+    char                    *arg[2];
+    char                    *profile[2];
+    uint32_t                 flags[2];
 };
 
 struct streamdef {
@@ -162,7 +162,7 @@ static int contextval_parse(int, char *, struct contextdef *);
 static int contextsetprop_parse(int, char *, struct contextdef *);
 static int contextdelprop_parse(int, char *, struct contextdef *);
 static int contextanyprop_parse(int, char *, char *, struct anyprop *);
-static int cardname_parse(int, char *, struct carddef *);
+static int cardname_parse(int, char *, struct carddef *, int field);
 static int flags_parse(int, char *, enum section_type, uint32_t *);
 static int valid_label(int, char *);
 
@@ -616,13 +616,15 @@ static int section_close(struct userdata *u, struct section *sec)
             status = 0;
             carddef = sec->def.card;
 
-            pa_classify_add_card(u, carddef->type, carddef->method, 
+            pa_classify_add_card(u, carddef->type, carddef->method,
                                  carddef->arg, carddef->profile,
                                  carddef->flags);
-            
+
             pa_xfree(carddef->type);
-            pa_xfree(carddef->arg);
-            pa_xfree(carddef->profile);
+            for (i = 0; i < 2; i++) {
+                pa_xfree(carddef->arg[i]);
+                pa_xfree(carddef->profile[i]);
+            }
             pa_xfree(carddef);
 
             break;
@@ -878,13 +880,36 @@ static int carddef_parse(int lineno, char *line, struct carddef *carddef)
             carddef->type = pa_xstrdup(line+5);
         }
         else if (!strncmp(line, "name=", 5)) {
-            sts = cardname_parse(lineno, line+5, carddef);
+            sts = cardname_parse(lineno, line+5, carddef, 0);
+        }
+        else if (!strncmp(line, "name0=", 6)) {
+            sts = cardname_parse(lineno, line+6, carddef, 0);
+        }
+        else if (!strncmp(line, "name1=", 6)) {
+            sts = cardname_parse(lineno, line+6, carddef, 1);
         }
         else if (!strncmp(line, "profile=", 8)) {
-            carddef->profile = pa_xstrdup(line+8);
+            carddef->profile[0] = pa_xstrdup(line+8);
+        }
+        else if (!strncmp(line, "profile0=", 9)) {
+            carddef->profile[0] = pa_xstrdup(line+9);
+        }
+        else if (!strncmp(line, "profile1=", 9)) {
+            if (carddef->profile[0])
+                carddef->profile[1] = pa_xstrdup(line+9);
+            else {
+                pa_log("profile1 cannot be defined without profile0 in line %d", lineno);
+                sts = -1;
+            }
         }
         else if (!strncmp(line, "flags=", 6)) {
-            sts = flags_parse(lineno, line+6, section_card, &carddef->flags);
+            sts = flags_parse(lineno, line+6, section_card, &carddef->flags[0]);
+        }
+        else if (!strncmp(line, "flags0=", 7)) {
+            sts = flags_parse(lineno, line+7, section_card, &carddef->flags[0]);
+        }
+        else if (!strncmp(line, "flags1=", 7)) {
+            sts = flags_parse(lineno, line+7, section_card, &carddef->flags[1]);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
@@ -1376,7 +1401,7 @@ static int contextanyprop_parse(int lineno, char *objdef, char *propdef,
     return 0;
 }
 
-static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
+static int cardname_parse(int lineno, char *namedef, struct carddef *carddef, int field)
 {
     char *colon;
     char *method;
@@ -1392,17 +1417,17 @@ static int cardname_parse(int lineno, char *namedef, struct carddef *carddef)
     arg    = colon + 1;
 
     if (!strcmp(method, "equals"))
-        carddef->method = pa_method_equals;
+        carddef->method[field] = pa_method_equals;
     else if (!strcmp(method, "startswith"))
-        carddef->method = pa_method_startswith;
+        carddef->method[field] = pa_method_startswith;
     else if (!strcmp(method, "matches"))
-        carddef->method = pa_method_matches;
+        carddef->method[field] = pa_method_matches;
     else {
         pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
-    carddef->arg   = pa_xstrdup(arg);
+    carddef->arg[field]   = pa_xstrdup(arg);
     
     return 0;
 }
@@ -1440,6 +1465,8 @@ static int flags_parse(int lineno, char  *flagdef,
             flags |= PA_POLICY_DISABLE_NOTIFY;
         else if (device && !strcmp(flagname, "refresh_always"))
             flags |= PA_POLICY_REFRESH_PORT_ALWAYS;
+        else if (device && !strcmp(flagname, "delayed_port_change"))
+            flags |= PA_POLICY_DELAYED_PORT_CHANGE;
         else if (stream && !strcmp(flagname, "mute_if_active"))
             flags |= PA_POLICY_LOCAL_MUTE;
         else if (stream && !strcmp(flagname, "max_volume"))

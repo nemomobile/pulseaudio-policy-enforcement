@@ -20,6 +20,7 @@
 
 /* device flags */
 #define PA_POLICY_REFRESH_PORT_ALWAYS (1UL << 3)
+#define PA_POLICY_DELAYED_PORT_CHANGE (1UL << 4)
 
 struct pa_sink;
 struct pa_source;
@@ -109,13 +110,13 @@ struct pa_classify_device {
 struct pa_classify_card_data {
     char                        *profile; /* name of profile */
     uint32_t                     flags;   /* PA_POLICY_DISABLE_NOTIFY, etc */
+    int                        (*method)(const char *,union pa_classify_arg *);
+    union pa_classify_arg        arg;
 };
 
 struct pa_classify_card_def {
     const char                  *type; /* handled device name, e.g ihf */
-    int                        (*method)(const char *,union pa_classify_arg *);
-    union pa_classify_arg        arg;
-    struct pa_classify_card_data data; /* data associated with device 'type' */
+    struct pa_classify_card_data data[2]; /* data associated with device 'type' */
 };
 
 struct pa_classify_card {
@@ -140,7 +141,7 @@ void  pa_classify_add_source(struct userdata *, char *, char *,
                              enum pa_classify_method, char *, pa_hashmap *,
                              uint32_t);
 void  pa_classify_add_card(struct userdata *, char *,
-                           enum pa_classify_method, char *, char *, uint32_t);
+                           enum pa_classify_method[2], char **, char **, uint32_t[2]);
 void  pa_classify_add_stream(struct userdata *, char *,enum pa_classify_method,
                              char *, char *, uid_t, char *, char *,
                              uint32_t, char *);
@@ -175,7 +176,7 @@ int   pa_classify_is_source_typeof(struct userdata *, struct pa_source *,
                                    const char *,
                                    struct pa_classify_device_data **);
 int   pa_classify_is_card_typeof(struct userdata *, struct pa_card *,
-                                 char *, struct pa_classify_card_data **);
+                                 char *, struct pa_classify_card_data **, int *priority);
 
 /* The ports= option in the [device] section may contain multiple sinks or
  * sources of which port should be set. These two functions are used to find
