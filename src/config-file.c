@@ -39,6 +39,7 @@ enum section_type {
     section_card,
     section_stream,
     section_context,
+    section_activity,
     section_max
 };
 
@@ -130,6 +131,16 @@ struct contextdef {
     struct ctxact           *acts;   /* array of actions */
 };
 
+struct activitydef {
+    char                    *device; /* device route name */
+    enum pa_classify_method  method; /* sink name based classification */
+    char                    *name;   /* sink name */
+    int                      active_nact;   /* number of actions when changing to active state */
+    struct ctxact           *active_acts;   /* array of actions when changing to active state */
+    int                      inactive_nact; /* number of actions when changing to inactive state */
+    struct ctxact           *inactive_acts; /* array of actions when changing to inactive state */
+};
+
 struct section {
     enum section_type        type;
     union {
@@ -139,6 +150,7 @@ struct section {
         struct carddef    *card;
         struct streamdef  *stream;
         struct contextdef *context;
+        struct activitydef *activity;
     }                        def;
 };
 
@@ -154,13 +166,14 @@ static int devicedef_parse(int, char *, struct devicedef *);
 static int carddef_parse(int, char *, struct carddef *);
 static int streamdef_parse(int, char *, struct streamdef *);
 static int contextdef_parse(int, char *, struct contextdef *);
+static int activitydef_parse(int, char *, struct activitydef *);
 
 static int deviceprop_parse(int, enum device_class,char *,struct devicedef *);
 static int ports_parse(int, const char *, struct devicedef *);
 static int streamprop_parse(int, char *, struct streamdef *);
-static int contextval_parse(int, char *, struct contextdef *);
-static int contextsetprop_parse(int, char *, struct contextdef *);
-static int contextdelprop_parse(int, char *, struct contextdef *);
+static int contextval_parse(int, char *, enum pa_classify_method *method, char **arg);
+static int contextsetprop_parse(int, char *, int *nact, struct ctxact **acts);
+static int contextdelprop_parse(int, char *, int *nact, struct ctxact **acts);
 static int contextanyprop_parse(int, char *, char *, struct anyprop *);
 static int cardname_parse(int, char *, struct carddef *, int field);
 static int flags_parse(int, char *, enum section_type, uint32_t *);
@@ -186,6 +199,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
     struct carddef    *carddef;
     struct streamdef  *strdef;
     struct contextdef *ctxdef;
+    struct activitydef *actdef;
     int                success;
 
     pa_assert(u);
@@ -269,7 +283,15 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                     success = FALSE;
 
                 break;
-                
+
+            case section_activity:
+                actdef = section.def.activity;
+
+                if (activitydef_parse(lineno, line, actdef) < 0)
+                    success = FALSE;
+
+                break;
+
             default:
                 break;
 
@@ -483,6 +505,8 @@ static int section_header(int lineno, char *line, enum section_type *type)
             *type = section_stream;
         else if (!strcmp(line, "[context-rule]"))
             *type = section_context;
+        else if (!strcmp(line, "[activity]"))
+            *type = section_activity;
         else {
             *type = section_unknown;
             pa_log("Invalid section type '%s' in line %d", line, lineno);
@@ -528,7 +552,13 @@ static int section_open(struct userdata *u, enum section_type type,
             sec->def.context->method = pa_method_true;
             status = 0;
             break;
-            
+
+        case section_activity:
+            sec->def.activity = pa_xnew0(struct activitydef, 1);
+            sec->def.activity->method = pa_method_true;
+            status = 0;
+            break;
+
         default:
             type = section_unknown;
             sec->def.any = NULL;
@@ -549,6 +579,7 @@ static int section_close(struct userdata *u, struct section *sec)
     struct carddef    *carddef;
     struct streamdef  *strdef;
     struct contextdef *ctxdef;
+    struct activitydef *actdef;
     struct ctxact     *act;
     struct pa_policy_context_rule *rule;
     struct setprop    *setprop;
@@ -713,7 +744,88 @@ static int section_close(struct userdata *u, struct section *sec)
             pa_xfree(ctxdef);
 
             break;
-            
+
+        case section_activity:
+            status = 0;
+            rule = NULL;
+            actdef = sec->def.activity;
+
+            if (actdef->active_nact > 0)
+                rule = pa_policy_activity_add_active_rule(u, actdef->device,
+                                                          actdef->method, actdef->name);
+
+            for (i = 0;  i < actdef->active_nact;  i++) {
+                act = actdef->active_acts + i;
+
+                switch (act->type) {
+
+                case pa_policy_set_property:
+                    setprop = &act->setprop;
+
+                    if (rule != NULL) {
+                        pa_policy_context_add_property_action(
+                                          rule, act->lineno,
+                                          setprop->objtype,
+                                          setprop->method,
+                                          setprop->arg,
+                                          setprop->propnam,
+                                          setprop->valtype,
+                                          setprop->valarg
+                        );
+                    }
+
+                    pa_xfree(setprop->arg);
+                    pa_xfree(setprop->propnam);
+                    pa_xfree(setprop->valarg);
+
+                    break;
+                default:
+                    break;
+                }
+            }
+
+            rule = NULL;
+            if (actdef->inactive_nact > 0)
+                rule = pa_policy_activity_add_inactive_rule(u, actdef->device,
+                                                            actdef->method, actdef->name);
+
+            for (i = 0;  i < actdef->inactive_nact;  i++) {
+                act = actdef->inactive_acts + i;
+
+                switch (act->type) {
+
+                case pa_policy_set_property:
+                    setprop = &act->setprop;
+
+                    if (rule != NULL) {
+                        pa_policy_context_add_property_action(
+                                          rule, act->lineno,
+                                          setprop->objtype,
+                                          setprop->method,
+                                          setprop->arg,
+                                          setprop->propnam,
+                                          setprop->valtype,
+                                          setprop->valarg
+                        );
+                    }
+
+                    pa_xfree(setprop->arg);
+                    pa_xfree(setprop->propnam);
+                    pa_xfree(setprop->valarg);
+
+                    break;
+                default:
+                    break;
+                }
+            }
+
+            pa_xfree(actdef->name);
+            pa_xfree(actdef->active_acts);
+            pa_xfree(actdef->inactive_acts);
+            pa_xfree(actdef);
+
+            break;
+
         default:
             status = 0;
             break;
@@ -1014,13 +1126,50 @@ static int contextdef_parse(int lineno, char *line, struct contextdef *ctxdef)
             ctxdef->varnam = pa_xstrdup(line+9);
         }
         else if (!strncmp(line, "value=", 6)) {
-            sts = contextval_parse(lineno, line+6, ctxdef);
+            sts = contextval_parse(lineno, line+6, &ctxdef->method, &ctxdef->arg);
         }
         else if (!strncmp(line, "set-property=", 13)) {
-            sts = contextsetprop_parse(lineno, line+13, ctxdef);
+            sts = contextsetprop_parse(lineno, line+13, &ctxdef->nact, &ctxdef->acts);
         }
         else if (!strncmp(line, "delete-property=", 16)) { 
-            sts = contextdelprop_parse(lineno, line+16, ctxdef);
+            sts = contextdelprop_parse(lineno, line+16, &ctxdef->nact, &ctxdef->acts);
+        }
+        else {
+            if ((end = strchr(line, '=')) == NULL) {
+                pa_log("invalid definition '%s' in line %d", line, lineno);
+            }
+            else {
+                *end = '\0';
+                pa_log("invalid key value '%s' in line %d", line, lineno);
+            }
+            sts = -1;
+        }
+    }
+
+    return sts;
+}
+
+static int activitydef_parse(int lineno, char *line, struct activitydef *actdef)
+{
+    int sts;
+    char *end;
+
+    if (actdef == NULL)
+        sts = -1;
+    else {
+        sts = 0;
+
+        if (!strncmp(line, "sink-name=", 10)) {
+            sts = contextval_parse(lineno, line+10, &actdef->method, &actdef->name);
+        }
+        else if (!strncmp(line, "device=", 7)) {
+            actdef->device = pa_xstrdup(line+7);
+        }
+        else if (!strncmp(line, "active=", 7)) {
+            sts = contextsetprop_parse(lineno, line+7, &actdef->active_nact, &actdef->active_acts);
+        }
+        else if (!strncmp(line, "inactive=", 9)) {
+            sts = contextsetprop_parse(lineno, line+9, &actdef->inactive_nact, &actdef->inactive_acts);
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
@@ -1190,7 +1339,7 @@ static int streamprop_parse(int lineno,char *propdef,struct streamdef *strdef)
     return 0;
 }
 
-static int contextval_parse(int lineno,char *valdef, struct contextdef *ctxdef)
+static int contextval_parse(int lineno,char *valdef, enum pa_classify_method *method_val, char **method_arg)
 {
     char *colon;
     char *method;
@@ -1206,23 +1355,23 @@ static int contextval_parse(int lineno,char *valdef, struct contextdef *ctxdef)
     arg    = colon + 1;
     
     if (!strcmp(method, "equals"))
-        ctxdef->method = pa_method_equals;
+        *method_val = pa_method_equals;
     else if (!strcmp(method, "startswith"))
-        ctxdef->method = pa_method_startswith;
+        *method_val = pa_method_startswith;
     else if (!strcmp(method, "matches"))
-        ctxdef->method = strcmp(arg, "*") ? pa_method_matches : pa_method_true;
+        *method_val = strcmp(arg, "*") ? pa_method_matches : pa_method_true;
     else {
         pa_log("invalid method '%s' in line %d", method, lineno);
         return -1;
     }
     
-    ctxdef->arg = (ctxdef->method == pa_method_true) ? NULL : pa_xstrdup(arg);
+    *method_arg = (*method_val == pa_method_true) ? NULL : pa_xstrdup(arg);
     
     return 0;
 }
 
 static int contextsetprop_parse(int lineno, char *setpropdef,
-                                struct contextdef *ctxdef)
+                                int *nact, struct ctxact **acts)
 {
     size_t          size;
     struct ctxact  *act;
@@ -1239,8 +1388,8 @@ static int contextsetprop_parse(int lineno, char *setpropdef,
      * sink-name@startswidth:alsa,property:foo,value@constant:bar
      */
 
-    size = sizeof(*act) * (ctxdef->nact + 1);
-    act  = (ctxdef->acts = pa_xrealloc(ctxdef->acts, size)) + ctxdef->nact;
+    size = sizeof(*act) * (*nact + 1);
+    act  = (*acts = pa_xrealloc(*acts, size)) + *nact;
 
     memset(act, 0, sizeof(*act));
     act->type   = pa_policy_set_property;
@@ -1281,13 +1430,13 @@ static int contextsetprop_parse(int lineno, char *setpropdef,
 
     setprop->valarg  = valarg ? pa_xstrdup(valarg) : NULL;
 
-    ctxdef->nact++;
+    (*nact)++;
     
     return 0;
 }
 
 static int contextdelprop_parse(int lineno, char *delpropdef,
-                                struct contextdef *ctxdef)
+                                int *nact, struct ctxact **acts)
 {
     size_t          size;
     struct ctxact  *act;
@@ -1300,8 +1449,8 @@ static int contextdelprop_parse(int lineno, char *delpropdef,
      * sink-name@startswidth:alsa,property:foo
      */
 
-    size = sizeof(*act) * (ctxdef->nact + 1);
-    act  = (ctxdef->acts = pa_xrealloc(ctxdef->acts, size)) + ctxdef->nact;
+    size = sizeof(*act) * (*nact + 1);
+    act  = (*acts = pa_xrealloc(*acts, size)) + *nact;
 
     memset(act, 0, sizeof(*act));
     act->type   = pa_policy_delete_property;
@@ -1322,7 +1471,7 @@ static int contextdelprop_parse(int lineno, char *delpropdef,
     if (contextanyprop_parse(lineno, objdef, propdef, anyprop) < 0)
         return -1;
 
-    ctxdef->nact++;
+    (*nact)++;
     
     return 0;
 }

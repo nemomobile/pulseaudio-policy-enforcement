@@ -436,6 +436,7 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
         }
 
         pa_policy_context_register(u, pa_policy_object_sink, name, sink);
+        pa_policy_activity_register(u, pa_policy_object_sink, name, sink);
 
         if (len <= 0) {
             if (!is_null_sink)
@@ -495,6 +496,7 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
         }
 
         pa_policy_context_unregister(u, pa_policy_object_sink, name, sink,idx);
+        pa_policy_activity_unregister(u, pa_policy_object_sink, name, sink,idx);
 
         if (len <= 0)
             pa_log_debug("remove sink '%s' (idx=%u)", name, idx);

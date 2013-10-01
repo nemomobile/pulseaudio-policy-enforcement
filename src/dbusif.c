@@ -585,6 +585,8 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
 
     } while (dbus_message_iter_next(&arrit));
 
+    pa_policy_context_variable_commit(u);
+
  send_signal:
     signal_status(u, txid, success);
 }
@@ -755,6 +757,11 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
             pa_log_error("can't set profiles/ports to %s %s",
                          (decisions[i].class == pa_policy_route_to_sink ? "sink" : "source"),
                           decisions[i].target);
+        }
+
+        if (decisions[i].class == pa_policy_route_to_sink) {
+            if (pa_policy_activity_device_changed(u, decisions[i].target) < 0)
+                pa_log("Failed to update activity for %s", decisions[i].target);
         }
     }
 
