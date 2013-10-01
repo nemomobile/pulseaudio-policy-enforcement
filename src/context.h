@@ -3,6 +3,8 @@
 
 #include "classify.h"
 
+#define PA_POLICY_CONTEXT_MAX_CHANGES (16)
+
 enum pa_policy_action_type {
     pa_policy_action_unknown = 0,
     pa_policy_action_min = pa_policy_action_unknown,
@@ -107,8 +109,32 @@ struct pa_policy_context_variable {
     struct pa_policy_context_rule      *rules;
 };
 
+struct pa_policy_activity_rule {
+    struct pa_policy_activity_rule     *next;
+    struct pa_policy_match              match; /* for the variable value */
+    union pa_policy_context_action     *actions;
+};
+
+struct pa_policy_activity_variable {
+    struct pa_policy_activity_variable *next;
+    char                               *device;
+    struct pa_policy_context_rule      *active_rules;
+    struct pa_policy_context_rule      *inactive_rules;
+    struct userdata                    *userdata;
+    /* activity variable is active if hook slot pointer is not-null */
+    pa_hook_slot                       *sink_state_changed_hook_slot;
+    /* cache some values when variable is active */
+    int                                 sink_opened; /* -1 not set, 0 closed, 1 opened */
+};
+
 struct pa_policy_context {
     struct pa_policy_context_variable  *variables;
+    struct pa_policy_activity_variable *activities;
+    struct variable_change {
+        union pa_policy_context_action *action;
+        char                            *value;
+    } variable_change[PA_POLICY_CONTEXT_MAX_CHANGES];
+    int                                 variable_change_count;
 };
 
 
@@ -137,7 +163,29 @@ void pa_policy_context_delete_property_action(struct pa_policy_context_rule *,
                                               enum pa_classify_method,
                                               char *, char *);
 
-int pa_policy_context_variable_changed(struct userdata *, char *, char *);
+/* collect context variable change as name and value. */
+int pa_policy_context_variable_changed(struct userdata *u, char *name, char *value);
+/* commit variable changes to proplists. this needs to be always called after adding
+ * values with pa_policy_context_variable_changed() */
+void pa_policy_context_variable_commit(struct userdata *u);
+
+/* device       - device mode, bta2dp, bthsp, etc.
+ * sink_name    - active sink on device mode, matched with method & arg
+ */
+struct pa_policy_context_rule
+    *pa_policy_activity_add_active_rule(struct userdata *u, char *device,
+                                         enum pa_classify_method method, char *sink_name);
+
+struct pa_policy_context_rule
+    *pa_policy_activity_add_inactive_rule(struct userdata *u, char *device,
+                                          enum pa_classify_method method, char *sink_name);
+
+int pa_policy_activity_device_changed(struct userdata *u, char *device);
+
+void pa_policy_activity_register(struct userdata *, enum pa_policy_object_type,
+                                 const char *, void *);
+void pa_policy_activity_unregister(struct userdata *,enum pa_policy_object_type,
+                                   const char *, void *, unsigned long);
 
 #endif
 
