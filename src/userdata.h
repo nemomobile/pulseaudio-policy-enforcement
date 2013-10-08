@@ -2,6 +2,7 @@
 #define foouserdatafoo
 
 #include <pulsecore/core.h>
+#include <meego/shared-data.h>
 
 #define PA_POLICY_DEFAULT_GROUP_NAME       "othermedia"
 #define PA_POLICY_DEFAULT_GROUP_PROPERTIES "media.role = x-maemo"
@@ -47,6 +48,7 @@ struct userdata {
     struct pa_classify        *classify; /* rules for classification */
     struct pa_policy_context  *context;  /* for processing context variables */
     struct pa_policy_dbusif   *dbusif;
+    pa_shared_data            *shared;   /* for forwarding context etc properties */
 };
 
 
