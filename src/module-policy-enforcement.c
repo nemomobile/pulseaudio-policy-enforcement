@@ -26,6 +26,7 @@
 #include <pulsecore/core-error.h>
 #include <pulsecore/modargs.h>
 #include <pulsecore/log.h>
+#include <meego/shared-data.h>
 
 #include "module-policy-enforcement-symdef.h"
 #include "userdata.h"
@@ -122,11 +123,13 @@ int pa__init(pa_module *m) {
     u->classify = pa_classify_new(u);
     u->context  = pa_policy_context_new(u);
     u->dbusif   = pa_policy_dbusif_init(u, ifnam, mypath, pdpath, pdnam);
+    u->shared   = pa_shared_data_get(u->core);
 
     if (u->scl == NULL      || u->ssnk == NULL     || u->ssrc == NULL ||
         u->ssi == NULL      || u->sso == NULL      || u->scrd == NULL ||
         u->smod == NULL     || u->groups == NULL   || u->nullsink == NULL ||
-        u->classify == NULL || u->context == NULL  || u->dbusif == NULL)
+        u->classify == NULL || u->context == NULL  || u->dbusif == NULL ||
+        u->shared == NULL)
         goto fail;
 
     pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
@@ -145,7 +148,6 @@ int pa__init(pa_module *m) {
     pa_module_ext_discover(u);
 
     pa_modargs_free(ma);
-
     
     return 0;
     
@@ -183,6 +185,7 @@ void pa__done(pa_module *m) {
     pa_index_hash_free(u->hsnk);
     pa_index_hash_free(u->hsi);
     pa_sink_ext_null_sink_free(u->nullsink);
+    pa_shared_data_unref(u->shared);
 
     
     pa_xfree(u);

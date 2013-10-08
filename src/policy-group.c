@@ -809,6 +809,11 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
 
         pa_subscription_post(target.sink->core, sinkev, target.sink->index);
         pa_hook_fire(&target.sink->core->hooks[PA_CORE_HOOK_SINK_PROPLIST_CHANGED], target.sink);
+
+        /* Forward shared info. First HWID then MODE, so that when checking MODE value HWID already
+         * is stored. */
+        pa_shared_data_sets(u->shared, PA_PROP_MAEMO_ACCESSORY_HWID, target.hwid);
+        pa_shared_data_sets_always(u->shared, PA_PROP_MAEMO_AUDIO_MODE, target.mode);
     }
 
     return ret;

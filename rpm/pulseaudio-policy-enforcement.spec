@@ -9,18 +9,19 @@ Name:       pulseaudio-policy-enforcement
 # << macros
 
 Summary:    Pulseaudio module for enforcing policy decisions in the audio domain
-Version:    4.0.3
+Version:    4.0.6
 Release:    0
 Group:      System/Daemons
 License:    LGPLv2.1
 URL:        https://github.com/nemomobile/pulseaudio-policy-enforcement
 Source0:    %{name}-%{version}.tar.gz
 Source100:  pulseaudio-policy-enforcement.yaml
-BuildRequires:  pkgconfig(pulsecore)
-BuildRequires:  pkgconfig(libpulse)
+BuildRequires:  pkgconfig(atomic_ops)
+BuildRequires:  pkgconfig(pulsecore) >= 4.0
+BuildRequires:  pkgconfig(libpulse) >= 4.0
 BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(libmeego-common) >= 4.0.11
 BuildRequires:  libtool-ltdl-devel
-BuildRequires:  libatomic_ops-devel
 
 %description
 This package contains a pulseaudio module that enforces (mostly audio) routing,
