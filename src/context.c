@@ -569,6 +569,9 @@ static int perform_action(struct userdata                *u,
 
                     set_object_property(object, setprop->property, prop_value);
                 }
+
+                /* Forward shared strings */
+                pa_shared_data_sets(u->shared, setprop->property, prop_value);
             }
         }
         break;
