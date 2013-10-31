@@ -115,6 +115,7 @@ struct streamdef {
     enum pa_classify_method  method; /* property based classification method */
     char                    *arg;    /* param for prop.based classification */
     char                    *clnam;  /* client's name in pulse audio */
+    char                    *sname;  /* active sink target */
     uid_t                    uid;    /* client's user id */
     char                    *exe;    /* the executable name (i.e. argv[0]) */
     char                    *group;  /* group name the stream belong to */
@@ -668,12 +669,13 @@ static int section_close(struct userdata *u, struct section *sec)
                 strdef->flags |= PA_POLICY_LOCAL_ROUTE;
 
             pa_classify_add_stream(u, strdef->prop,strdef->method,strdef->arg,
-                                   strdef->clnam, strdef->uid, strdef->exe,
+                                   strdef->clnam, strdef->sname, strdef->uid, strdef->exe,
                                    strdef->group, strdef->flags, strdef->port);
 
             pa_xfree(strdef->prop);
             pa_xfree(strdef->arg);
             pa_xfree(strdef->clnam);
+            pa_xfree(strdef->sname);
             pa_xfree(strdef->exe);
             pa_xfree(strdef->group);
             pa_xfree(strdef->port);
@@ -1061,6 +1063,9 @@ static int streamdef_parse(int lineno, char *line, struct streamdef *strdef)
         }
         else if (!strncmp(line, "client=", 7)) {
             strdef->clnam = pa_xstrdup(line+7);
+        }
+        else if (!strncmp(line, "sink=", 5)) {
+            strdef->sname = pa_xstrdup(line+5);
         }
         else if (!strncmp(line, "user=", 5)) {
             user = line+5;
