@@ -26,7 +26,8 @@ static pa_hook_result_t sink_input_neew(void *, void *, void *);
 static pa_hook_result_t sink_input_put(void *, void *, void *);
 static pa_hook_result_t sink_input_unlink(void *, void *, void *);
 
-static char* get_group(struct userdata *, struct pa_sink_input *, uint32_t *);
+static struct pa_policy_group* get_group(struct userdata *, const char *, struct pa_sink_input *, uint32_t *);
+static struct pa_policy_group* get_group_or_classify(struct userdata *, struct pa_sink_input *, uint32_t *);
 static void handle_new_sink_input(struct userdata *, struct pa_sink_input *);
 static void handle_removed_sink_input(struct userdata *,
                                       struct pa_sink_input *);
@@ -202,7 +203,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
                                       PA_SINK_INPUT_MESSAGE_SET_SOFT_VOLUME,
                                       NULL, 0, NULL);
                 }
-            }        
+            }
         }
     }
 
@@ -226,10 +227,8 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
     char                   *group_name;
     const char             *sinp_name;
     char                   *sink_name;
-    int                     group_volume;
     int                     local_route;
     int                     local_volume;
-    pa_cvolume              group_limit;
     struct pa_policy_group *group;
 
     pa_assert(u);
@@ -265,7 +264,6 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
             if (!sinp_name)
                 sinp_name = "<unknown>";
 
-            group_volume = group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME;
             local_route  = flags & PA_POLICY_LOCAL_ROUTE;
             local_volume = flags & PA_POLICY_LOCAL_VOLMAX;
 
@@ -305,24 +303,6 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                 data->volume_is_set      = TRUE;
                 data->save_volume        = FALSE;
             }
-            else if (group_volume && !group->mutebyrt &&
-                     group->limit > 0 && group->limit < PA_VOLUME_NORM)
-            {
-                pa_log_debug("set stream '%s'/'%s' volume factor to %d",
-                             group_name, sinp_name,
-                             (group->limit * 100) / PA_VOLUME_NORM);
-
-                /* If sink-input channel map is not defined (as it most likely isn't at the time
-                 * of firing PA_CORE_HOOK_SINK_INPUT_NEW) it likely doesn't have it's sink routed
-                 * either. If so, we use channel count 1 (mono) for the volume factor. This isn't
-                 * that bad, since our volume factor value is mono as well, so we won't lose any
-                 * precision. */
-                pa_cvolume_set(&group_limit,
-                               data->channel_map_is_set ? data->channel_map.channels : 1,
-                               group->limit);
-
-                pa_sink_input_new_data_add_volume_factor(data, sinp_name, &group_limit);
-            }
         }
 
     }
@@ -355,80 +335,119 @@ static pa_hook_result_t sink_input_unlink(void *hook_data, void *call_data,
     return PA_HOOK_OK;
 }
 
-static char* get_group(struct userdata *u, struct pa_sink_input *sinp, uint32_t *flags_ret)
+static struct pa_policy_group* get_group(struct userdata *u, const char *group_name, struct pa_sink_input *sinp, uint32_t *flags_ret)
 {
     struct pa_policy_group *group = NULL;
-    const char* group_name;
     const void *flags;
     size_t len_flags = 0;
 
-    pa_assert(flags_ret);
+    pa_assert(u);
+    pa_assert(sinp);
 
-    /* Just grab the group name from the proplist to avoid classifying multiple
-     * times (and to avoid classifying incorrectly if properties are
-     * overwritten when handling PA_CORE_HOOK_SINK_INPUT_NEW).*/
-    group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP);
+    /* If group name is provided use that, otherwise check sink input proplist. */
+    if (!group_name)
+        /* Just grab the group name from the proplist to avoid classifying multiple
+         * times (and to avoid classifying incorrectly if properties are
+         * overwritten when handling PA_CORE_HOOK_SINK_INPUT_NEW).*/
+        group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP);
+
     if (group_name && (group = pa_policy_group_find(u, group_name)) != NULL) {
-        if (pa_proplist_get(sinp->proplist, PA_PROP_POLICY_STREAM_FLAGS, &flags, &len_flags) < 0 ||
-            len_flags != sizeof(uint32_t)) {
+        /* Only update flags if flags_ret is non null */
+        if (flags_ret) {
+            if (pa_proplist_get(sinp->proplist, PA_PROP_POLICY_STREAM_FLAGS, &flags, &len_flags) < 0 ||
+                len_flags != sizeof(uint32_t)) {
 
-            pa_log_warn("No stream flags in proplist or malformed flags.");
-            *flags_ret = 0;
-        } else
-            *flags_ret = *(uint32_t *)flags;
-
-        /* Make the return value point to the group name, because the proplist
-         * may change and the pointer may thus be invalidated.*/
-        return group->name;
+                pa_log_warn("No stream flags in proplist or malformed flags.");
+                *flags_ret = 0;
+            } else
+                *flags_ret = *(uint32_t *)flags;
+        }
     }
 
-    pa_log_warn("Sink input %s is missing a policy group. "
-                "Classifying...", pa_sink_input_ext_get_name(sinp));
+    return group;
+}
 
-    return pa_classify_sink_input(u, sinp, flags_ret);
+static struct pa_policy_group* get_group_or_classify(struct userdata *u, struct pa_sink_input *sinp, uint32_t *flags_ret) {
+    struct pa_policy_group *group;
+    const char *group_name;
+
+    group = get_group(u, NULL, sinp, flags_ret);
+
+    if (!group) {
+        pa_log_info("Sink input '%s' is missing a policy group. "
+                    "Classifying...", pa_sink_input_ext_get_name(sinp));
+
+        /* After classifying, search group struct using get_group, but don't try to update flags,
+         * since those are not added to the sink input yet. That will happen in
+         * handle_new_sink_input->pa_policy_group_insert_sink_input. pa_classify_sink_input already
+         * returns our flags, so we can just have those in the flags_ret. */
+        if ((group_name = pa_classify_sink_input(u, sinp, flags_ret)))
+            group = get_group(u, group_name, sinp, NULL);
+    }
+
+    return group;
 }
 
 static void handle_new_sink_input(struct userdata      *u,
                                   struct pa_sink_input *sinp)
 {
-    struct pa_sink_input_ext *ext;
-    uint32_t  idx;
-    char     *snam;
-    char     *gnam;
-    uint32_t  flags;
+    struct      pa_policy_group *group = NULL;
+    struct      pa_sink_input_ext *ext;
+    uint32_t    idx;
+    char       *sinp_name;
+    int         group_volume;
+    pa_cvolume  group_limit;
+    uint32_t    flags;
 
     if (sinp && u) {
         idx  = sinp->index;
-        snam = pa_sink_input_ext_get_name(sinp);
-        gnam = get_group(u, sinp, &flags);
+        sinp_name = pa_sink_input_ext_get_name(sinp);
+        pa_assert_se((group = get_group_or_classify(u, sinp, &flags)));
+        group_volume = group->flags & PA_POLICY_GROUP_FLAG_LIMIT_VOLUME;
 
         ext = pa_xmalloc0(sizeof(struct pa_sink_input_ext));
         ext->local.route = (flags & PA_POLICY_LOCAL_ROUTE) ? TRUE : FALSE;
         ext->local.mute  = (flags & PA_POLICY_LOCAL_MUTE ) ? TRUE : FALSE;
         pa_index_hash_add(u->hsi, idx, ext);
 
-        pa_policy_context_register(u, pa_policy_object_sink_input, snam, sinp);
-        pa_policy_group_insert_sink_input(u, gnam, sinp, flags);
+        /* Set volume factor in sink_input_put() so that we have our target sink and
+         * channel_map defined properly. */
+        if (group_volume && !group->mutebyrt &&
+                 group->limit > 0 && group->limit < PA_VOLUME_NORM)
+        {
+            pa_log_debug("set stream '%s'/'%s' volume factor to %d",
+                         group->name, sinp_name,
+                         (group->limit * 100) / PA_VOLUME_NORM);
 
-        pa_log_debug("new sink_input %s (idx=%u) (group=%s)", snam, idx, gnam);
+            pa_cvolume_set(&group_limit,
+                           sinp->channel_map.channels,
+                           group->limit);
+
+            pa_sink_input_add_volume_factor(sinp, sinp_name, &group_limit);
+        }
+
+        pa_policy_context_register(u, pa_policy_object_sink_input, sinp_name, sinp);
+        pa_policy_group_insert_sink_input(u, group->name, sinp, flags);
+
+        pa_log_debug("new sink_input %s (idx=%u) (group=%s)", sinp_name, idx, group->name);
     }
 }
 
 static void handle_removed_sink_input(struct userdata      *u,
                                       struct pa_sink_input *sinp)
 {
+    struct pa_policy_group *group = NULL;
     struct pa_sink_input_ext *ext;
     struct pa_sink *sink;
     uint32_t        idx;
     char           *snam;
-    char           *gnam;
     uint32_t        flags;
 
     if (sinp && u) {
         idx  = sinp->index;
         sink = sinp->sink;
         snam = pa_sink_input_ext_get_name(sinp);
-        gnam = get_group(u, sinp, &flags);
+        pa_assert_se((group = get_group_or_classify(u, sinp, &flags)));
 
         if (flags & PA_POLICY_LOCAL_ROUTE)
             pa_sink_ext_restore_port(u, sink);
@@ -447,7 +466,7 @@ static void handle_removed_sink_input(struct userdata      *u,
         }
 
         pa_log_debug("removed sink_input '%s' (idx=%d) (group=%s)",
-                     snam, idx, gnam);
+                     snam, idx, group->name);
     }
 }
 
