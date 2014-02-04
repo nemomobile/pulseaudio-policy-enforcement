@@ -814,6 +814,9 @@ int pa_policy_group_move_to(struct userdata *u, char *name,
          * is stored. */
         pa_shared_data_sets(u->shared, PA_PROP_MAEMO_ACCESSORY_HWID, target.hwid);
         pa_shared_data_sets_always(u->shared, PA_PROP_MAEMO_AUDIO_MODE, target.mode);
+
+        /* Update active sink for streams */
+        pa_classify_update_stream_route(u, type);
     }
 
     return ret;

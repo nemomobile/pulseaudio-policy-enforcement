@@ -45,12 +45,12 @@ static struct pa_classify_pid_hash
 static void streams_free(struct pa_classify_stream_def *);
 static void streams_add(struct pa_classify_stream_def **, char *, 
                         enum pa_classify_method, char *, char *,
-                        uid_t, char *, char *, uint32_t);
+                        char *, uid_t, char *, char *, uint32_t);
 static char *streams_get_group(struct pa_classify_stream_def **, pa_proplist *,
                                char *, uid_t, char *, uint32_t *);
 static struct pa_classify_stream_def
             *streams_find(struct pa_classify_stream_def **, pa_proplist *,
-                          char *, uid_t, char *,
+                          char *, char *, uid_t, char *,
                           struct pa_classify_stream_def **);
 
 static void devices_free(struct pa_classify_device *);
@@ -157,7 +157,7 @@ void pa_classify_add_card(struct userdata *u, char *type,
 
 void pa_classify_add_stream(struct userdata *u, char *prop,
                             enum pa_classify_method method, char *arg,
-                            char *clnam, uid_t uid, char *exe, char *grnam,
+                            char *clnam, char *sname, uid_t uid, char *exe, char *grnam,
                             uint32_t flags, char *port)
 {
     struct pa_classify     *classify;
@@ -179,7 +179,25 @@ void pa_classify_add_stream(struct userdata *u, char *prop,
         }
 
         streams_add(&classify->streams.defs, prop,method,arg,
-                    clnam, uid, exe, grnam, flags);
+                    clnam, sname, uid, exe, grnam, flags);
+    }
+}
+
+void pa_classify_update_stream_route(struct userdata *u, char *sname)
+{
+    struct pa_classify_stream_def *stream;
+
+    pa_assert(u);
+    pa_assert(u->classify);
+
+    for (stream = u->classify->streams.defs;  stream;  stream = stream->next) {
+        if (stream->sname) {
+            if (pa_streq(stream->sname, sname))
+                stream->sact = 1;
+            else
+                stream->sact = 0;
+            pa_log_debug("stream group %s changes to %s state", sname, stream->group, stream->sact ? "active" : "inactive");
+        }
     }
 }
 
@@ -724,6 +742,7 @@ static void streams_free(struct pa_classify_stream_def *defs)
         pa_xfree(stream->prop);
         pa_xfree(stream->exe);
         pa_xfree(stream->clnam);
+        pa_xfree(stream->sname);
         pa_xfree(stream->group);
 
         pa_xfree(stream);
@@ -732,7 +751,7 @@ static void streams_free(struct pa_classify_stream_def *defs)
 
 static void streams_add(struct pa_classify_stream_def **defs, char *prop,
                         enum pa_classify_method method,char *arg, char *clnam,
-                        uid_t uid, char *exe, char *group, uint32_t flags)
+                        char *sname, uid_t uid, char *exe, char *group, uint32_t flags)
 {
     struct pa_classify_stream_def *d;
     struct pa_classify_stream_def *prev;
@@ -748,7 +767,7 @@ static void streams_add(struct pa_classify_stream_def **defs, char *prop,
         pa_proplist_sets(proplist, prop, arg);
     }
 
-    if ((d = streams_find(defs, proplist, clnam, uid, exe, &prev)) != NULL) {
+    if ((d = streams_find(defs, proplist, clnam, sname, uid, exe, &prev)) != NULL) {
         pa_log_info("redefinition of stream");
         pa_xfree(d->group);
     }
@@ -804,11 +823,13 @@ static void streams_add(struct pa_classify_stream_def **defs, char *prop,
         d->uid   = uid;
         d->exe   = exe   ? pa_xstrdup(exe)   : NULL;
         d->clnam = clnam ? pa_xstrdup(clnam) : NULL;
+        d->sname = sname ? pa_xstrdup(sname) : NULL;
+        d->sact  = sname ? 0 : -1;
         
         prev->next = d;
 
-        pa_log_debug("stream added (%d|%s|%s|%s)", uid, exe?exe:"<null>",
-                     clnam?clnam:"<null>", method_def);
+        pa_log_debug("stream added (%d|%s|%s|%s|%d)", uid, exe?exe:"<null>",
+                     clnam?clnam:"<null>", method_def, d->sact);
     }
 
     d->group = pa_xstrdup(group);
@@ -828,7 +849,7 @@ static char *streams_get_group(struct pa_classify_stream_def **defs,
 
     pa_assert(defs);
 
-    if ((d = streams_find(defs, proplist, clnam, uid, exe, NULL)) == NULL) {
+    if ((d = streams_find(defs, proplist, clnam, NULL, uid, exe, NULL)) == NULL) {
         group = NULL;
         flags = 0;
     }
@@ -845,7 +866,7 @@ static char *streams_get_group(struct pa_classify_stream_def **defs,
 
 static struct pa_classify_stream_def *
 streams_find(struct pa_classify_stream_def **defs, pa_proplist *proplist,
-             char *clnam, uid_t uid, char *exe,
+             char *clnam, char *sname, uid_t uid, char *exe,
              struct pa_classify_stream_def **prev_ret)
 {
 #define PROPERTY_MATCH     (!d->prop || !d->method || \
@@ -882,6 +903,10 @@ streams_find(struct pa_classify_stream_def **defs, pa_proplist *proplist,
         if (PROPERTY_MATCH         &&
             STRING_MATCH_OF(clnam) &&
             ID_MATCH_OF(uid)       &&
+            /* case for dynamically changing active sink. */
+            (!sname || (sname && d->sname && !strcmp(sname, d->sname))) &&
+            (d->sact == -1 || d->sact == 1) &&
+            /* end special case */
             STRING_MATCH_OF(exe)      )
             break;
 
