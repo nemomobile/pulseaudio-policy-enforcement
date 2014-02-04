@@ -585,6 +585,8 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
 
     } while (dbus_message_iter_next(&arrit));
 
+    pa_policy_context_variable_commit(u);
+
  send_signal:
     signal_status(u, txid, success);
 }
@@ -660,6 +662,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
     pa_proplist *p = NULL;
     struct routing_decision decisions[MAX_ROUTING_DECISIONS];
     int num_decisions = 0;
+    int num_decisions_done = 0;
     int i = 0;
     int num_moving = 0;
     pa_bool_t result = TRUE;
@@ -725,6 +728,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
 
     /* Detach groups. */
     num_moving = pa_policy_group_start_move_all(u);
+    pa_log_debug("Policy groups moving: %d", num_moving);
 
     /* Set profiles and ports while the groups are detached. */
     for (i = 0; i < num_decisions; i++) {
@@ -754,26 +758,39 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
                          (decisions[i].class == pa_policy_route_to_sink ? "sink" : "source"),
                           decisions[i].target);
         }
+
+        if (decisions[i].class == pa_policy_route_to_sink) {
+            if (pa_policy_activity_device_changed(u, decisions[i].target) < 0)
+                pa_log("Failed to update activity for %s", decisions[i].target);
+        }
     }
 
     /* Attach groups to their new positions and re-attach those that were not moved. */
     for (i = 0; i < num_decisions; i++) {
-        if (pa_policy_group_move_to(u, NULL, decisions[i].class,
-                                             decisions[i].target,
-                                             decisions[i].mode,
-                                             decisions[i].hwid) < 0) {
+        int num_moved;
+
+        if ((num_moved = pa_policy_group_move_to(u, NULL, decisions[i].class,
+                                                 decisions[i].target,
+                                                 decisions[i].mode,
+                                                 decisions[i].hwid)) < 0) {
             result = FALSE;
             pa_log_error("Failed to move group %s %s %s", decisions[i].target,
                                                           decisions[i].mode,
                                                           decisions[i].hwid);
-        } else
-            num_moving--;
+        } else {
+            pa_log_debug("Moved %d %s groups to %s.",
+                         num_moved,
+                         decisions[i].class == pa_policy_route_to_sink ? "sink" : "source",
+                         decisions[i].target);
+            if (num_moving == num_moved)
+                num_decisions_done++;
+        }
     }
 
     /* Test that no moving groups exist */
-    if (num_moving != 0) {
-        pa_log_error("Got %d routing decisions. %d groups are still moving "
-                     "or have failed to move.", num_decisions, num_moving);
+    if (num_decisions != num_decisions_done) {
+        pa_log_error("Got %d routing decisions. %d decisions were incomplete.",
+                     num_decisions, num_decisions - num_decisions_done);
 
         pa_policy_group_assert_moving(u);
         result = FALSE;

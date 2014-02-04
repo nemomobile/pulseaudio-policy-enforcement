@@ -1,6 +1,6 @@
 Name: pulseaudio-policy-enforcement
 Summary: Pulseaudio module for enforcing policy decisions in the audio domain
-Version: 2.1.2
+Version: 4.0.6
 Release: 0
 Group: System/Daemons
 License: LGPLv2.1
@@ -13,11 +13,12 @@ Description: |
 
 PkgBR:
     - libtool-ltdl-devel
-    - libatomic_ops-devel
 PkgConfigBR:
-    - pulsecore
-    - libpulse
+    - atomic_ops
+    - pulsecore >= 4.0
+    - libpulse >= 4.0
     - dbus-1
+    - libmeego-common >= 4.0.11
 Configure: autogen
 ConfigOptions:
     - --with-module-dir=%{_libdir}/pulse-$PAVER/modules

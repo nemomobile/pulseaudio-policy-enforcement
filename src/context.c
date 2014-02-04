@@ -18,14 +18,14 @@ static void delete_variable(struct pa_policy_context *,
                             struct pa_policy_context_variable *);
 
 static struct pa_policy_context_rule
-            *add_rule(struct pa_policy_context_variable *,
+            *add_rule(struct pa_policy_context_rule **,
                       enum pa_classify_method, char*);
-static void  delete_rule(struct pa_policy_context_variable *,
+static void  delete_rule(struct pa_policy_context_rule **,
                          struct pa_policy_context_rule  *);
 
-static void  append_action(struct pa_policy_context_rule  *,
+static void  append_action(union pa_policy_context_action **,
                            union pa_policy_context_action *);
-static void  delete_action(struct pa_policy_context_rule  *,
+static void  delete_action(union pa_policy_context_action **,
                            union pa_policy_context_action *);
 static int perform_action(struct userdata *, union pa_policy_context_action *,
                           char *);
@@ -56,6 +56,11 @@ static void fire_object_property_changed_hook(struct pa_policy_object *object);
 static unsigned long object_index(enum pa_policy_object_type, void *);
 static const char *object_type_str(enum pa_policy_object_type);
 
+/* activities */
+static struct pa_policy_activity_variable
+            *add_activity_variable(struct userdata *u, struct pa_policy_context *, char *);
+static void delete_activity(struct pa_policy_context *,
+                            struct pa_policy_activity_variable *);
 
 struct pa_policy_context *pa_policy_context_new(struct userdata *u)
 {
@@ -73,8 +78,45 @@ void pa_policy_context_free(struct pa_policy_context *ctx)
         while (ctx->variables != NULL)
             delete_variable(ctx, ctx->variables);
 
+        while (ctx->activities != NULL)
+            delete_activity(ctx, ctx->activities);
+
         pa_xfree(ctx);
     }
+}
+
+static void register_rule(struct pa_policy_context_rule *rule,
+                          enum pa_policy_object_type type,
+                          const char *name, void *ptr) {
+    union  pa_policy_context_action    *actn;
+    struct pa_policy_set_property      *setprop;
+    struct pa_policy_del_property      *delprop;
+    struct pa_policy_object            *object;
+    int                                 lineno;
+
+    for (actn = rule->actions;  actn != NULL;  actn = actn->any.next) {
+
+        switch (actn->any.type) {
+
+        case pa_policy_set_property:
+            setprop = &actn->setprop;
+            lineno  = setprop->lineno;
+            object  = &setprop->object;
+            break;
+
+        case pa_policy_delete_property:
+            delprop = &actn->delprop;
+            lineno  = delprop->lineno;
+            object  = &delprop->object;
+            break;
+
+        default:
+            continue;
+        } /* switch */
+
+        register_object(object, type, name, ptr, lineno);
+
+    }  /* for actn */
 }
 
 void pa_policy_context_register(struct userdata *u,
@@ -83,39 +125,48 @@ void pa_policy_context_register(struct userdata *u,
 {
     struct pa_policy_context_variable *var;
     struct pa_policy_context_rule     *rule;
-    union  pa_policy_context_action   *actn;
-    struct pa_policy_set_property     *setprop;
-    struct pa_policy_del_property     *delprop;
-    struct pa_policy_object           *object;
-    int                                lineno;
 
     for (var = u->context->variables;   var != NULL;   var = var->next) {
-        for (rule = var->rules;   rule != NULL;   rule = rule->next) {
-            for (actn = rule->actions;  actn != NULL;  actn = actn->any.next) {
-
-                switch (actn->any.type) {
-
-                case pa_policy_set_property:
-                    setprop = &actn->setprop;
-                    lineno  = setprop->lineno;
-                    object  = &setprop->object;
-                    break;
-
-                case pa_policy_delete_property:
-                    delprop = &actn->delprop;
-                    lineno  = delprop->lineno;
-                    object  = &delprop->object;
-                    break;
-
-                default:
-                    continue;
-                } /* switch */
-
-                register_object(object, what, name, ptr, lineno);
-
-            }  /* for actn */
-        }  /*  for rule */
+        for (rule = var->rules;   rule != NULL;   rule = rule->next)
+            register_rule(rule, what, name, ptr);
     }  /*  for var */
+}
+
+static void unregister_rule(struct pa_policy_context_rule *rule,
+                            enum pa_policy_object_type type,
+                            const char *name,
+                            void *ptr,
+                            unsigned long index)
+{
+    union  pa_policy_context_action    *actn;
+    struct pa_policy_set_property      *setprop;
+    struct pa_policy_del_property      *delprop;
+    struct pa_policy_object            *object;
+    int                                 lineno;
+
+    for (actn = rule->actions;  actn != NULL;  actn = actn->any.next) {
+
+        switch (actn->any.type) {
+
+        case pa_policy_set_property:
+            setprop = &actn->setprop;
+            lineno  = setprop->lineno;
+            object  = &setprop->object;
+            break;
+
+        case pa_policy_delete_property:
+            delprop = &actn->delprop;
+            lineno  = delprop->lineno;
+            object  = &delprop->object;
+            break;
+
+        default:
+            continue;
+        } /* switch */
+
+        unregister_object(object, type, name, ptr, index, lineno);
+
+    } /* for actn */
 }
 
 void pa_policy_context_unregister(struct userdata *u,
@@ -126,38 +177,10 @@ void pa_policy_context_unregister(struct userdata *u,
 {
     struct pa_policy_context_variable *var;
     struct pa_policy_context_rule     *rule;
-    union  pa_policy_context_action   *actn;
-    struct pa_policy_set_property     *setprop;
-    struct pa_policy_del_property     *delprop;
-    struct pa_policy_object           *object;
-    int                                lineno;
 
     for (var = u->context->variables;   var != NULL;   var = var->next) {
-        for (rule = var->rules;   rule != NULL;   rule = rule->next) {
-            for (actn = rule->actions;  actn != NULL;  actn = actn->any.next) {
-
-                switch (actn->any.type) {
-
-                case pa_policy_set_property:
-                    setprop = &actn->setprop; 
-                    lineno  = setprop->lineno;
-                    object  = &setprop->object;
-                    break;
-
-                case pa_policy_delete_property:
-                    delprop = &actn->delprop;
-                    lineno  = delprop->lineno;
-                    object  = &delprop->object;
-                    break;
-
-                default:
-                    continue;
-                } /* switch */
-
-                unregister_object(object, type, name, ptr, index, lineno);
-
-            } /* for actn */
-        }  /* for rule */
+        for (rule = var->rules;   rule != NULL;   rule = rule->next)
+            unregister_rule(rule, type, name, ptr, index);
     }  /* for var */
 }
 
@@ -169,7 +192,7 @@ pa_policy_context_add_property_rule(struct userdata *u, char *varname,
     struct pa_policy_context_rule     *rule;
 
     variable = add_variable(u->context, varname);
-    rule     = add_rule(variable, method, arg);
+    rule     = add_rule(&variable->rules, method, arg);
 
     return rule;
 }
@@ -203,7 +226,7 @@ pa_policy_context_add_property_action(struct pa_policy_context_rule *rule,
     value_setup(&setprop->value, value_type, value_arg);
     va_end(value_arg);
 
-    append_action(rule, action);
+    append_action(&rule->actions, action);
 }
 
 void
@@ -228,7 +251,7 @@ pa_policy_context_delete_property_action(struct pa_policy_context_rule *rule,
 
     delprop->property = pa_xstrdup(prop_name);
 
-    append_action(rule, action);
+    append_action(&rule->actions, action);
 }
 
 int pa_policy_context_variable_changed(struct userdata *u, char *name,
@@ -253,20 +276,45 @@ int pa_policy_context_variable_changed(struct userdata *u, char *name,
                     if (rule->match.method(value, &rule->match.arg)) {
                         for (actn = rule->actions; actn; actn = actn->any.next)
                         {
-                            if (!perform_action(u, actn, value))
-                                success = FALSE;
-                        }
-                    }
-                }
+                            if (u->context->variable_change_count == PA_POLICY_CONTEXT_MAX_CHANGES) {
+                                pa_log_warn("Max policy context value changes, dropping '%s':'%s'", name, value);
+                                return FALSE;
+                            } else {
+                                u->context->variable_change[u->context->variable_change_count].action = actn;
+                                u->context->variable_change[u->context->variable_change_count].value = pa_xstrdup(value);
+                                u->context->variable_change_count++;
+                            }
+                        } /* for actn */
+                    } /* if rule */
+                } /* for rule */
             }
             
             break;
         }
-    }
+    } /* for var */
 
     return success;
 }
 
+void pa_policy_context_variable_commit(struct userdata *u)
+{
+    union pa_policy_context_action *action;
+    char *value;
+
+    pa_assert(u);
+    pa_assert(u->context);
+
+    while (u->context->variable_change_count) {
+        u->context->variable_change_count--;
+
+        action = u->context->variable_change[u->context->variable_change_count].action;
+        value  = u->context->variable_change[u->context->variable_change_count].value;
+
+        if (!perform_action(u, action, value))
+            pa_log("Failed to perform action for value %s", value);
+        pa_xfree(value);
+    }
+}
 
 static
 struct pa_policy_context_variable *add_variable(struct pa_policy_context *ctx,
@@ -297,6 +345,34 @@ struct pa_policy_context_variable *add_variable(struct pa_policy_context *ctx,
     return var;
 }
 
+static void delete_activity(struct pa_policy_context           *ctx,
+                            struct pa_policy_activity_variable *variable)
+{
+    struct pa_policy_activity_variable *last;
+
+    for (last = (struct pa_policy_activity_variable *)&ctx->activities;
+         last->next != NULL;
+         last = last->next) {
+
+        if (last->next == variable) {
+            last->next = variable->next;
+
+            pa_xfree(variable->device);
+
+            while (variable->active_rules != NULL)
+                delete_rule(&variable->active_rules, variable->active_rules);
+            while (variable->inactive_rules != NULL)
+                delete_rule(&variable->inactive_rules, variable->inactive_rules);
+
+            pa_xfree(variable);
+            return;
+        }
+    }
+
+    pa_log("%s(): confused with data structures: can't find activity variable",
+           __FUNCTION__);
+}
+
 static void delete_variable(struct pa_policy_context          *ctx,
                             struct pa_policy_context_variable *variable)
 {
@@ -316,7 +392,7 @@ static void delete_variable(struct pa_policy_context          *ctx,
             pa_xfree(variable->name);
 
             while (variable->rules != NULL)
-                delete_rule(variable, variable->rules);
+                delete_rule(&variable->rules, variable->rules);
 
             pa_xfree(variable);
 
@@ -329,7 +405,7 @@ static void delete_variable(struct pa_policy_context          *ctx,
 }
 
 static struct pa_policy_context_rule *
-add_rule(struct pa_policy_context_variable *variable,
+add_rule(struct pa_policy_context_rule    **rules,
          enum pa_classify_method            method,
          char                              *arg)
 {
@@ -344,8 +420,7 @@ add_rule(struct pa_policy_context_variable *variable,
         return NULL;
     };
 
-
-    for (last = (struct pa_policy_context_rule *)&variable->rules;
+    for (last = (struct pa_policy_context_rule *)rules;
          last->next != NULL;
          last = last->next)
         ;
@@ -355,12 +430,12 @@ add_rule(struct pa_policy_context_variable *variable,
     return rule;
 }
 
-static void delete_rule(struct pa_policy_context_variable *variable,
-                        struct pa_policy_context_rule     *rule)
+static void delete_rule(struct pa_policy_context_rule **rules,
+                        struct pa_policy_context_rule  *rule)
 {
     struct pa_policy_context_rule *last;
 
-    for (last = (struct pa_policy_context_rule *)&variable->rules;
+    for (last = (struct pa_policy_context_rule *)rules;
          last->next != NULL;
          last = last->next)
     {
@@ -370,7 +445,7 @@ static void delete_rule(struct pa_policy_context_variable *variable,
             match_cleanup(&rule->match);
 
             while (rule->actions != NULL)
-                delete_action(rule, rule->actions);
+                delete_action(&rule->actions, rule->actions);
 
             pa_xfree(rule);
 
@@ -383,12 +458,12 @@ static void delete_rule(struct pa_policy_context_variable *variable,
 }
 
 
-static void append_action(struct pa_policy_context_rule  *rule,
-                          union pa_policy_context_action *action)
+static void append_action(union pa_policy_context_action **actions,
+                          union pa_policy_context_action  *action)
 {
    union pa_policy_context_action *last;
 
-    for (last = (union pa_policy_context_action *)&rule->actions;
+    for (last = (union pa_policy_context_action *)actions;
          last->any.next != NULL;
          last = last->any.next)
         ;
@@ -396,13 +471,13 @@ static void append_action(struct pa_policy_context_rule  *rule,
     last->any.next = action;
 }
 
-static void delete_action(struct pa_policy_context_rule  *rule,
-                          union pa_policy_context_action *action)
+static void delete_action(union pa_policy_context_action **actions,
+                          union pa_policy_context_action  *action)
 {
     union pa_policy_context_action *last;
     struct pa_policy_set_property  *setprop;
 
-    for (last = (union pa_policy_context_action *)&rule->actions;
+    for (last = (union pa_policy_context_action *)actions;
          last->any.next != NULL;
          last = last->any.next)
     {
@@ -494,6 +569,9 @@ static int perform_action(struct userdata                *u,
 
                     set_object_property(object, setprop->property, prop_value);
                 }
+
+                /* Forward shared strings */
+                pa_shared_data_sets(u->shared, setprop->property, prop_value);
             }
         }
         break;
@@ -919,6 +997,204 @@ static const char *object_type_str(enum pa_policy_object_type type)
     case pa_policy_object_source_output:  return "source-output";
     default:                              return "<unknown>";
     }
+}
+
+static
+struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, struct pa_policy_context *ctx,
+                                                          char *device)
+{
+    struct pa_policy_activity_variable *var;
+    struct pa_policy_activity_variable *last;
+
+    for (last = (struct pa_policy_activity_variable *)&ctx->activities;
+         last->next != NULL;
+         last = last->next)
+    {
+        var = last->next;
+
+        if (!strcmp(device, var->device))
+            return var;
+    }
+
+    var = pa_xmalloc0(sizeof(*var));
+
+    var->device = pa_xstrdup(device);
+    var->userdata = u;
+
+    last->next = var;
+
+    pa_log_debug("created context activity variable '%s'", var->device);
+
+    return var;
+}
+
+struct pa_policy_context_rule *
+pa_policy_activity_add_active_rule(struct userdata *u, char *device,
+                                   enum pa_classify_method method, char *sink_name)
+{
+    struct pa_policy_activity_variable *variable;
+    struct pa_policy_context_rule      *rule;
+
+    variable = add_activity_variable(u, u->context, device);
+    rule = add_rule(&variable->active_rules, method, sink_name);
+
+    return rule;
+}
+
+struct pa_policy_context_rule *
+pa_policy_activity_add_inactive_rule(struct userdata *u, char *device,
+                                     enum pa_classify_method method, char *sink_name)
+{
+    struct pa_policy_activity_variable *variable;
+    struct pa_policy_context_rule      *rule;
+
+    variable = add_activity_variable(u, u->context, device);
+    rule = add_rule(&variable->inactive_rules, method, sink_name);
+
+    return rule;
+}
+
+/* force_state can be -1  - do not force , 0 force inactive, 1 force active */
+static int perform_activity_action(pa_sink *sink, struct pa_policy_activity_variable *var, int force_state) {
+    struct pa_policy_context_rule     *rule;
+    union pa_policy_context_action    *actn;
+    int                                is_opened;
+
+    pa_assert(sink);
+
+    if ((force_state != -1 && force_state == 1) ||
+        (force_state == -1 && PA_SINK_IS_OPENED(pa_sink_get_state(sink)))) {
+        rule = var->active_rules;
+        is_opened = 1;
+    } else {
+        rule = var->inactive_rules;
+        is_opened = 0;
+    }
+
+    for ( ;  rule != NULL;  rule = rule->next) {
+        if (rule->match.method(sink->name, &rule->match.arg)) {
+
+            if (force_state == -1 && var->sink_opened != -1 && var->sink_opened == is_opened) {
+                pa_log_debug("Already executed actions for state change, skip.");
+                return 1;
+            }
+
+            var->sink_opened = is_opened;
+
+            for (actn = rule->actions; actn; actn = actn->any.next)
+            {
+                if (!perform_action(var->userdata, actn, NULL))
+                    pa_log("Failed to perform activity action.");
+            }
+        }
+    }
+
+    return 1;
+}
+
+static pa_hook_result_t sink_state_changed_cb(pa_core *c, pa_object *o, struct pa_policy_activity_variable *var) {
+    pa_sink *sink;
+
+    pa_assert(c);
+    pa_object_assert_ref(o);
+    pa_assert(var);
+
+    if (pa_sink_isinstance(o)) {
+        sink = PA_SINK(o);
+        perform_activity_action(sink, var, -1);
+    }
+
+    return PA_HOOK_OK;
+}
+
+static void enable_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
+    pa_sink                            *sink;
+    uint32_t                            idx = 0;
+
+    pa_assert(u);
+    pa_assert(var);
+
+    if (var->sink_state_changed_hook_slot)
+        return;
+
+    var->sink_state_changed_hook_slot = pa_hook_connect(&u->core->hooks[PA_CORE_HOOK_SINK_STATE_CHANGED],
+                                                        PA_HOOK_EARLY,
+                                                        (pa_hook_cb_t) sink_state_changed_cb, var);
+
+    var->sink_opened = -1;
+    PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
+        perform_activity_action(sink, var, -1);
+}
+
+static void disable_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
+    pa_sink                            *sink;
+    uint32_t                            idx = 0;
+
+    pa_assert(u);
+    pa_assert(var);
+
+    if (!var->sink_state_changed_hook_slot)
+        return;
+
+    var->sink_opened = -1;
+    PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
+        perform_activity_action(sink, var, 0);
+
+    pa_hook_slot_free(var->sink_state_changed_hook_slot);
+    var->sink_state_changed_hook_slot = NULL;
+}
+
+int pa_policy_activity_device_changed(struct userdata *u, char *device)
+{
+    struct pa_policy_activity_variable *var;
+    int                                 success = 0;
+
+    for (var = u->context->activities;  var != NULL;  var = var->next) {
+        if (!strcmp(device, var->device)) {
+            if (var->sink_state_changed_hook_slot)
+                pa_log_debug("already active for device -> no action");
+            else {
+
+                enable_activity(u, var);
+            }
+        } else if (var->sink_state_changed_hook_slot) {
+            disable_activity(u, var);
+        }
+    }
+
+    return success;
+}
+
+void pa_policy_activity_register(struct userdata *u,
+                                 enum pa_policy_object_type type,
+                                 const char *name, void *ptr)
+{
+    struct pa_policy_activity_variable *var;
+    struct pa_policy_context_rule      *rule;
+
+    for (var = u->context->activities;   var != NULL;   var = var->next) {
+        for (rule = var->active_rules;   rule != NULL;   rule = rule->next)
+            register_rule(rule, type, name, ptr);
+        for (rule = var->inactive_rules;   rule != NULL;   rule = rule->next)
+            register_rule(rule, type, name, ptr);
+    }  /*  for var */
+}
+
+void pa_policy_activity_unregister(struct userdata *u,
+                                   enum pa_policy_object_type type,
+                                   const char *name,
+                                   void *ptr,
+                                   unsigned long index)
+{
+    struct pa_policy_activity_variable *var;
+    struct pa_policy_context_rule      *rule;
+
+    for (var = u->context->activities;   var != NULL;   var = var->next) {
+        for (rule = var->active_rules;   rule != NULL;   rule = rule->next)
+            unregister_rule(rule, type, name, ptr, index);
+        for (rule = var->inactive_rules;   rule != NULL;   rule = rule->next)
+            unregister_rule(rule, type, name, ptr, index);
+    }  /* for var */
 }
 
 /*

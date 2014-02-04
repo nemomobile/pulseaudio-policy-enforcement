@@ -3,6 +3,7 @@
 #endif
 
 #include <pulse/def.h>
+#include <pulsecore/device-port.h>
 #include <pulsecore/card.h>
 
 #include "card-ext.h"
@@ -113,10 +114,14 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
     pa_idxset       *idxset;
     struct pa_card  *card;
     struct pa_classify_card_data *data;
+    struct pa_classify_card_data *datas[2] = { NULL, NULL };
+    struct pa_card  *cards[2] = { NULL, NULL };
+    int              priority;
     char            *pn;
     char            *cn;
     pa_card_profile *ap;
     int              sts;
+    int              i;
 
     pa_assert(u);
     pa_assert(u->core);
@@ -125,22 +130,34 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
     sts = 0;
 
     while ((card = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
-        if (pa_classify_is_card_typeof(u, card, type, &data)) {
-
-            ap = card->active_profile;
-            pn = data->profile;
-            cn = pa_card_ext_get_name(card);
-
-            if (pn && (!ap || strcmp(pn, ap->name))) {
-                if (pa_card_set_profile(card, pn, FALSE) < 0) {
-                    sts = -1;
-                    pa_log("failed to set card '%s' profile to '%s'", cn, pn);
-                }
-                else
-                    pa_log_debug("changed card '%s' profile to '%s'", cn, pn);
+        if (pa_classify_is_card_typeof(u, card, type, &data, &priority)) {
+            if (priority == 0) {
+                datas[0] = data;
+                cards[0] = card;
             }
+            if (priority == 1) {
+                datas[1] = data;
+                cards[1] = card;
+            }
+        }
+    }
 
-            break;
+    for (i = 0; i < 2 && datas[i]; i++) {
+
+        data = datas[i];
+        card = cards[i];
+
+        ap = card->active_profile;
+        pn = data->profile;
+        cn = pa_card_ext_get_name(card);
+
+        if (pn && (!ap || strcmp(pn, ap->name))) {
+            if (pa_card_set_profile(card, pn, FALSE) < 0) {
+                sts = -1;
+                pa_log("failed to set card '%s' profile to '%s'", cn, pn);
+            }
+            else
+                pa_log_debug("changed card '%s' profile to '%s'", cn, pn);
         }
     }
 

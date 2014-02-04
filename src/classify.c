@@ -65,11 +65,11 @@ static int devices_is_typeof(struct pa_classify_device_def *, pa_proplist *,
 
 static void cards_free(struct pa_classify_card *);
 static void cards_add(struct pa_classify_card **, char *,
-                      enum pa_classify_method, char *, char *, uint32_t);
+                      enum pa_classify_method[2], char **, char **, uint32_t[2]);
 static int  cards_classify(struct pa_classify_card_def *, char *, char **,
                            uint32_t,uint32_t, char *,int);
 static int card_is_typeof(struct pa_classify_card_def *, char *,
-                          char *, struct pa_classify_card_data **);
+                          char *, struct pa_classify_card_data **, int *priority);
 
 static int port_device_is_typeof(struct pa_classify_device_def *, char *,
                                  const char *,
@@ -140,8 +140,8 @@ void pa_classify_add_source(struct userdata *u, char *type, char *prop,
 }
 
 void pa_classify_add_card(struct userdata *u, char *type,
-                          enum pa_classify_method method, char *arg,
-                          char *profile, uint32_t flags)
+                          enum pa_classify_method method[2], char **arg,
+                          char **profiles, uint32_t flags[2])
 {
     struct pa_classify *classify;
 
@@ -149,9 +149,9 @@ void pa_classify_add_card(struct userdata *u, char *type,
     pa_assert_se((classify = u->classify));
     pa_assert(classify->cards);
     pa_assert(type);
-    pa_assert(arg);
+    pa_assert(arg[0]);
 
-    cards_add(&classify->cards, type, method, arg, profile, flags);
+    cards_add(&classify->cards, type, method, arg, profiles, flags);
 }
 
 
@@ -381,7 +381,7 @@ int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
 
 
 int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
-                               char *type, struct pa_classify_card_data **d)
+                               char *type, struct pa_classify_card_data **d, int *priority)
 {
     struct pa_classify *classify;
     struct pa_classify_card_def *defs;
@@ -397,7 +397,7 @@ int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
 
     name = pa_card_ext_get_name(card);
 
-    return card_is_typeof(defs, name, type, d);
+    return card_is_typeof(defs, name, type, d, priority);
 }
 
 
@@ -921,14 +921,8 @@ static void devices_free(struct pa_classify_device *devices)
         for (d = devices->defs;  d->type;  d++) {
             pa_xfree((void *)d->type);
 
-            if (d->data.ports) {
-                struct pa_classify_port_entry *port;
-
-                while ((port = pa_hashmap_steal_first(d->data.ports)))
-                    pa_classify_port_entry_free(port);
-
-                pa_hashmap_free(d->data.ports, NULL, NULL);
-            }
+            if (d->data.ports)
+                pa_hashmap_free(d->data.ports, (pa_free_cb_t) pa_classify_port_entry_free);
 
             if (d->method == pa_classify_method_matches)
                 regfree(&d->arg.rexp);
@@ -1102,16 +1096,21 @@ static int devices_is_typeof(struct pa_classify_device_def *defs,
 static void cards_free(struct pa_classify_card *cards)
 {
     struct pa_classify_card_def *d;
+    int i;
 
     if (cards) {
         for (d = cards->defs;  d->type;  d++) {
-            pa_xfree((void *)d->type);
-            pa_xfree((void *)d->data.profile);
 
-            if (d->method == pa_classify_method_matches)
-                regfree(&d->arg.rexp);
-            else
-                pa_xfree((void *)d->arg.string);
+            pa_xfree((void *)d->type);
+
+            for (i = 0; i < 2; i++) {
+                pa_xfree((void *)d->data[i].profile);
+
+                if (d->data[i].method == pa_classify_method_matches)
+                    regfree(&d->data[i].arg.rexp);
+                else
+                    pa_xfree((void *)d->data[i].arg.string);
+            }
         }
 
         pa_xfree(cards);
@@ -1119,13 +1118,15 @@ static void cards_free(struct pa_classify_card *cards)
 }
 
 static void cards_add(struct pa_classify_card **p_cards, char *type,
-                      enum pa_classify_method method, char *arg,
-                      char *profile, uint32_t flags)
+                      enum pa_classify_method method[2], char **arg,
+                      char **profiles, uint32_t flags[2])
 {
     struct pa_classify_card *cards;
     struct pa_classify_card_def *d;
+    struct pa_classify_card_data *data;
     size_t newsize;
-    char *method_name;
+    char *method_name[2];
+    int i;
 
     pa_assert(p_cards);
     pa_assert_se((cards = *p_cards));
@@ -1140,41 +1141,49 @@ static void cards_add(struct pa_classify_card **p_cards, char *type,
 
     d->type    = pa_xstrdup(type);
 
-    d->data.profile = profile ? pa_xstrdup(profile) : NULL;
-    d->data.flags   = flags;
+    for (i = 0; i < 2 && profiles[i]; i++) {
 
-    switch (method) {
+        data = &d->data[i];
 
-    case pa_method_equals:
-        method_name = "equals";
-        d->method = pa_classify_method_equals;
-        d->arg.string = pa_xstrdup(arg);
-        break;
+        data->profile = profiles[i] ? pa_xstrdup(profiles[i]) : NULL;
+        data->flags   = flags[i];
 
-    case pa_method_startswith:
-        method_name = "startswidth";
-        d->method = pa_classify_method_startswith;
-        d->arg.string = pa_xstrdup(arg);
-        break;
+        switch (method[i]) {
 
-    case pa_method_matches:
-        method_name = "matches";
-        if (regcomp(&d->arg.rexp, arg, 0) == 0) {
-            d->method = pa_classify_method_matches;
+        case pa_method_equals:
+            method_name[i] = "equals";
+            data->method = pa_classify_method_equals;
+            data->arg.string = pa_xstrdup(arg[i]);
             break;
-        }
-        /* intentional fall trough */
 
-    default:
-        pa_log("%s: invalid card definition %s", __FUNCTION__, type);
-        memset(d, 0, sizeof(*d));
-        return;
+        case pa_method_startswith:
+            method_name[i] = "startswidth";
+            data->method = pa_classify_method_startswith;
+            data->arg.string = pa_xstrdup(arg[i]);
+            break;
+
+        case pa_method_matches:
+            method_name[i] = "matches";
+            if (regcomp(&data->arg.rexp, arg[i], 0) == 0) {
+                data->method = pa_classify_method_matches;
+                break;
+            }
+            /* intentional fall trough */
+
+        default:
+            pa_log("%s: invalid card definition %s", __FUNCTION__, type);
+            memset(d, 0, sizeof(*d));
+            return;
+        }
     }
 
     cards->ndef++;
 
-    pa_log_info("card '%s' added (%s|%s|%s|0x%04x)", type, method_name, arg,
-                d->data.profile?d->data.profile:"", d->data.flags);
+    pa_log_info("card '%s' added (%s|%s|%s|0x%04x)", type, method_name[0], arg[0],
+                d->data[0].profile ? d->data[0].profile : "", d->data[0].flags);
+    if (d->data[1].profile)
+        pa_log_info("  :: added (%s|%s|%s|0x%04x)", method_name[1], arg[1],
+                    d->data[1].profile ? d->data[1].profile : "", d->data[1].flags);
 }
 
 static int cards_classify(struct pa_classify_card_def *defs,
@@ -1183,6 +1192,7 @@ static int cards_classify(struct pa_classify_card_def *defs,
                           char *buf, int len)
 {
     struct pa_classify_card_def *d;
+    struct pa_classify_card_data *data;
     int         i,j;
     char       *p;
     char       *e;
@@ -1196,48 +1206,66 @@ static int cards_classify(struct pa_classify_card_def *defs,
     p[0] = '\0';
     s = "";
         
-    for (d = defs, i = 0;  d->type;  d++) {
-        if (d->method(name, &d->arg)) {
-            if (d->data.profile == NULL)
-                supports_profile = TRUE;
-            else {
-                for (j = 0, supports_profile = FALSE;    profiles[j];    j++) {
-                    if (!strcmp(d->data.profile, profiles[j])) {
-                        supports_profile  = TRUE;
-                        break;
+    for (d = defs;  d->type;  d++) {
+
+        /* Check for both data[0] and data[1] */
+
+        for (i = 0; i < 2 && d->data[i].profile; i++) {
+
+            data = &d->data[i];
+
+            if (data->method(name, &data->arg)) {
+                if (data->profile == NULL)
+                    supports_profile = TRUE;
+                else {
+                    for (j = 0, supports_profile = FALSE;    profiles[j];    j++) {
+                        if (!strcmp(data->profile, profiles[j])) {
+                            supports_profile  = TRUE;
+                            break;
+                        }
+                    }
+                }
+
+                if (supports_profile && (data->flags & flag_mask) == flag_value){
+                    p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
+                    s  = " ";
+
+                    if (p > e) {
+                        pa_log("%s(): buffer overflow", __FUNCTION__);
+                        *buf = '\0';
+                        p = e;
+
+                        /* leave from both for-loops */
+                        goto end;
                     }
                 }
             }
-
-            if (supports_profile && (d->data.flags & flag_mask) == flag_value){
-                p += snprintf(p, (size_t)(e-p), "%s%s", s, d->type);
-                s  = " ";
-
-                if (p > e) {
-                    pa_log("%s(): buffer overflow", __FUNCTION__);
-                    *buf = '\0';
-                    p = e;
-                    break;
-                }
-            }
         }
+
     }
 
+end:
     return (e - p);
 }
 
 static int card_is_typeof(struct pa_classify_card_def *defs, char *name,
-                          char *type, struct pa_classify_card_data **data)
+                          char *type, struct pa_classify_card_data **data, int *priority)
 {
     struct pa_classify_card_def *d;
+    int i;
 
     for (d = defs;  d->type;  d++) {
         if (!strcmp(type, d->type)) {
-            if (d->method(name, &d->arg)) {
-                if (data != NULL)
-                    *data = &d->data;
 
-                return TRUE;
+            for (i = 0; i < 2 && d->data[i].profile; i++) {
+                if (d->data[i].method(name, &d->data[i].arg)) {
+                    if (data != NULL)
+                        *data = &d->data[i];
+                    if (priority != NULL)
+                        *priority = i;
+
+                    return TRUE;
+                }
             }
         }
     }

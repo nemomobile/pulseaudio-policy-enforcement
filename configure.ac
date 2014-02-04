@@ -1,8 +1,8 @@
 AC_PREREQ(2.61)
 
-m4_define(PA_MAJOR, [2])
-m4_define(PA_MINOR, [1])
-m4_define(NEMO_MICRO, [2])
+m4_define(PA_MAJOR, [4])
+m4_define(PA_MINOR, [0])
+m4_define(NEMO_MICRO, [6])
 
 AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.NEMO_MICRO],[janos.f.kovacs@nokia.com])
 AC_CONFIG_HEADER([config.h])
@@ -73,6 +73,9 @@ PKG_CHECK_MODULES(LIBPULSECORE, [pulsecore])
 AC_SUBST(LIBPULSECORE_CFLAGS)
 AC_SUBST(LIBPULSECORE_LIBS)
 
+PKG_CHECK_MODULES([MEEGOCOMMON], [libmeego-common >= 4.0.11])
+AC_SUBST(MEEGOCOMMON_CFLAGS)
+AC_SUBST(MEEGOCOMMON_LIBS)
 
 PKG_CHECK_MODULES(DBUS, [dbus-1])
 AC_SUBST(DBUS_CFLAGS)

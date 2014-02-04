@@ -312,10 +312,16 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                              group_name, sinp_name,
                              (group->limit * 100) / PA_VOLUME_NORM);
 
-                pa_cvolume_set(&group_limit, data->channel_map.channels,
+                /* If sink-input channel map is not defined (as it most likely isn't at the time
+                 * of firing PA_CORE_HOOK_SINK_INPUT_NEW) it likely doesn't have it's sink routed
+                 * either. If so, we use channel count 1 (mono) for the volume factor. This isn't
+                 * that bad, since our volume factor value is mono as well, so we won't lose any
+                 * precision. */
+                pa_cvolume_set(&group_limit,
+                               data->channel_map_is_set ? data->channel_map.channels : 1,
                                group->limit);
 
-                pa_sink_input_new_data_apply_volume_factor(data, &group_limit);
+                pa_sink_input_new_data_add_volume_factor(data, sinp_name, &group_limit);
             }
         }
 
