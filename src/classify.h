@@ -69,6 +69,8 @@ struct pa_classify_stream_def {
     uid_t                          uid;   /* user id, if any */
     char                          *exe;   /* exe name, if any */
     char                          *clnam; /* client name, if any */
+    char                          *sname; /* active routing sink name, if any */
+    uid_t                          sact;  /* routing sink active */
     char                          *group; /* policy group name */
     uint32_t                       flags; /* PA_POLICY_LOCAL_ROUTE |
                                              PA_POLICY_LOCAL_MUTE   */
@@ -143,8 +145,9 @@ void  pa_classify_add_source(struct userdata *, char *, char *,
 void  pa_classify_add_card(struct userdata *, char *,
                            enum pa_classify_method[2], char **, char **, uint32_t[2]);
 void  pa_classify_add_stream(struct userdata *, char *,enum pa_classify_method,
-                             char *, char *, uid_t, char *, char *,
+                             char *, char *, char *, uid_t, char *, char *,
                              uint32_t, char *);
+void  pa_classify_update_stream_route(struct userdata *u, char *sname);
 
 void  pa_classify_port_entry_free(struct pa_classify_port_entry *);
 
