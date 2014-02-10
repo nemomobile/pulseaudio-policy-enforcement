@@ -196,7 +196,7 @@ void pa_classify_update_stream_route(struct userdata *u, char *sname)
                 stream->sact = 1;
             else
                 stream->sact = 0;
-            pa_log_debug("stream group %s changes to %s state", sname, stream->group, stream->sact ? "active" : "inactive");
+            pa_log_debug("stream group %s changes to %s state", stream->group, stream->sact ? "active" : "inactive");
         }
     }
 }
