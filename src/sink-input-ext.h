@@ -14,6 +14,7 @@
 
 struct pa_sinp_evsubscr {
     pa_hook_slot    *neew;
+    pa_hook_slot    *fixate;
     pa_hook_slot    *put;
     pa_hook_slot    *unlink;
 };
