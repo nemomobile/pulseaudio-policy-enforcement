@@ -148,23 +148,23 @@ void pa_policy_context_unregister(struct userdata *,enum pa_policy_object_type,
 
 
 struct pa_policy_context_rule
-    *pa_policy_context_add_property_rule(struct userdata *, char *,
-                                         enum pa_classify_method, char *);
+    *pa_policy_context_add_property_rule(struct userdata *, const char *,
+                                         enum pa_classify_method, const char *);
 
 void pa_policy_context_add_property_action(struct pa_policy_context_rule *,int,
                                            enum pa_policy_object_type,
-                                           enum pa_classify_method, char *,
-                                           char *,
+                                           enum pa_classify_method, const char *,
+                                           const char *,
                                            enum pa_policy_value_type, ...);
 
 void pa_policy_context_delete_property_action(struct pa_policy_context_rule *,
                                               int,
                                               enum pa_policy_object_type,
                                               enum pa_classify_method,
-                                              char *, char *);
+                                              const char *, const char *);
 
 /* collect context variable change as name and value. */
-int pa_policy_context_variable_changed(struct userdata *u, char *name, char *value);
+int pa_policy_context_variable_changed(struct userdata *u, const char *name, const char *value);
 /* commit variable changes to proplists. this needs to be always called after adding
  * values with pa_policy_context_variable_changed() */
 void pa_policy_context_variable_commit(struct userdata *u);
@@ -173,14 +173,14 @@ void pa_policy_context_variable_commit(struct userdata *u);
  * sink_name    - active sink on device mode, matched with method & arg
  */
 struct pa_policy_context_rule
-    *pa_policy_activity_add_active_rule(struct userdata *u, char *device,
-                                         enum pa_classify_method method, char *sink_name);
+    *pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
+                                         enum pa_classify_method method, const char *sink_name);
 
 struct pa_policy_context_rule
-    *pa_policy_activity_add_inactive_rule(struct userdata *u, char *device,
-                                          enum pa_classify_method method, char *sink_name);
+    *pa_policy_activity_add_inactive_rule(struct userdata *u, const char *device,
+                                          enum pa_classify_method method, const char *sink_name);
 
-int pa_policy_activity_device_changed(struct userdata *u, char *device);
+int pa_policy_activity_device_changed(struct userdata *u, const char *device);
 
 void pa_policy_activity_register(struct userdata *, enum pa_policy_object_type,
                                  const char *, void *);

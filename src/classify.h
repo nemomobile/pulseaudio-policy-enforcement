@@ -136,34 +136,34 @@ struct pa_classify {
 
 struct pa_classify *pa_classify_new(struct userdata *);
 void  pa_classify_free(struct pa_classify *);
-void  pa_classify_add_sink(struct userdata *, char *, char *,
-                           enum pa_classify_method, char *, pa_hashmap *,
+void  pa_classify_add_sink(struct userdata *, const char *, const char *,
+                           enum pa_classify_method, const char *, pa_hashmap *,
                            uint32_t);
-void  pa_classify_add_source(struct userdata *, char *, char *,
-                             enum pa_classify_method, char *, pa_hashmap *,
+void  pa_classify_add_source(struct userdata *, const char *, const char *,
+                             enum pa_classify_method, const char *, pa_hashmap *,
                              uint32_t);
 void  pa_classify_add_card(struct userdata *, char *,
                            enum pa_classify_method[2], char **, char **, uint32_t[2]);
-void  pa_classify_add_stream(struct userdata *, char *,enum pa_classify_method,
-                             char *, char *, char *, uid_t, char *, char *,
-                             uint32_t, char *);
-void  pa_classify_update_stream_route(struct userdata *u, char *sname);
+void  pa_classify_add_stream(struct userdata *, const char *,enum pa_classify_method,
+                             const char *, const char *, const char *, uid_t, const char *, const char *,
+                             uint32_t, const char *);
+void  pa_classify_update_stream_route(struct userdata *u, const char *sname);
 
 void  pa_classify_port_entry_free(struct pa_classify_port_entry *);
 
-void  pa_classify_register_pid(struct userdata *, pid_t, char *,
-                               enum pa_classify_method, char *, char *);
-void  pa_classify_unregister_pid(struct userdata *, pid_t, char *,
-                                 enum pa_classify_method, char *);
+void  pa_classify_register_pid(struct userdata *, pid_t, const char *,
+                               enum pa_classify_method, const char *, const char *);
+void  pa_classify_unregister_pid(struct userdata *, pid_t, const char *,
+                                 enum pa_classify_method, const char *);
 
-char *pa_classify_sink_input(struct userdata *, struct pa_sink_input *,
-                             uint32_t *);
-char *pa_classify_sink_input_by_data(struct userdata *,
-                                     struct pa_sink_input_new_data *,
-                                     uint32_t *);
-char *pa_classify_source_output(struct userdata *, struct pa_source_output *);
-char *pa_classify_source_output_by_data(struct userdata *,
-                                        struct pa_source_output_new_data *);
+const char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp,
+                                   uint32_t *flags);
+const char *pa_classify_sink_input_by_data(struct userdata *u,
+                                           struct pa_sink_input_new_data *sinp,
+                                           uint32_t *flags);
+const char *pa_classify_source_output(struct userdata *u, struct pa_source_output *sout);
+const char *pa_classify_source_output_by_data(struct userdata *u,
+                                        struct pa_source_output_new_data *data);
 
 int   pa_classify_sink(struct userdata *, struct pa_sink *,
                        uint32_t, uint32_t, char *, int);
@@ -179,7 +179,7 @@ int   pa_classify_is_source_typeof(struct userdata *, struct pa_source *,
                                    const char *,
                                    struct pa_classify_device_data **);
 int   pa_classify_is_card_typeof(struct userdata *, struct pa_card *,
-                                 char *, struct pa_classify_card_data **, int *priority);
+                                 const char *, struct pa_classify_card_data **, int *priority);
 
 /* The ports= option in the [device] section may contain multiple sinks or
  * sources of which port should be set. These two functions are used to find
@@ -191,6 +191,7 @@ int pa_classify_is_port_source_typeof(struct userdata *, struct pa_source *,
                                       const char *,
                                       struct pa_classify_device_data **);
 
+const char *pa_classify_method_str(enum pa_classify_method method);
 int   pa_classify_method_equals(const char *, union pa_classify_arg *);
 int   pa_classify_method_startswith(const char *, union pa_classify_arg *);
 int   pa_classify_method_matches(const char *, union pa_classify_arg *);

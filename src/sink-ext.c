@@ -116,9 +116,9 @@ struct pa_sink_ext *pa_sink_ext_lookup(struct userdata *u,struct pa_sink *sink)
 }
 
 
-char *pa_sink_ext_get_name(struct pa_sink *sink)
+const char *pa_sink_ext_get_name(struct pa_sink *sink)
 {
-    return sink->name ? sink->name : (char *)"<unknown>";
+    return sink->name ? sink->name : "<unknown>";
 }
 
 struct delayed_port_change {
@@ -235,7 +235,6 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
     pa_sink *sink;
     struct pa_classify_device_data *data;
     struct pa_classify_port_entry *port_entry;
-    char *name;
     char *port;
     struct pa_sink_ext *ext;
     uint32_t idx;
@@ -252,7 +251,6 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
             pa_assert_se(port_entry = pa_hashmap_get(data->ports, sink->name));
             pa_assert_se(port = port_entry->port_name);
 
-            name = pa_sink_ext_get_name(sink);
             ext  = pa_sink_ext_lookup(u, sink);
             if (!ext)
                 continue;
@@ -309,7 +307,7 @@ void pa_sink_ext_override_port(struct userdata *u, struct pa_sink *sink,
                                char *port)
 {
     struct pa_sink_ext *ext;
-    char               *name;
+    const char         *name;
     uint32_t            idx;
     char               *active_port;
 
@@ -348,9 +346,9 @@ void pa_sink_ext_override_port(struct userdata *u, struct pa_sink *sink,
 void pa_sink_ext_restore_port(struct userdata *u, struct pa_sink *sink)
 {
     struct pa_sink_ext *ext;
-    char               *name;
+    const char         *name;
     uint32_t            idx;
-    char               *active_port;
+    const char         *active_port;
     char               *overridden_port;
 
     if (!sink || !u)
@@ -411,7 +409,7 @@ static pa_hook_result_t sink_unlink(void *hook_data, void *call_data,
 
 static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
 {
-    char     *name;
+    const char *name;
     uint32_t  idx;
     char      buf[1024];
     int       len;
@@ -472,7 +470,7 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
 
 static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
 {
-    char                *name;
+    const char          *name;
     uint32_t             idx;
     char                 buf[1024];
     int                  len;
@@ -524,11 +522,11 @@ static void handle_removed_sink(struct userdata *u, struct pa_sink *sink)
 }
 
 void pa_policy_send_device_state(struct userdata *u, const char *state,
-                                 char *typelist) 
+                                 char *typelist)
 {
 #define MAX_TYPE 256
 
-    char *types[MAX_TYPE];
+    const char *types[MAX_TYPE];
     int   ntype;
     char  buf[1024];
     char *p, *q, c;
@@ -563,7 +561,7 @@ void pa_policy_send_device_state(struct userdata *u, const char *state,
             
         } while (*p);
         
-        pa_policy_dbusif_send_device_state(u, (char *)state, types, ntype);
+        pa_policy_dbusif_send_device_state(u, state, types, ntype);
     }
 
 #undef MAX_TYPE

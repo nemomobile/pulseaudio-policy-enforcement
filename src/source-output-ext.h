@@ -21,9 +21,9 @@ struct pa_sout_evsubscr {
 struct pa_sout_evsubscr *pa_source_output_ext_subscription(struct userdata *);
 void  pa_source_output_ext_subscription_free(struct pa_sout_evsubscr *);
 void  pa_source_output_ext_discover(struct userdata *);
-int   pa_source_output_ext_set_policy_group(struct pa_source_output *, char *);
-char *pa_source_output_ext_get_policy_group(struct pa_source_output *);
-char *pa_source_output_ext_get_name(struct pa_source_output *);
+int   pa_source_output_ext_set_policy_group(struct pa_source_output *, const char *);
+const char *pa_source_output_ext_get_policy_group(struct pa_source_output *sout);
+const char *pa_source_output_ext_get_name(struct pa_source_output *sout);
 
 #endif
 

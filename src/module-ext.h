@@ -14,7 +14,7 @@ struct pa_module_evsubscr {
 struct pa_module_evsubscr *pa_module_ext_subscription(struct userdata *);
 void pa_module_ext_subscription_free(struct pa_module_evsubscr *);
 void pa_module_ext_discover(struct userdata *);
-char *pa_module_ext_get_name(struct pa_module *);
+const char *pa_module_ext_get_name(struct pa_module *);
 
 
 #endif /* foomoduleextfoo */

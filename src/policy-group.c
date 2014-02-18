@@ -25,8 +25,8 @@ struct target {
         struct pa_sink         *sink;
         struct pa_source       *source;
     };
-    char                       *mode;
-    char                       *hwid;
+    const char                 *mode;
+    const char                 *hwid;
 };
 
 
@@ -55,8 +55,8 @@ static struct pa_policy_group *group_scan(struct pa_policy_groupset *,
 static struct pa_policy_group *find_group_by_name(struct pa_policy_groupset *,
                                                   const char *, uint32_t *);
 
-static struct pa_sink   *find_sink_by_type(struct userdata *, char *);
-static struct pa_source *find_source_by_type(struct userdata *, char *);
+static struct pa_sink   *find_sink_by_type(struct userdata *, const char *);
+static struct pa_source *find_source_by_type(struct userdata *, const char *);
 
 static uint32_t hash_value(const char *);
 
@@ -96,7 +96,7 @@ void pa_policy_groupset_update_default_sink(struct userdata *u, uint32_t idx)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
-    char                      *defsinkname;
+    const char                *defsinkname;
     int                        i;
 
     pa_assert(u);
@@ -160,7 +160,7 @@ void pa_policy_groupset_register_sink(struct userdata *u, struct pa_sink *sink)
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
-    char                      *sinkname;
+    const char                *sinkname;
     uint32_t                   sinkidx;
     int                        i;
 
@@ -221,7 +221,7 @@ void pa_policy_groupset_register_source(struct userdata *u,
 {
     struct pa_policy_groupset *gset;
     struct pa_policy_group    *group;
-    char                      *srcname;
+    const char                *srcname;
     uint32_t                   srcidx;
     int                        i;
 
@@ -322,8 +322,8 @@ int pa_policy_groupset_restore_volume(struct userdata *u, struct pa_sink *sink)
 }
 
 
-struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name, 
-                                            char *sinkname, char *srcname,
+struct pa_policy_group *pa_policy_group_new(struct userdata *u, const char *name,
+                                            const char *sinkname, const char *srcname,
                                             pa_proplist *properties,
                                             uint32_t flags)
 {
@@ -361,7 +361,7 @@ struct pa_policy_group *pa_policy_group_new(struct userdata *u, char *name,
     return group;
 }
 
-void pa_policy_group_free(struct pa_policy_groupset *gset, char *name)
+void pa_policy_group_free(struct pa_policy_groupset *gset, const char *name)
 {
     struct pa_policy_group       *group;
     struct pa_policy_group       *dflt;
@@ -461,7 +461,7 @@ struct pa_policy_group *pa_policy_group_find(struct userdata *u,
 }
 
 void pa_policy_group_insert_sink_input(struct userdata      *u,
-                                       char                 *name,
+                                       const char           *name,
                                        struct pa_sink_input *si,
                                        uint32_t              flags)
 {
@@ -474,8 +474,8 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
     struct pa_policy_group    *group, *g;
     struct pa_sink_input_list *sl;
     struct pa_null_sink       *ns;
-    char                      *sinp_name;
-    char                      *sink_name;
+    const char                *sinp_name;
+    const char                *sink_name;
     int                        local_route;
     int                        local_mute;
     int                        static_route;
@@ -624,7 +624,7 @@ void pa_policy_group_remove_sink_input(struct userdata *u, uint32_t idx)
 }
 
 void pa_policy_group_insert_source_output(struct userdata         *u,
-                                          char                    *name,
+                                          const char              *name,
                                           struct pa_source_output *so)
 {
     static const char  *media       = "audio_recording";
@@ -636,8 +636,8 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
     struct pa_policy_groupset    *gset;
     struct pa_policy_group       *group;
     struct pa_source_output_list *sl;
-    char                         *sout_name;
-    char                         *src_name;
+    const char                   *sout_name;
+    const char                   *src_name;
 
 
     pa_assert(u);
@@ -741,9 +741,9 @@ void pa_policy_group_remove_source_output(struct userdata *u, uint32_t idx)
            "not a member of any group", idx);
 }
 
-int pa_policy_group_move_to(struct userdata *u, char *name,
-                            enum pa_policy_route_class class, char *type,
-                            char *mode, char *hwid)
+int pa_policy_group_move_to(struct userdata *u, const char *name,
+                            enum pa_policy_route_class class, const char *type,
+                            const char *mode, const char *hwid)
 {
     static pa_subscription_event_type_t sinkev = PA_SUBSCRIPTION_EVENT_SINK |
                                                  PA_SUBSCRIPTION_EVENT_CHANGE;
@@ -890,7 +890,7 @@ int pa_policy_group_start_move_all(struct userdata *u)
     return ret;
 }
 
-int pa_policy_group_cork(struct userdata *u, char *name, int corked)
+int pa_policy_group_cork(struct userdata *u, const char *name, int corked)
 {
     struct pa_policy_group *grp;
     int                     ret;
@@ -910,7 +910,7 @@ int pa_policy_group_cork(struct userdata *u, char *name, int corked)
 }
 
 
-int pa_policy_group_volume_limit(struct userdata *u, char *name,
+int pa_policy_group_volume_limit(struct userdata *u, const char *name,
                                  uint32_t percent)
 {
     struct pa_policy_groupset *gset;
@@ -984,14 +984,13 @@ static struct pa_policy_group *group_scan(struct pa_policy_groupset *gset,
 
 static int move_group(struct pa_policy_group *group, struct target *target)
 {
-    struct pa_core               *core;
     struct pa_sink               *sink;
     struct pa_source             *source;
     struct pa_sink_input_list    *sil;
     struct pa_source_output_list *sol;
     struct pa_sink_input         *sinp;
     struct pa_source_output      *sout;
-    char                         *sinkname;
+    const char                   *sinkname;
     int                           ret = 0;
 
     if (!group || !target->any)
@@ -1000,7 +999,6 @@ static int move_group(struct pa_policy_group *group, struct target *target)
     switch (target->class) {
     case pa_policy_route_to_sink:
         sink = target->sink;
-        core = sink->core;
 
         /* move sink inputs to the sink */
         sinkname = pa_sink_ext_get_name(sink);
@@ -1070,7 +1068,6 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 
     case pa_policy_route_to_source:
         source = target->source;
-        core   = source->core;
 
         /* move source outputs to the source */
         source = target->source;
@@ -1201,7 +1198,7 @@ static int volset_group(struct userdata        *u,
         }
     }
 
-    return 0;
+    return retval;
 }
 
 
@@ -1212,7 +1209,7 @@ static int mute_group_by_route(struct pa_policy_group *group,
     struct pa_sink_input_list *sl;
     struct pa_sink_input *sinp;
     struct pa_sink *sink;
-    char *sink_name;
+    const char *sink_name;
     int ret = 0;
 
     sink = mute ? ns->sink : group->sink;
@@ -1262,8 +1259,8 @@ static int mute_group_locally(struct userdata        *u,
     struct pa_sink_input *sinp;
     struct pa_sink_input_ext *ext;
     struct pa_sink *sink;
-    char *sink_name;
-    char *sinp_name;
+    const char *sink_name;
+    const char *sinp_name;
     pa_volume_t volume;
     int mutebyrt;
     int mark;
@@ -1394,7 +1391,7 @@ static struct pa_policy_group *find_group_by_name(struct pa_policy_groupset *gse
 }
 
 
-static struct pa_sink *find_sink_by_type(struct userdata *u, char *type)
+static struct pa_sink *find_sink_by_type(struct userdata *u, const char *type)
 {
     void            *state = NULL;
     pa_idxset       *idxset;
@@ -1413,7 +1410,7 @@ static struct pa_sink *find_sink_by_type(struct userdata *u, char *type)
     return sink;
 }
 
-static struct pa_source *find_source_by_type(struct userdata *u, char *type)
+static struct pa_source *find_source_by_type(struct userdata *u, const char *type)
 {
     void              *state = NULL;
     pa_idxset         *idxset;

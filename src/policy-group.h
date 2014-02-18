@@ -84,29 +84,29 @@ void pa_policy_groupset_unregister_source(struct userdata *, uint32_t);
 void pa_policy_groupset_create_default_group(struct userdata *, const char *);
 int pa_policy_groupset_restore_volume(struct userdata *, struct pa_sink *);
 
-struct pa_policy_group *pa_policy_group_new(struct userdata *, char*,
-                                            char *, char *, pa_proplist*, uint32_t);
-void pa_policy_group_free(struct pa_policy_groupset *, char *);
+struct pa_policy_group *pa_policy_group_new(struct userdata *, const char*,
+                                            const char *, const char *, pa_proplist*, uint32_t);
+void pa_policy_group_free(struct pa_policy_groupset *, const char *);
 struct pa_policy_group *pa_policy_group_find(struct userdata *, const char *);
 
 
-void pa_policy_group_insert_sink_input(struct userdata *, char *,
+void pa_policy_group_insert_sink_input(struct userdata *, const char *,
                                        struct pa_sink_input *, uint32_t);
 void pa_policy_group_remove_sink_input(struct userdata *, uint32_t);
 
 
-void pa_policy_group_insert_source_output(struct userdata *, char *,
+void pa_policy_group_insert_source_output(struct userdata *, const char *,
                                           struct pa_source_output *);
 void pa_policy_group_remove_source_output(struct userdata *, uint32_t);
 
 /* Return number of successfully moved groups on success, or -1 on failure. */
-int  pa_policy_group_move_to(struct userdata *, char *,
-                             enum pa_policy_route_class, char *,
-                             char *, char *);
+int  pa_policy_group_move_to(struct userdata *, const char *,
+                             enum pa_policy_route_class, const char *,
+                             const char *, const char *);
 int  pa_policy_group_start_move_all(struct userdata *u);
 void pa_policy_group_assert_moving(struct userdata *u);
-int  pa_policy_group_cork(struct userdata *u, char *, int);
-int  pa_policy_group_volume_limit(struct userdata *, char *, uint32_t);
+int  pa_policy_group_cork(struct userdata *u, const char *, int);
+int  pa_policy_group_volume_limit(struct userdata *, const char *, uint32_t);
 
 #endif
 

@@ -77,9 +77,9 @@ void pa_module_ext_discover(struct userdata *u)
     }
 }
 
-char *pa_module_ext_get_name(struct pa_module *module)
+const char *pa_module_ext_get_name(struct pa_module *module)
 {
-    return module->name ? module->name : (char *)"<unknown>";
+    return module->name ? module->name : "<unknown>";
 }
 
 static void handle_module_events(pa_core *c, pa_subscription_event_type_t t,
@@ -88,7 +88,7 @@ static void handle_module_events(pa_core *c, pa_subscription_event_type_t t,
     struct userdata    *u  = userdata;
     uint32_t            et = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
     struct pa_module   *module;
-    char               *name;
+    const char         *name;
 
     pa_assert(u);
     
@@ -119,12 +119,10 @@ static void handle_module_events(pa_core *c, pa_subscription_event_type_t t,
 
 static void handle_new_module(struct userdata *u, struct pa_module *module)
 {
-    char     *name;
-    uint32_t  idx;
+    const char *name;
 
     if (module && u) {
         name = pa_module_ext_get_name(module);
-        idx  = module->index;
 
         pa_policy_context_register(u, pa_policy_object_module, name, module);
     }
