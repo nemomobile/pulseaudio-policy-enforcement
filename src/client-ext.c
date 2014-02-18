@@ -66,7 +66,7 @@ void pa_client_ext_discover(struct userdata *u)
         handle_new_or_modified_client(u, client);
 }
 
-char *pa_client_ext_name(struct pa_client *client)
+const char *pa_client_ext_name(struct pa_client *client)
 {
     const char *name;
 
@@ -74,10 +74,10 @@ char *pa_client_ext_name(struct pa_client *client)
 
     name = pa_proplist_gets(client->proplist, PA_PROP_APPLICATION_NAME);
 
-    return (char *)name;
+    return name;
 }
 
-char *pa_client_ext_id(struct pa_client *client)
+const char *pa_client_ext_id(struct pa_client *client)
 {
     const char *id;
 
@@ -85,7 +85,7 @@ char *pa_client_ext_id(struct pa_client *client)
 
     id = pa_proplist_gets(client->proplist, PA_PROP_APPLICATION_ID);
 
-    return (char *)id;
+    return id;
 }
 
 pid_t pa_client_ext_pid(struct pa_client *client)
@@ -131,7 +131,7 @@ uid_t pa_client_ext_uid(struct pa_client *client)
     return uid;
 }
 
-char *pa_client_ext_exe(struct pa_client *client)
+const char *pa_client_ext_exe(struct pa_client *client)
 {
     const char *exe;
 
@@ -140,10 +140,10 @@ char *pa_client_ext_exe(struct pa_client *client)
     exe = pa_proplist_gets(client->proplist,
                            PA_PROP_APPLICATION_PROCESS_BINARY);
 
-    return (char *)exe;
+    return exe;
 }
 
-char *pa_client_ext_args(struct pa_client *client)
+const char *pa_client_ext_args(struct pa_client *client)
 {
     const char *args;
 
@@ -151,11 +151,11 @@ char *pa_client_ext_args(struct pa_client *client)
 
     args = pa_proplist_gets(client->proplist,PA_PROP_APPLICATION_PROCESS_ARGS);
 
-    return (char *)args;
+    return args;
 }
 
 
-char *pa_client_ext_arg0(struct pa_client *client)
+const char *pa_client_ext_arg0(struct pa_client *client)
 {
     const char *arg0;
 
@@ -166,7 +166,7 @@ char *pa_client_ext_arg0(struct pa_client *client)
     if (arg0 == NULL)
         client_ext_set_arg0(client);
     
-    return (char *)arg0;
+    return arg0;
 }
 
 

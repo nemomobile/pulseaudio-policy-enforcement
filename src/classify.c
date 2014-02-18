@@ -22,8 +22,8 @@
 
 
 
-static char *find_group_for_client(struct userdata *, struct pa_client *,
-                                   pa_proplist *, uint32_t *);
+static const char *find_group_for_client(struct userdata *, struct pa_client *,
+                                         pa_proplist *, uint32_t *);
 #if 0
 static char *arg_dump(int, char **, char *, size_t);
 #endif
@@ -43,41 +43,41 @@ static struct pa_classify_pid_hash
                            struct pa_classify_pid_hash **);
 
 static void streams_free(struct pa_classify_stream_def *);
-static void streams_add(struct pa_classify_stream_def **, char *, 
-                        enum pa_classify_method, char *, char *,
-                        char *, uid_t, char *, char *, uint32_t);
-static char *streams_get_group(struct pa_classify_stream_def **, pa_proplist *,
-                               char *, uid_t, char *, uint32_t *);
+static void streams_add(struct pa_classify_stream_def **, const char *,
+                        enum pa_classify_method, const char *, const char *,
+                        const char *, uid_t, const char *, const char *, uint32_t);
+static const char *streams_get_group(struct pa_classify_stream_def **, pa_proplist *,
+                                     const char *, uid_t, const char *, uint32_t *);
 static struct pa_classify_stream_def
             *streams_find(struct pa_classify_stream_def **, pa_proplist *,
-                          char *, char *, uid_t, char *,
+                          const char *, const char *, uid_t, const char *,
                           struct pa_classify_stream_def **);
 
 static void devices_free(struct pa_classify_device *);
-static void devices_add(struct pa_classify_device **, char *,
-                        char *,  enum pa_classify_method, char *, pa_hashmap *,
+static void devices_add(struct pa_classify_device **, const char *,
+                        const char *,  enum pa_classify_method, const char *, pa_hashmap *,
                         uint32_t);
 static int devices_classify(struct pa_classify_device_def *, pa_proplist *,
-                            char *, uint32_t, uint32_t, char *, int);
+                            const char *, uint32_t, uint32_t, char *, int);
 static int devices_is_typeof(struct pa_classify_device_def *, pa_proplist *,
-                             char *, const char *,
+                             const char *, const char *,
                              struct pa_classify_device_data **);
 
 static void cards_free(struct pa_classify_card *);
 static void cards_add(struct pa_classify_card **, char *,
                       enum pa_classify_method[2], char **, char **, uint32_t[2]);
-static int  cards_classify(struct pa_classify_card_def *, char *, char **,
+static int  cards_classify(struct pa_classify_card_def *, const char *, char **,
                            uint32_t,uint32_t, char *,int);
-static int card_is_typeof(struct pa_classify_card_def *, char *,
-                          char *, struct pa_classify_card_data **, int *priority);
+static int card_is_typeof(struct pa_classify_card_def *, const char *,
+                          const char *, struct pa_classify_card_data **, int *priority);
 
-static int port_device_is_typeof(struct pa_classify_device_def *, char *,
+static int port_device_is_typeof(struct pa_classify_device_def *, const char *,
                                  const char *,
                                  struct pa_classify_device_data **);
 
 static const char *method_str(enum pa_classify_method);
 
-char *get_property(char *, pa_proplist *, char *);
+const char *get_property(const char *, pa_proplist *, const char *);
 
 
 
@@ -107,8 +107,8 @@ void pa_classify_free(struct pa_classify *cl)
     }
 }
 
-void pa_classify_add_sink(struct userdata *u, char *type, char *prop,
-                          enum pa_classify_method method, char *arg,
+void pa_classify_add_sink(struct userdata *u, const char *type, const char *prop,
+                          enum pa_classify_method method, const char *arg,
                           pa_hashmap *ports, uint32_t flags)
 {
     struct pa_classify *classify;
@@ -123,8 +123,8 @@ void pa_classify_add_sink(struct userdata *u, char *type, char *prop,
     devices_add(&classify->sinks, type, prop, method, arg, ports, flags);
 }
 
-void pa_classify_add_source(struct userdata *u, char *type, char *prop,
-                            enum pa_classify_method method, char *arg,
+void pa_classify_add_source(struct userdata *u, const char *type, const char *prop,
+                            enum pa_classify_method method, const char *arg,
                             pa_hashmap *ports, uint32_t flags)
 {
     struct pa_classify *classify;
@@ -155,10 +155,11 @@ void pa_classify_add_card(struct userdata *u, char *type,
 }
 
 
-void pa_classify_add_stream(struct userdata *u, char *prop,
-                            enum pa_classify_method method, char *arg,
-                            char *clnam, char *sname, uid_t uid, char *exe, char *grnam,
-                            uint32_t flags, char *port)
+void pa_classify_add_stream(struct userdata *u, const char *prop,
+                            enum pa_classify_method method, const char *arg,
+                            const char *clnam, const char *sname, uid_t uid,
+                            const char *exe, const char *grnam,
+                            uint32_t flags, const char *port)
 {
     struct pa_classify     *classify;
     struct pa_policy_group *group;
@@ -183,7 +184,7 @@ void pa_classify_add_stream(struct userdata *u, char *prop,
     }
 }
 
-void pa_classify_update_stream_route(struct userdata *u, char *sname)
+void pa_classify_update_stream_route(struct userdata *u, const char *sname)
 {
     struct pa_classify_stream_def *stream;
 
@@ -201,9 +202,9 @@ void pa_classify_update_stream_route(struct userdata *u, char *sname)
     }
 }
 
-void pa_classify_register_pid(struct userdata *u, pid_t pid, char *prop,
-                              enum pa_classify_method method, char *arg,
-                              char *group)
+void pa_classify_register_pid(struct userdata *u, pid_t pid, const char *prop,
+                              enum pa_classify_method method, const char *arg,
+                              const char *group)
 {
     struct pa_classify *classify;
 
@@ -216,8 +217,8 @@ void pa_classify_register_pid(struct userdata *u, pid_t pid, char *prop,
     }
 }
 
-void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *prop,
-                                enum pa_classify_method method, char *arg)
+void pa_classify_unregister_pid(struct userdata *u, pid_t pid, const char *prop,
+                                enum pa_classify_method method, const char *arg)
 {
     struct pa_classify *classify;
     
@@ -229,11 +230,11 @@ void pa_classify_unregister_pid(struct userdata *u, pid_t pid, char *prop,
     }
 }
 
-char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp,
-                             uint32_t *flags)
+const char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp,
+                                   uint32_t *flags)
 {
     struct pa_client     *client;
-    char                 *group;
+    const char           *group;
 
     pa_assert(u);
     pa_assert(sinp);
@@ -244,12 +245,12 @@ char *pa_classify_sink_input(struct userdata *u, struct pa_sink_input *sinp,
     return group;
 }
 
-char *pa_classify_sink_input_by_data(struct userdata *u,
-                                     struct pa_sink_input_new_data *data,
-                                     uint32_t *flags)
+const char *pa_classify_sink_input_by_data(struct userdata *u,
+                                           struct pa_sink_input_new_data *data,
+                                           uint32_t *flags)
 {
     struct pa_client     *client;
-    char                 *group;
+    const char           *group;
 
     pa_assert(u);
     pa_assert(data);
@@ -260,11 +261,11 @@ char *pa_classify_sink_input_by_data(struct userdata *u,
     return group;
 }
 
-char *pa_classify_source_output(struct userdata *u,
-                                struct pa_source_output *sout)
+const char *pa_classify_source_output(struct userdata *u,
+                                      struct pa_source_output *sout)
 {
     struct pa_client     *client;
-    char                 *group;
+    const char           *group;
 
     pa_assert(u);
     pa_assert(sout);
@@ -275,12 +276,12 @@ char *pa_classify_source_output(struct userdata *u,
     return group;
 }
 
-char *
+const char *
 pa_classify_source_output_by_data(struct userdata *u,
                                   struct pa_source_output_new_data *data)
 {
     struct pa_client     *client;
-    char                 *group;
+    const char           *group;
 
     pa_assert(u);
     pa_assert(data);
@@ -297,7 +298,7 @@ int pa_classify_sink(struct userdata *u, struct pa_sink *sink,
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -316,7 +317,7 @@ int pa_classify_source(struct userdata *u, struct pa_source *source,
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -335,7 +336,7 @@ int pa_classify_card(struct userdata *u, struct pa_card *card,
 {
     struct pa_classify *classify;
     struct pa_classify_card_def *defs;
-    char  *name;
+    const char *name;
     char **profs;
     int    len;
 
@@ -360,7 +361,7 @@ int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -382,7 +383,7 @@ int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -399,11 +400,11 @@ int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
 
 
 int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
-                               char *type, struct pa_classify_card_data **d, int *priority)
+                               const char *type, struct pa_classify_card_data **d, int *priority)
 {
     struct pa_classify *classify;
     struct pa_classify_card_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -425,7 +426,7 @@ int pa_classify_is_port_sink_typeof(struct userdata *u, struct pa_sink *sink,
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -448,7 +449,7 @@ int pa_classify_is_port_source_typeof(struct userdata *u,
 {
     struct pa_classify *classify;
     struct pa_classify_device_def *defs;
-    char *name;
+    const char *name;
 
     pa_assert(u);
     pa_assert_se((classify = u->classify));
@@ -464,19 +465,19 @@ int pa_classify_is_port_source_typeof(struct userdata *u,
 }
 
 
-static char *find_group_for_client(struct userdata  *u,
-                                   struct pa_client *client,
-                                   pa_proplist      *proplist,
-                                   uint32_t         *flags_ret)
+static const char *find_group_for_client(struct userdata  *u,
+                                         struct pa_client *client,
+                                         pa_proplist      *proplist,
+                                         uint32_t         *flags_ret)
 {
     struct pa_classify *classify;
     struct pa_classify_pid_hash **hash;
     struct pa_classify_stream_def **defs;
-    pid_t     pid   = 0;           /* client processs PID */
-    char     *clnam = (char *)"";  /* client's name in PA */
-    uid_t     uid   = (uid_t)-1;   /* client process user ID */
-    char     *exe   = (char *)"";  /* client's binary path */
-    char     *group = NULL;
+    pid_t       pid   = 0;          /* client processs PID */
+    const char *clnam = "";         /* client's name in PA */
+    uid_t       uid   = (uid_t) -1; /* client process user ID */
+    const char *exe   = "";         /* client's binary path */
+    const char *group = NULL;
     uint32_t  flags = 0;
 
     assert(u);
@@ -500,7 +501,7 @@ static char *find_group_for_client(struct userdata  *u,
     }
 
     if (group == NULL)
-        group = (char *)PA_POLICY_DEFAULT_GROUP_NAME;
+        group = PA_POLICY_DEFAULT_GROUP_NAME;
 
     pa_log_debug("%s (%s|%d|%d|%s) => %s,0x%x", __FUNCTION__,
                  clnam?clnam:"<null>", pid, uid, exe?exe:"<null>",
@@ -749,9 +750,9 @@ static void streams_free(struct pa_classify_stream_def *defs)
     }
 }
 
-static void streams_add(struct pa_classify_stream_def **defs, char *prop,
-                        enum pa_classify_method method,char *arg, char *clnam,
-                        char *sname, uid_t uid, char *exe, char *group, uint32_t flags)
+static void streams_add(struct pa_classify_stream_def **defs, const char *prop,
+                        enum pa_classify_method method, const char *arg, const char *clnam,
+                        const char *sname, uid_t uid, const char *exe, const char *group, uint32_t flags)
 {
     struct pa_classify_stream_def *d;
     struct pa_classify_stream_def *prev;
@@ -838,13 +839,13 @@ static void streams_add(struct pa_classify_stream_def **defs, char *prop,
     pa_proplist_free(proplist);
 }
 
-static char *streams_get_group(struct pa_classify_stream_def **defs,
-                               pa_proplist *proplist,
-                               char *clnam, uid_t uid, char *exe,
-                               uint32_t *flags_ret)
+static const char *streams_get_group(struct pa_classify_stream_def **defs,
+                                     pa_proplist *proplist,
+                                     const char *clnam, uid_t uid, const char *exe,
+                                     uint32_t *flags_ret)
 {
     struct pa_classify_stream_def *d;
-    char *group;
+    const char *group;
     uint32_t flags;
 
     pa_assert(defs);
@@ -866,7 +867,7 @@ static char *streams_get_group(struct pa_classify_stream_def **defs,
 
 static struct pa_classify_stream_def *
 streams_find(struct pa_classify_stream_def **defs, pa_proplist *proplist,
-             char *clnam, char *sname, uid_t uid, char *exe,
+             const char *clnam, const char *sname, uid_t uid, const char *exe,
              struct pa_classify_stream_def **prev_ret)
 {
 #define PROPERTY_MATCH     (!d->prop || !d->method || \
@@ -959,14 +960,14 @@ static void devices_free(struct pa_classify_device *devices)
     }
 }
 
-static void devices_add(struct pa_classify_device **p_devices, char *type,
-                        char *prop, enum pa_classify_method method, char *arg,
+static void devices_add(struct pa_classify_device **p_devices, const char *type,
+                        const char *prop, enum pa_classify_method method, const char *arg,
                         pa_hashmap *ports, uint32_t flags)
 {
     struct pa_classify_device *devs;
     struct pa_classify_device_def *d;
     size_t newsize;
-    char *method_name;
+    const char *method_name;
     char *ports_string = NULL; /* Just for log output. */
     pa_strbuf *buf; /* For building ports_string. */
 
@@ -1055,13 +1056,12 @@ static void devices_add(struct pa_classify_device **p_devices, char *type,
 }
 
 static int devices_classify(struct pa_classify_device_def *defs,
-                            pa_proplist *proplist, char *name,
+                            pa_proplist *proplist, const char *name,
                             uint32_t flag_mask, uint32_t flag_value,
                             char *buf, int len)
 {
     struct pa_classify_device_def *d;
-    char       *propval;
-    int         i;
+    const char *propval;
     char       *p;
     char       *e;
     const char *s;
@@ -1073,7 +1073,7 @@ static int devices_classify(struct pa_classify_device_def *defs,
     p[0] = '\0';
     s = "";
 
-    for (d = defs, i = 0;  d->type;  d++) {
+    for (d = defs;  d->type;  d++) {
         propval = get_property(d->prop, proplist, name);
 
         if (d->method(propval, &d->arg)) {
@@ -1095,12 +1095,12 @@ static int devices_classify(struct pa_classify_device_def *defs,
 }
 
 static int devices_is_typeof(struct pa_classify_device_def *defs,
-                             pa_proplist *proplist, char *name,
+                             pa_proplist *proplist, const char *name,
                              const char *type,
                              struct pa_classify_device_data **data)
 {
     struct pa_classify_device_def *d;
-    char *propval;
+    const char *propval;
 
     for (d = defs;  d->type;  d++) {
         if (!strcmp(type, d->type)) {
@@ -1212,7 +1212,7 @@ static void cards_add(struct pa_classify_card **p_cards, char *type,
 }
 
 static int cards_classify(struct pa_classify_card_def *defs,
-                          char *name, char **profiles,
+                          const char *name, char **profiles,
                           uint32_t flag_mask, uint32_t flag_value,
                           char *buf, int len)
 {
@@ -1273,8 +1273,8 @@ end:
     return (e - p);
 }
 
-static int card_is_typeof(struct pa_classify_card_def *defs, char *name,
-                          char *type, struct pa_classify_card_data **data, int *priority)
+static int card_is_typeof(struct pa_classify_card_def *defs, const char *name,
+                          const char *type, struct pa_classify_card_data **data, int *priority)
 {
     struct pa_classify_card_def *d;
     int i;
@@ -1299,7 +1299,7 @@ static int card_is_typeof(struct pa_classify_card_def *defs, char *name,
 }
 
 static int port_device_is_typeof(struct pa_classify_device_def *defs,
-                                 char *name, const char *type,
+                                 const char *name, const char *type,
                                  struct pa_classify_device_data **data)
 {
     struct pa_classify_device_def *d;
@@ -1318,21 +1318,32 @@ static int port_device_is_typeof(struct pa_classify_device_def *defs,
     return FALSE;
 }
 
-char *get_property(char *propname, pa_proplist *proplist, char *name)
+const char *get_property(const char *propname, pa_proplist *proplist, const char *name)
 {
-    char *propval = NULL;
+    const char *propval = NULL;
 
     if (propname != NULL && proplist != NULL && name != NULL) {
         if (!strcmp(propname, "name"))
             propval = name;
         else
-            propval = (char *)pa_proplist_gets(proplist, propname);
+            propval = pa_proplist_gets(proplist, propname);
     }
 
     if (propval == NULL || propval[0] == '\0')
-        propval = (char *)"<unknown>";
+        propval = "<unknown>";
 
     return propval;
+}
+
+const char *pa_classify_method_str(enum pa_classify_method method)
+{
+    switch (method) {
+        case pa_method_equals:      return "equals";
+        case pa_method_startswith:  return "startswidth";
+        case pa_method_matches:     return "matches";
+        case pa_method_true:        return "true";
+        default:                    return "<unknown>";
+    };
 }
 
 int pa_classify_method_equals(const char *string,

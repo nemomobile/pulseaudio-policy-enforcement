@@ -83,17 +83,17 @@ void pa_source_ext_discover(struct userdata *u)
 }
 
 
-char *pa_source_ext_get_name(struct pa_source *source)
+const char *pa_source_ext_get_name(struct pa_source *source)
 {
-    return source->name ? source->name : (char *)"<unknown>";
+    return source->name ? source->name : "<unknown>";
 }
 
-int pa_source_ext_set_mute(struct userdata *u, char *type, int mute)
+int pa_source_ext_set_mute(struct userdata *u, const char *type, int mute)
 {
     void              *state = NULL;
     pa_idxset         *idxset;
     struct pa_source  *source;
-    char              *name;
+    const char        *name;
     pa_bool_t          current_mute;
 
     pa_assert(u);
@@ -199,7 +199,7 @@ static pa_hook_result_t source_unlink(void *hook_data, void *call_data,
 
 static void handle_new_source(struct userdata *u, struct pa_source *source)
 {
-    char            *name;
+    const char      *name;
     uint32_t         idx;
     char             buf[1024];
     int              len;
@@ -243,7 +243,7 @@ static void handle_new_source(struct userdata *u, struct pa_source *source)
 
 static void handle_removed_source(struct userdata *u, struct pa_source *source)
 {
-    char            *name;
+    const char      *name;
     uint32_t         idx;
     char             buf[1024];
     int              len;

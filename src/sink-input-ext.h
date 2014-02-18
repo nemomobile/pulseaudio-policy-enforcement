@@ -31,9 +31,9 @@ void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *);
 void  pa_sink_input_ext_discover(struct userdata *);
 struct pa_sink_input_ext *pa_sink_input_ext_lookup(struct userdata *,
                                                    struct pa_sink_input *);
-int   pa_sink_input_ext_set_policy_group(struct pa_sink_input *, char *);
-char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *);
-char *pa_sink_input_ext_get_name(struct pa_sink_input *);
+int   pa_sink_input_ext_set_policy_group(struct pa_sink_input *, const char *);
+const char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *);
+const char *pa_sink_input_ext_get_name(struct pa_sink_input *);
 int   pa_sink_input_ext_set_volume_limit(struct pa_sink_input *, pa_volume_t);
 
 #endif

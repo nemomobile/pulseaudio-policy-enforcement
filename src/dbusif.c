@@ -277,10 +277,10 @@ void pa_policy_dbusif_done(struct userdata *u)
     }
 }
 
-void pa_policy_dbusif_send_device_state(struct userdata *u, char *state,
-                                        char **types, int ntype)
+void pa_policy_dbusif_send_device_state(struct userdata *u, const char *state,
+                                        const char **types, int ntype)
 {
-    static char             *path = (char *)"/com/nokia/policy/info";
+    const char              *path = "/com/nokia/policy/info";
 
     struct pa_policy_dbusif *dbusif = u->dbusif;
     DBusConnection          *conn   = pa_dbus_connection_get(dbusif->conn);
@@ -330,8 +330,8 @@ void pa_policy_dbusif_send_device_state(struct userdata *u, char *state,
 void pa_policy_dbusif_send_media_status(struct userdata *u, const char *media,
                                         const char *group, int active)
 {
-    static char             *path = (char *)"/com/nokia/policy/info";
-    static const char       *type = "media";
+    const char              *path = "/com/nokia/policy/info";
+    const char              *type = "media";
 
     struct pa_policy_dbusif *dbusif = u->dbusif;
     DBusConnection          *conn   = pa_dbus_connection_get(dbusif->conn);

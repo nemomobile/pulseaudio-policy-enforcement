@@ -76,9 +76,9 @@ void pa_card_ext_discover(struct userdata *u)
         handle_new_card(u, card);
 }
 
-char *pa_card_ext_get_name(struct pa_card *card)
+const char *pa_card_ext_get_name(struct pa_card *card)
 {
-    return card->name ? card->name : (char *)"<unknown>";
+    return card->name ? card->name : "<unknown>";
 }
 
 char **pa_card_ext_get_profiles(struct pa_card *card)
@@ -117,8 +117,8 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
     struct pa_classify_card_data *datas[2] = { NULL, NULL };
     struct pa_card  *cards[2] = { NULL, NULL };
     int              priority;
-    char            *pn;
-    char            *cn;
+    const char      *pn;
+    const char      *cn;
     pa_card_profile *ap;
     int              sts;
     int              i;
@@ -190,7 +190,7 @@ static pa_hook_result_t card_unlink(void *hook_data, void *call_data,
 
 static void handle_new_card(struct userdata *u, struct pa_card *card)
 {
-    char     *name;
+    const char *name;
     uint32_t  idx;
     char      buf[1024];
     int       len;
@@ -229,7 +229,7 @@ static void handle_new_card(struct userdata *u, struct pa_card *card)
 
 static void handle_removed_card(struct userdata *u, struct pa_card *card)
 {
-    char     *name;
+    const char *name;
     uint32_t  idx;
     char      buf[1024];
     int       len;

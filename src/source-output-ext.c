@@ -86,8 +86,8 @@ void pa_source_output_ext_discover(struct userdata *u)
         handle_new_source_output(u, sout);
 }
 
-int pa_source_output_ext_set_policy_group(struct pa_source_output *sout, 
-                                          char *group)
+int pa_source_output_ext_set_policy_group(struct pa_source_output *sout,
+                                          const char *group)
 {
     int ret;
 
@@ -101,7 +101,7 @@ int pa_source_output_ext_set_policy_group(struct pa_source_output *sout,
     return ret;
 }
 
-char *pa_source_output_ext_get_policy_group(struct pa_source_output *sout)
+const char *pa_source_output_ext_get_policy_group(struct pa_source_output *sout)
 {
     const char *group;
 
@@ -115,7 +115,7 @@ char *pa_source_output_ext_get_policy_group(struct pa_source_output *sout)
     return (char *)group;
 }
 
-char *pa_source_output_ext_get_name(struct pa_source_output *sout)
+const char *pa_source_output_ext_get_name(struct pa_source_output *sout)
 {
     const char *name;
 
@@ -125,8 +125,8 @@ char *pa_source_output_ext_get_name(struct pa_source_output *sout)
 
     if (name == NULL)
         name = "<unknown>";
-    
-    return (char *)name;
+
+    return name;
 }
 
 
@@ -139,9 +139,9 @@ static pa_hook_result_t source_output_neew(void *hook_data, void *call_data,
     struct pa_source_output_new_data
                      *data = (struct pa_source_output_new_data *)call_data;
     struct userdata  *u    = (struct userdata *)slot_data;
-    char             *group_name;
+    const char       *group_name;
     const char       *sout_name;
-    char             *source_name;
+    const char       *source_name;
     struct pa_policy_group *group;
 
     if ((group_name = pa_classify_source_output_by_data(u, data)) != NULL &&
@@ -195,8 +195,8 @@ static pa_hook_result_t source_output_unlink(void *hook_data, void *call_data,
 static void handle_new_source_output(struct userdata         *u,
                                      struct pa_source_output *sout)
 {
-    char *snam;
-    char *gnam;
+    const char *snam;
+    const char *gnam;
 
     if (sout && u) {
         snam = pa_source_output_ext_get_name(sout);
@@ -214,8 +214,8 @@ static void handle_new_source_output(struct userdata         *u,
 static void handle_removed_source_output(struct userdata         *u,
                                          struct pa_source_output *sout)
 {
-    char *snam;
-    char *gnam;
+    const char *snam;
+    const char *gnam;
 
     if (sout && u) {
         snam = pa_source_output_ext_get_name(sout);

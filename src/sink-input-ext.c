@@ -111,7 +111,7 @@ struct pa_sink_input_ext *pa_sink_input_ext_lookup(struct userdata      *u,
 
 
 int pa_sink_input_ext_set_policy_group(struct pa_sink_input *sinp,
-                                         char *group)
+                                       const char *group)
 {
     int ret;
 
@@ -125,7 +125,7 @@ int pa_sink_input_ext_set_policy_group(struct pa_sink_input *sinp,
     return ret;
 }
 
-char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *sinp)
+const char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *sinp)
 {
     const char *group;
 
@@ -136,7 +136,7 @@ char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *sinp)
     if (group == NULL)
         group = PA_POLICY_DEFAULT_GROUP_NAME;
 
-    return (char *)group;
+    return group;
 }
 
 const char *sink_input_ext_get_name(pa_proplist *sinp_proplist)
@@ -153,11 +153,11 @@ const char *sink_input_ext_get_name(pa_proplist *sinp_proplist)
     return name;
 }
 
-char *pa_sink_input_ext_get_name(struct pa_sink_input *sinp)
+const char *pa_sink_input_ext_get_name(struct pa_sink_input *sinp)
 {
     pa_assert(sinp);
 
-    return (char *) sink_input_ext_get_name(sinp->proplist);
+    return sink_input_ext_get_name(sinp->proplist);
 }
 
 
@@ -238,9 +238,9 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                            *data = (struct pa_sink_input_new_data *)call_data;
     struct userdata        *u    = (struct userdata *)slot_data;
     uint32_t                flags;
-    char                   *group_name;
+    const char             *group_name;
     const char             *sinp_name;
-    char                   *sink_name;
+    const char             *sink_name;
     int                     local_route;
     int                     local_volume;
     struct pa_policy_group *group;

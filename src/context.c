@@ -13,13 +13,13 @@
 #include "source-output-ext.h"
 
 static struct pa_policy_context_variable
-            *add_variable(struct pa_policy_context *, char *);
+            *add_variable(struct pa_policy_context *, const char *);
 static void delete_variable(struct pa_policy_context *,
                             struct pa_policy_context_variable *);
 
 static struct pa_policy_context_rule
             *add_rule(struct pa_policy_context_rule **,
-                      enum pa_classify_method, char*);
+                      enum pa_classify_method, const char *);
 static void  delete_rule(struct pa_policy_context_rule **,
                          struct pa_policy_context_rule  *);
 
@@ -31,7 +31,7 @@ static int perform_action(struct userdata *, union pa_policy_context_action *,
                           char *);
 
 static int   match_setup(struct pa_policy_match *, enum pa_classify_method,
-                         char *, char **);
+                         const char *, enum pa_classify_method *);
 static void  match_cleanup(struct pa_policy_match *);
 
 static int   value_setup(union pa_policy_value *, enum pa_policy_value_type,
@@ -58,7 +58,7 @@ static const char *object_type_str(enum pa_policy_object_type);
 
 /* activities */
 static struct pa_policy_activity_variable
-            *add_activity_variable(struct userdata *u, struct pa_policy_context *, char *);
+            *add_activity_variable(struct userdata *u, struct pa_policy_context *, const char *);
 static void delete_activity(struct pa_policy_context *,
                             struct pa_policy_activity_variable *);
 
@@ -185,8 +185,8 @@ void pa_policy_context_unregister(struct userdata *u,
 }
 
 struct pa_policy_context_rule *
-pa_policy_context_add_property_rule(struct userdata *u, char *varname,
-                                    enum pa_classify_method method, char *arg)
+pa_policy_context_add_property_rule(struct userdata *u, const char *varname,
+                                    enum pa_classify_method method, const char *arg)
 {
     struct pa_policy_context_variable *variable;
     struct pa_policy_context_rule     *rule;
@@ -202,8 +202,8 @@ pa_policy_context_add_property_action(struct pa_policy_context_rule *rule,
                                       int                         lineno,
                                       enum pa_policy_object_type  obj_type,
                                       enum pa_classify_method     obj_classify,
-                                      char                       *obj_name,
-                                      char                       *prop_name,
+                                      const char                 *obj_name,
+                                      const char                 *prop_name,
                                       enum pa_policy_value_type   value_type,
                                       ...                     /* value_arg */)
 {
@@ -234,8 +234,8 @@ pa_policy_context_delete_property_action(struct pa_policy_context_rule *rule,
                                          int                      lineno,
                                          enum pa_policy_object_type obj_type,
                                          enum pa_classify_method  obj_classify,
-                                         char                    *obj_name,
-                                         char                    *prop_name)
+                                         const char              *obj_name,
+                                         const char              *prop_name)
 {
     union pa_policy_context_action *action;
     struct pa_policy_del_property  *delprop;
@@ -254,8 +254,8 @@ pa_policy_context_delete_property_action(struct pa_policy_context_rule *rule,
     append_action(&rule->actions, action);
 }
 
-int pa_policy_context_variable_changed(struct userdata *u, char *name,
-                                       char *value)
+int pa_policy_context_variable_changed(struct userdata *u, const char *name,
+                                       const char *value)
 {
     struct pa_policy_context_variable *var;
     struct pa_policy_context_rule     *rule;
@@ -318,7 +318,7 @@ void pa_policy_context_variable_commit(struct userdata *u)
 
 static
 struct pa_policy_context_variable *add_variable(struct pa_policy_context *ctx,
-                                                char *name)
+                                                const char *name)
 {
     struct pa_policy_context_variable *var;
     struct pa_policy_context_variable *last;
@@ -407,15 +407,15 @@ static void delete_variable(struct pa_policy_context          *ctx,
 static struct pa_policy_context_rule *
 add_rule(struct pa_policy_context_rule    **rules,
          enum pa_classify_method            method,
-         char                              *arg)
+         const char                        *arg)
 {
     struct pa_policy_context_rule *rule = pa_xmalloc0(sizeof(*rule));
     struct pa_policy_context_rule *last;
-    char                          *method_name;
+    enum pa_classify_method        method_status;
 
-    if (!match_setup(&rule->match, method, arg, &method_name)) {
+    if (!match_setup(&rule->match, method, arg, &method_status)) {
         pa_log("%s: invalid rule definition (method %s)",
-               __FUNCTION__, method_name);
+               __FUNCTION__, pa_classify_method_str(method_status));
         pa_xfree(rule);
         return NULL;
     };
@@ -605,34 +605,30 @@ static int perform_action(struct userdata                *u,
 
 static int match_setup(struct pa_policy_match  *match,
                        enum pa_classify_method  method,
-                       char                    *arg,
-                       char                   **method_name_ret)
+                       const char              *arg,
+                       enum pa_classify_method *method_name_ret)
 {
-    char *method_name;
+    enum pa_classify_method method_name = method;
     int   success = TRUE;
 
     switch (method) {
 
     case pa_method_equals:
-        method_name = "equals";
         match->method = pa_classify_method_equals;
         match->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_startswith:
-        method_name = "startswidth";
         match->method = pa_classify_method_startswith;
         match->arg.string = pa_xstrdup(arg);
         break;
 
     case pa_method_true:
-        method_name = "true";
         match->method = pa_classify_method_true;
         memset(&match->arg, 0, sizeof(match->arg));
         break;
 
     case pa_method_matches:
-        method_name = "matches";
         if (regcomp(&match->arg.rexp, arg, 0) == 0) {
             match->method = pa_classify_method_matches;
             break;
@@ -641,7 +637,7 @@ static int match_setup(struct pa_policy_match  *match,
 
     default:
         memset(match, 0, sizeof(*match));
-        method_name = "<unknown>";
+        method_name = pa_method_unknown;
         success = FALSE;
         break;
     };
@@ -1001,7 +997,7 @@ static const char *object_type_str(enum pa_policy_object_type type)
 
 static
 struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, struct pa_policy_context *ctx,
-                                                          char *device)
+                                                          const char *device)
 {
     struct pa_policy_activity_variable *var;
     struct pa_policy_activity_variable *last;
@@ -1029,8 +1025,8 @@ struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, st
 }
 
 struct pa_policy_context_rule *
-pa_policy_activity_add_active_rule(struct userdata *u, char *device,
-                                   enum pa_classify_method method, char *sink_name)
+pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
+                                   enum pa_classify_method method, const char *sink_name)
 {
     struct pa_policy_activity_variable *variable;
     struct pa_policy_context_rule      *rule;
@@ -1042,8 +1038,8 @@ pa_policy_activity_add_active_rule(struct userdata *u, char *device,
 }
 
 struct pa_policy_context_rule *
-pa_policy_activity_add_inactive_rule(struct userdata *u, char *device,
-                                     enum pa_classify_method method, char *sink_name)
+pa_policy_activity_add_inactive_rule(struct userdata *u, const char *device,
+                                     enum pa_classify_method method, const char *sink_name)
 {
     struct pa_policy_activity_variable *variable;
     struct pa_policy_context_rule      *rule;
@@ -1144,7 +1140,7 @@ static void disable_activity(struct userdata *u, struct pa_policy_activity_varia
     var->sink_state_changed_hook_slot = NULL;
 }
 
-int pa_policy_activity_device_changed(struct userdata *u, char *device)
+int pa_policy_activity_device_changed(struct userdata *u, const char *device)
 {
     struct pa_policy_activity_variable *var;
     int                                 success = 0;

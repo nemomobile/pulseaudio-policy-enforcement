@@ -26,7 +26,7 @@ struct pa_sink_evsubscr *pa_sink_ext_subscription(struct userdata *);
 void  pa_sink_ext_subscription_free(struct pa_sink_evsubscr *);
 void  pa_sink_ext_discover(struct userdata *);
 struct pa_sink_ext *pa_sink_ext_lookup(struct userdata *, struct pa_sink *);
-char *pa_sink_ext_get_name(struct pa_sink *);
+const char *pa_sink_ext_get_name(struct pa_sink *);
 int pa_sink_ext_set_ports(struct userdata *, const char *);
 void pa_sink_ext_set_volumes(struct userdata *);
 void pa_sink_ext_override_port(struct userdata *, struct pa_sink *, char *);
