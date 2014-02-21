@@ -12,6 +12,7 @@
 #include <pulse/volume.h>
 #include <pulsecore/sink.h>
 #include <pulsecore/sink-input.h>
+#include <pulsecore/core-util.h>
 
 #include "userdata.h"
 #include "index-hash.h"
@@ -94,6 +95,33 @@ void pa_sink_input_ext_discover(struct userdata *u)
 
     while ((sinp = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
         handle_new_sink_input(u, sinp);
+}
+
+void  pa_sink_input_ext_rediscover(struct userdata *u)
+{
+    void                 *state = NULL;
+    pa_idxset            *idxset;
+    struct pa_sink_input *sinp;
+    const char           *group_name;
+    const char           *clear[3] = { PA_PROP_POLICY_GROUP, PA_PROP_POLICY_STREAM_FLAGS, NULL };
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert_se((idxset = u->core->sink_inputs));
+
+    while ((sinp = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
+        group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP);
+        if (!group_name)
+            continue;
+        if (!pa_streq(group_name, "othermedia"))
+            continue;
+
+        pa_log_debug("rediscover sink-input \"%s\"", pa_sink_input_ext_get_name(sinp));
+        /* First remove sink input and then re-classify. */
+        handle_removed_sink_input(u, sinp);
+        pa_proplist_unset_many(sinp->proplist, clear);
+        handle_new_sink_input(u, sinp);
+    }
 }
 
 struct pa_sink_input_ext *pa_sink_input_ext_lookup(struct userdata      *u,
