@@ -357,7 +357,7 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
     }
 
     if ((d = opendir(cfgdir)) == NULL)
-        pa_log("Can't find config directory '%s'", cfgdir);
+        pa_log_info("Can't find config directory '%s'", cfgdir);
     else {
         for (p = cfgdir, q = cfgpath;  (q-cfgpath < PATH_MAX) && *p;   p++,q++)
             *q = *p;
