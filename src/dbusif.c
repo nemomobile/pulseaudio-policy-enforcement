@@ -17,6 +17,7 @@
 #include "sink-ext.h"
 #include "source-ext.h"
 #include "card-ext.h"
+#include "sink-input-ext.h"
 
 #define ADMIN_DBUS_MANAGER          "org.freedesktop.DBus"
 #define ADMIN_DBUS_PATH             "/org/freedesktop/DBus"
@@ -494,6 +495,7 @@ static void handle_info_message(struct userdata *u, DBusMessage *msg)
         else {
             pa_log_debug("register client (%s|%u)", group, pid);
             pa_classify_register_pid(u, (pid_t)pid, prop, method, arg, group);
+            pa_sink_input_ext_rediscover(u);
         }
     }
     else if (!strcmp(oper, "unregister")) {
