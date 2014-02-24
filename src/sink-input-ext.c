@@ -454,7 +454,7 @@ static void handle_new_sink_input(struct userdata      *u,
     struct      pa_sink_input_ext *ext;
     uint32_t    idx;
     const char *sinp_name;
-    uint32_t    flags;
+    uint32_t    flags = 0;
 
     if (sinp && u) {
         idx  = sinp->index;
@@ -468,6 +468,14 @@ static void handle_new_sink_input(struct userdata      *u,
 
         pa_policy_context_register(u, pa_policy_object_sink_input, sinp_name, sinp);
         pa_policy_group_insert_sink_input(u, group->name, sinp, flags);
+
+        /* Proplist overwriting can also mess up the retrieval of
+         * stream-specific flags later on, so we need to store those to the
+         * proplist as well (ugly hack). We could probably cope without this
+         * one though, since the stream-specific flags don't really seem to be
+         * used. */
+        pa_proplist_set(sinp->proplist, PA_PROP_POLICY_STREAM_FLAGS,
+                        (void*)&flags, sizeof(flags));
 
         pa_log_debug("new sink_input %s (idx=%u) (group=%s)", sinp_name, idx, group->name);
     }
