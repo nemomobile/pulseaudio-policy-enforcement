@@ -486,9 +486,16 @@ static const char *find_group_for_client(struct userdata  *u,
     hash = classify->streams.pid_hash;
     defs = &classify->streams.defs;
 
-    if (client == NULL)
+    if (client == NULL) {
+        /* sample cache initiated sink-inputs don't have a client, but sample's proplist
+         * contains PA_PROP_APPLICATION_PROCESS_BINARY anyway. Try to get this value
+         * from proplist. This allows using 'exe' matching in stream definitions in xpolicy.conf
+         * for sample cache initiated streams as well. */
+        if (!(exe = pa_proplist_gets(proplist, PA_PROP_APPLICATION_PROCESS_BINARY)))
+            exe = "";
+
         group = streams_get_group(defs, proplist, clnam, uid, exe, &flags);
-    else {
+    } else {
         pid = pa_client_ext_pid(client);
 
         if ((group = pid_hash_get_group(hash, pid, proplist)) == NULL) {
