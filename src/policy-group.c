@@ -48,7 +48,7 @@ static int volset_group(struct userdata *, struct pa_policy_group *,
 static int mute_group_by_route(struct pa_policy_group *,
                                int, struct pa_null_sink *);
 static int mute_group_locally(struct userdata *, struct pa_policy_group *,int);
-static int cork_group(struct pa_policy_group *, int);
+static int cork_group(struct userdata *u, struct pa_policy_group *, int);
 
 static struct pa_policy_group *group_scan(struct pa_policy_groupset *,
                                           struct cursor *);
@@ -530,13 +530,8 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
 
 
             if (group->flags & PA_POLICY_GROUP_FLAG_CORK_STREAM) {
-                if (group->corked) {
-                    pa_log_debug("stream '%s'/'%s' %scorked",
-                                 group->name, sinp_name,
-                                 group->corked ? "" : "un");
-                    
-                    pa_sink_input_cork(si, group->corked);
-                }
+                if (pa_sink_input_ext_cork(u, si, group->corked))
+                    pa_log_debug("stream '%s'/'%s' %scorked", group->name, sinp_name, group->corked ? "" : "un");
             }
 
             if (local_mute) {
@@ -903,7 +898,7 @@ int pa_policy_group_cork(struct userdata *u, const char *name, int corked)
         if (!(grp->flags & PA_POLICY_GROUP_FLAG_CORK_STREAM))
             ret = 0;
         else
-            ret = cork_group(grp, corked);
+            ret = cork_group(u, grp, corked);
     }
 
     return ret;
@@ -1342,10 +1337,11 @@ static int mute_group_locally(struct userdata        *u,
 }
 
 
-static int cork_group(struct pa_policy_group *group, int corked)
+static int cork_group(struct userdata *u, struct pa_policy_group *group, int corked)
 {
     struct pa_sink_input_list *sl;
     struct pa_sink_input *sinp;
+    pa_bool_t changed;
 
 
     if (corked == group->corked) {
@@ -1357,12 +1353,13 @@ static int cork_group(struct pa_policy_group *group, int corked)
 
         for (sl = group->sinpls;    sl;   sl = sl->next) {
             sinp = sl->sink_input;
-            
-            pa_sink_input_cork(sinp, corked);
-            
-            pa_log_debug("sink input '%s' %s",
-                         pa_sink_input_ext_get_name(sinp),
-                         corked ? "corked" : "uncorked");
+
+            changed = pa_sink_input_ext_cork(u, sinp, corked);
+
+            if (changed)
+                pa_log_debug("sink input '%s' %s",
+                             pa_sink_input_ext_get_name(sinp),
+                             corked ? "corked" : "uncorked");
         }
     }
 

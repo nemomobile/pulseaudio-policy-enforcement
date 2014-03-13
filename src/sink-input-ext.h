@@ -17,12 +17,15 @@ struct pa_sinp_evsubscr {
     pa_hook_slot    *fixate;
     pa_hook_slot    *put;
     pa_hook_slot    *unlink;
+    pa_hook_slot    *state;
 };
 
 struct pa_sink_input_ext {
     struct {
         int route;
         int mute;
+        pa_bool_t corked_by_client;
+        pa_bool_t ignore_state_change;
     }                local;     /* local policies */
 };
 
@@ -37,6 +40,7 @@ int   pa_sink_input_ext_set_policy_group(struct pa_sink_input *, const char *);
 const char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *);
 const char *pa_sink_input_ext_get_name(struct pa_sink_input *);
 int   pa_sink_input_ext_set_volume_limit(struct pa_sink_input *, pa_volume_t);
+pa_bool_t pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, pa_bool_t cork);
 
 #endif
 
