@@ -222,7 +222,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 
     pa_log_info("parsing config file '%s'", path);
 
-    success = TRUE;                    /* assume successful operation */
+    success = true;                    /* assume successful operation */
 
     memset(&section, 0, sizeof(section));
 
@@ -235,12 +235,12 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 
         if (section_header(lineno, line, &newsect)) {
             if (section_close(u, &section) < 0)
-                success = FALSE;
+                success = false;
 
             section.type = newsect;
 
             if (section_open(u, newsect, &section) < 0)
-                success = FALSE;
+                success = false;
         }
         else {
             switch (section.type) {
@@ -249,7 +249,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 grdef = section.def.group;
 
                 if (groupdef_parse(lineno, line, grdef) < 0)
-                    success = FALSE;
+                    success = false;
 
                 break;
 
@@ -257,7 +257,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 devdef = section.def.device;
 
                 if (devicedef_parse(lineno, line, devdef) < 0)
-                    success = FALSE;
+                    success = false;
 
                 break;
 
@@ -265,7 +265,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 carddef = section.def.card;
 
                 if (carddef_parse(lineno, line, carddef) < 0)
-                    success = FALSE;
+                    success = false;
 
                 break;
 
@@ -273,7 +273,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 strdef = section.def.stream;
 
                 if (streamdef_parse(lineno, line, strdef) < 0)
-                    success = FALSE;
+                    success = false;
                 
                 break;
 
@@ -281,7 +281,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 ctxdef = section.def.context;
 
                 if (contextdef_parse(lineno, line, ctxdef) < 0)
-                    success = FALSE;
+                    success = false;
 
                 break;
 
@@ -289,7 +289,7 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
                 actdef = section.def.activity;
 
                 if (activitydef_parse(lineno, line, actdef) < 0)
-                    success = FALSE;
+                    success = false;
 
                 break;
 
@@ -447,7 +447,7 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
     pa_xfree(overrides);
 
 
-    return TRUE;
+    return true;
 }
 
 static int preprocess_buffer(int lineno, char *inbuf, char *outbuf)
@@ -1597,12 +1597,12 @@ static int flags_parse(int lineno, char  *flagdef,
 
     flags = 0;
 
-    device = card = stream = FALSE;
+    device = card = stream = false;
 
     switch (sectn) {
-    case section_device:   device = TRUE;   break;
-    case section_card:     card   = TRUE;   break;
-    case section_stream:   stream = TRUE;   break;
+    case section_device:   device = true;   break;
+    case section_card:     card   = true;   break;
+    case section_stream:   stream = true;   break;
     default:                                break;
     }
 

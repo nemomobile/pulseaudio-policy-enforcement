@@ -153,14 +153,14 @@ static int hash_add(struct pa_module *module)
         if (hash_table[hidx].module == NULL) {
             hash_table[hidx].index  = module->index;
             hash_table[hidx].module = module;
-            return TRUE;
+            return true;
         }
 
         if (hash_table[hidx].module == module)
             break;
     }
 
-    return FALSE;
+    return false;
 }
 
 static int hash_delete(unsigned long index)
@@ -173,13 +173,13 @@ static int hash_delete(unsigned long index)
         if (hash_table[hidx].index == index) {
             hash_table[hidx].index  = 0;
             hash_table[hidx].module = NULL;
-            return TRUE;
+            return true;
         }
 
         hidx = HASH_INDEX_NEXT(hidx);
     }
 
-    return FALSE;
+    return false;
 }
 
 

@@ -152,7 +152,7 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
         cn = pa_card_ext_get_name(card);
 
         if (pn && (!ap || strcmp(pn, ap->name))) {
-            if (pa_card_set_profile(card, pn, FALSE) < 0) {
+            if (pa_card_set_profile(card, pn, false) < 0) {
                 sts = -1;
                 pa_log("failed to set card '%s' profile to '%s'", cn, pn);
             }

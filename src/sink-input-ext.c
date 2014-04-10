@@ -217,9 +217,9 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
     retval = 0;
 
     if (limit == 0)
-        pa_sink_input_set_mute(sinp, TRUE, TRUE);
+        pa_sink_input_set_mute(sinp, true, true);
     else {
-        pa_sink_input_set_mute(sinp, FALSE, TRUE);
+        pa_sink_input_set_mute(sinp, false, true);
 
         if (limit > PA_VOLUME_NORM)
             limit = PA_VOLUME_NORM;
@@ -227,7 +227,7 @@ int pa_sink_input_ext_set_volume_limit(struct pa_sink_input *sinp,
         factor  = &sinp->volume_factor;
         real    = &sinp->real_ratio;
         limit64 = (uint64_t)limit * (uint64_t)PA_VOLUME_NORM;
-        changed = FALSE;
+        changed = false;
 
         if (real->channels != factor->channels) {
             pa_log_debug("channel number mismatch");
@@ -352,8 +352,8 @@ static pa_hook_result_t sink_input_neew(void *hook_data, void *call_data,
                 pa_cvolume_set(&data->volume, data->channel_map.channels,
                                max_volume);
 
-                data->volume_is_set      = TRUE;
-                data->save_volume        = FALSE;
+                data->volume_is_set      = true;
+                data->save_volume        = false;
             }
         }
 
@@ -473,8 +473,8 @@ static void handle_new_sink_input(struct userdata      *u,
         pa_assert_se((group = get_group_or_classify(u, sinp, &flags)));
 
         ext = pa_xmalloc0(sizeof(struct pa_sink_input_ext));
-        ext->local.route = (flags & PA_POLICY_LOCAL_ROUTE) ? TRUE : FALSE;
-        ext->local.mute  = (flags & PA_POLICY_LOCAL_MUTE ) ? TRUE : FALSE;
+        ext->local.route = (flags & PA_POLICY_LOCAL_ROUTE) ? true : false;
+        ext->local.mute  = (flags & PA_POLICY_LOCAL_MUTE ) ? true : false;
         if (preserve_corked_by_client)
             ext->local.corked_by_client = *preserve_corked_by_client;
         else
@@ -496,10 +496,10 @@ static void handle_new_sink_input(struct userdata      *u,
     }
 }
 
-pa_bool_t pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, pa_bool_t cork)
+bool pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, bool cork)
 {
     struct pa_sink_input_ext *ext;
-    pa_bool_t sink_input_corking_changed = FALSE;
+    bool sink_input_corking_changed = false;
 
     pa_assert(si);
     pa_assert(u);
@@ -517,18 +517,18 @@ pa_bool_t pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, pa_bool_
 
     if (cork) {
         if (!ext->local.corked_by_client) {
-            ext->local.ignore_state_change = TRUE;
+            ext->local.ignore_state_change = true;
             pa_log_debug("sink input wasn't already corked by client -> cork");
-            pa_sink_input_cork(si, TRUE);
-            sink_input_corking_changed = TRUE;
+            pa_sink_input_cork(si, true);
+            sink_input_corking_changed = true;
         } else
             pa_log_debug("sink input was already corked by client -> not corking");
     } else {
         if (!ext->local.corked_by_client) {
-            ext->local.ignore_state_change = TRUE;
+            ext->local.ignore_state_change = true;
             pa_log_debug("sink input wasn't already corked by client -> uncork");
-            pa_sink_input_cork(si, FALSE);
-            sink_input_corking_changed = TRUE;
+            pa_sink_input_cork(si, false);
+            sink_input_corking_changed = true;
         } else
             pa_log_debug("sink input was already corked by client -> not uncorking");
     }
@@ -539,7 +539,7 @@ pa_bool_t pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, pa_bool_
 static pa_hook_result_t sink_input_state_changed(pa_core *c, pa_sink_input *sinp, struct userdata *u)
 {
     struct pa_sink_input_ext *ext;
-    pa_bool_t corked_by_client;
+    bool corked_by_client;
 
     pa_assert(c);
     pa_assert(sinp);
@@ -551,10 +551,10 @@ static pa_hook_result_t sink_input_state_changed(pa_core *c, pa_sink_input *sinp
         return PA_HOOK_OK;
     }
 
-    ext->local.ignore_state_change = FALSE;
+    ext->local.ignore_state_change = false;
     corked_by_client = PA_SINK_INPUT_CORKED == pa_sink_input_get_state(sinp);
     if (corked_by_client != ext->local.corked_by_client) {
-        pa_log_debug("corked_by_client changes to %s", corked_by_client ? "TRUE" : "FALSE");
+        pa_log_debug("corked_by_client changes to %s", corked_by_client ? "true" : "false");
         ext->local.corked_by_client = corked_by_client;
     }
 

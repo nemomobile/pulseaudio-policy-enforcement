@@ -369,7 +369,7 @@ int pa_classify_is_sink_typeof(struct userdata *u, struct pa_sink *sink,
     pa_assert_se((defs = classify->sinks->defs));
 
     if (!sink || !type)
-        return FALSE;
+        return false;
 
     name = pa_sink_ext_get_name(sink);
 
@@ -391,7 +391,7 @@ int pa_classify_is_source_typeof(struct userdata *u, struct pa_source *source,
     pa_assert_se((defs = classify->sources->defs));
 
     if (!source || !type)
-        return FALSE;
+        return false;
 
     name = pa_source_ext_get_name(source);
 
@@ -412,7 +412,7 @@ int pa_classify_is_card_typeof(struct userdata *u, struct pa_card *card,
     pa_assert_se((defs = classify->cards->defs));
 
     if (!card || !type)
-        return FALSE;
+        return false;
 
     name = pa_card_ext_get_name(card);
 
@@ -434,7 +434,7 @@ int pa_classify_is_port_sink_typeof(struct userdata *u, struct pa_sink *sink,
     pa_assert_se((defs = classify->sinks->defs));
 
     if (!sink || !type)
-        return FALSE;
+        return false;
 
     name = pa_sink_ext_get_name(sink);
 
@@ -457,7 +457,7 @@ int pa_classify_is_port_source_typeof(struct userdata *u,
     pa_assert_se((defs = classify->sources->defs));
 
     if (!source || !type)
-        return FALSE;
+        return false;
 
     name = pa_source_ext_get_name(source);
 
@@ -997,7 +997,7 @@ static void devices_add(struct pa_classify_device **p_devices, const char *type,
     if (ports && !pa_hashmap_isempty(ports)) {
         struct pa_classify_port_entry *port;
         void *state;
-        pa_bool_t first = TRUE;
+        bool first = true;
 
         /* Copy the ports hashmap to d->data.ports. */
 
@@ -1015,7 +1015,7 @@ static void devices_add(struct pa_classify_device **p_devices, const char *type,
             if (!first) {
                 pa_strbuf_putc(buf, ',');
             }
-            first = FALSE;
+            first = false;
 
             pa_strbuf_printf(buf, "%s:%s", port->device_name, port->port_name);
         }
@@ -1117,12 +1117,12 @@ static int devices_is_typeof(struct pa_classify_device_def *defs,
                 if (data != NULL)
                     *data = &d->data;
 
-                return TRUE;
+                return true;
             }
         }
     }
 
-    return FALSE;
+    return false;
 }
 
 static void cards_free(struct pa_classify_card *cards)
@@ -1248,11 +1248,11 @@ static int cards_classify(struct pa_classify_card_def *defs,
 
             if (data->method(name, &data->arg)) {
                 if (data->profile == NULL)
-                    supports_profile = TRUE;
+                    supports_profile = true;
                 else {
-                    for (j = 0, supports_profile = FALSE;    profiles[j];    j++) {
+                    for (j = 0, supports_profile = false;    profiles[j];    j++) {
                         if (!strcmp(data->profile, profiles[j])) {
-                            supports_profile  = TRUE;
+                            supports_profile  = true;
                             break;
                         }
                     }
@@ -1296,13 +1296,13 @@ static int card_is_typeof(struct pa_classify_card_def *defs, const char *name,
                     if (priority != NULL)
                         *priority = i;
 
-                    return TRUE;
+                    return true;
                 }
             }
         }
     }
 
-    return FALSE;
+    return false;
 }
 
 static int port_device_is_typeof(struct pa_classify_device_def *defs,
@@ -1317,12 +1317,12 @@ static int port_device_is_typeof(struct pa_classify_device_def *defs,
                 if (data != NULL)
                     *data = &d->data;
 
-                return TRUE;
+                return true;
             }
         }
     }
 
-    return FALSE;
+    return false;
 }
 
 const char *get_property(const char *propname, pa_proplist *proplist, const char *name)
@@ -1359,7 +1359,7 @@ int pa_classify_method_equals(const char *string,
     int found;
 
     if (!string || !arg || !arg->string)
-        found = FALSE;
+        found = false;
     else
         found = !strcmp(string, arg->string);
 
@@ -1372,7 +1372,7 @@ int pa_classify_method_startswith(const char *string,
     int found;
 
     if (!string || !arg || !arg->string)
-        found = FALSE;
+        found = false;
     else
         found = !strncmp(string, arg->string, strlen(arg->string));
 
@@ -1388,14 +1388,14 @@ int pa_classify_method_matches(const char *string,
     regoff_t   end;
     int        found;
     
-    found = FALSE;
+    found = false;
 
     if (string && arg) {
         if (regexec(&arg->rexp, string, MAX_MATCH, m, 0) == 0) {
             end = strlen(string);
 
             if (m[0].rm_so == 0 && m[0].rm_eo == end && m[1].rm_so == -1)
-                found = TRUE;
+                found = true;
         }  
     }
 
@@ -1411,7 +1411,7 @@ int pa_classify_method_true(const char *string,
     (void)string;
     (void)arg;
 
-    return TRUE;
+    return true;
 }
 
 static const char *method_str(enum pa_classify_method method)
