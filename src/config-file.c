@@ -635,7 +635,7 @@ static int section_close(struct userdata *u, struct section *sec)
             }
 
             if (devdef->ports)
-                pa_hashmap_free(devdef->ports, (pa_free_cb_t) pa_classify_port_entry_free);
+                pa_hashmap_free(devdef->ports);
 
             pa_xfree(devdef->type);
             pa_xfree(devdef->prop);
@@ -1245,11 +1245,13 @@ static int ports_parse(int lineno, const char *portsdef,
         pa_log("Duplicate ports= line in line %d, using the last "
                "occurrence.", lineno);
 
-        pa_hashmap_free(devdef->ports, (pa_free_cb_t) pa_classify_port_entry_free);
+        pa_hashmap_free(devdef->ports);
     }
 
-    devdef->ports = pa_hashmap_new(pa_idxset_string_hash_func,
-                                   pa_idxset_string_compare_func);
+    devdef->ports = pa_hashmap_new_full(pa_idxset_string_hash_func,
+                                        pa_idxset_string_compare_func,
+                                        NULL,
+                                        (pa_free_cb_t) pa_classify_port_entry_free);
 
     if ((entries = split_strv(portsdef, ","))) {
         char *entry; /* This string has format "sinkname:portname". */

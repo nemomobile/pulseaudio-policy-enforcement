@@ -955,7 +955,7 @@ static void devices_free(struct pa_classify_device *devices)
             pa_xfree((void *)d->type);
 
             if (d->data.ports)
-                pa_hashmap_free(d->data.ports, (pa_free_cb_t) pa_classify_port_entry_free);
+                pa_hashmap_free(d->data.ports);
 
             if (d->method == pa_classify_method_matches)
                 regfree(&d->arg.rexp);
@@ -1001,8 +1001,10 @@ static void devices_add(struct pa_classify_device **p_devices, const char *type,
 
         /* Copy the ports hashmap to d->data.ports. */
 
-        d->data.ports = pa_hashmap_new(pa_idxset_string_hash_func,
-                                       pa_idxset_string_compare_func);
+        d->data.ports = pa_hashmap_new_full(pa_idxset_string_hash_func,
+                                            pa_idxset_string_compare_func,
+                                            NULL,
+                                            (pa_free_cb_t) pa_classify_port_entry_free);
         PA_HASHMAP_FOREACH(port, ports, state) {
             struct pa_classify_port_entry *port_copy =
                 pa_xnew(struct pa_classify_port_entry, 1);
