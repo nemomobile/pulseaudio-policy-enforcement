@@ -12,6 +12,7 @@
 #include <pulse/volume.h>
 #include <pulsecore/sink.h>
 #include <pulsecore/sink-input.h>
+#include <pulsecore/core-util.h>
 
 #include "userdata.h"
 #include "index-hash.h"
@@ -26,10 +27,11 @@ static pa_hook_result_t sink_input_neew(void *, void *, void *);
 static pa_hook_result_t sink_input_fixate(void *, void *, void *);
 static pa_hook_result_t sink_input_put(void *, void *, void *);
 static pa_hook_result_t sink_input_unlink(void *, void *, void *);
+static pa_hook_result_t sink_input_state_changed(pa_core *c, pa_sink_input *si, struct userdata *u);
 
 static struct pa_policy_group* get_group(struct userdata *, const char *, pa_proplist *sinp_proplist, uint32_t *);
 static struct pa_policy_group* get_group_or_classify(struct userdata *, struct pa_sink_input *, uint32_t *);
-static void handle_new_sink_input(struct userdata *, struct pa_sink_input *);
+static void handle_new_sink_input(struct userdata *, struct pa_sink_input *, int *);
 static void handle_sink_input_fixate(struct userdata *u, pa_sink_input_new_data *sinp_data);
 static void handle_removed_sink_input(struct userdata *,
                                       struct pa_sink_input *);
@@ -43,7 +45,7 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
     pa_hook_slot            *fixate;
     pa_hook_slot            *put;
     pa_hook_slot            *unlink;
-    
+
     pa_assert(u);
     pa_assert_se((core = u->core));
 
@@ -66,6 +68,10 @@ struct pa_sinp_evsubscr *pa_sink_input_ext_subscription(struct userdata *u)
     subscr->fixate = fixate;
     subscr->put    = put;
     subscr->unlink = unlink;
+    /* state hook is dynamically set when corking is done for the first time.
+     * This way if corking is never used, we don't need to set up the state
+     * hook. */
+    subscr->state  = NULL;
 
     return subscr;
 }
@@ -77,7 +83,8 @@ void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *subscr)
         pa_hook_slot_free(subscr->fixate);
         pa_hook_slot_free(subscr->put);
         pa_hook_slot_free(subscr->unlink);
-        
+        pa_hook_slot_free(subscr->state);
+
         pa_xfree(subscr);
     }
 }
@@ -93,7 +100,38 @@ void pa_sink_input_ext_discover(struct userdata *u)
     pa_assert_se((idxset = u->core->sink_inputs));
 
     while ((sinp = pa_idxset_iterate(idxset, &state, NULL)) != NULL)
-        handle_new_sink_input(u, sinp);
+        handle_new_sink_input(u, sinp, NULL);
+}
+
+void  pa_sink_input_ext_rediscover(struct userdata *u)
+{
+    void                 *state = NULL;
+    pa_idxset            *idxset;
+    struct pa_sink_input *sinp;
+    struct pa_sink_input_ext *ext;
+    int                   old_corked_state;
+    const char           *group_name;
+    const char           *clear[3] = { PA_PROP_POLICY_GROUP, PA_PROP_POLICY_STREAM_FLAGS, NULL };
+
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert_se((idxset = u->core->sink_inputs));
+
+    while ((sinp = pa_idxset_iterate(idxset, &state, NULL)) != NULL) {
+        group_name = pa_proplist_gets(sinp->proplist, PA_PROP_POLICY_GROUP);
+        if (!group_name)
+            continue;
+        if (!pa_streq(group_name, "othermedia"))
+            continue;
+
+        pa_log_debug("rediscover sink-input \"%s\"", pa_sink_input_ext_get_name(sinp));
+        pa_assert_se((ext = pa_sink_input_ext_lookup(u, sinp)));
+        old_corked_state = ext->local.corked_by_client;
+        /* First remove sink input and then re-classify. */
+        handle_removed_sink_input(u, sinp);
+        pa_proplist_unset_many(sinp->proplist, clear);
+        handle_new_sink_input(u, sinp, &old_corked_state);
+    }
 }
 
 struct pa_sink_input_ext *pa_sink_input_ext_lookup(struct userdata      *u,
@@ -332,7 +370,7 @@ static pa_hook_result_t sink_input_put(void *hook_data, void *call_data,
     struct pa_sink_input *sinp = (struct pa_sink_input *)call_data;
     struct userdata      *u    = (struct userdata *)slot_data;
 
-    handle_new_sink_input(u, sinp);
+    handle_new_sink_input(u, sinp, NULL);
 
     return PA_HOOK_OK;
 }
@@ -420,13 +458,14 @@ static struct pa_policy_group* get_group_or_classify(struct userdata *u, struct 
 }
 
 static void handle_new_sink_input(struct userdata      *u,
-                                  struct pa_sink_input *sinp)
+                                  struct pa_sink_input *sinp,
+                                  int *preserve_corked_by_client)
 {
     struct      pa_policy_group *group = NULL;
     struct      pa_sink_input_ext *ext;
     uint32_t    idx;
     const char *sinp_name;
-    uint32_t    flags;
+    uint32_t    flags = 0;
 
     if (sinp && u) {
         idx  = sinp->index;
@@ -436,13 +475,90 @@ static void handle_new_sink_input(struct userdata      *u,
         ext = pa_xmalloc0(sizeof(struct pa_sink_input_ext));
         ext->local.route = (flags & PA_POLICY_LOCAL_ROUTE) ? TRUE : FALSE;
         ext->local.mute  = (flags & PA_POLICY_LOCAL_MUTE ) ? TRUE : FALSE;
+        if (preserve_corked_by_client)
+            ext->local.corked_by_client = *preserve_corked_by_client;
+        else
+            ext->local.corked_by_client = PA_SINK_INPUT_CORKED == pa_sink_input_get_state(sinp);
         pa_index_hash_add(u->hsi, idx, ext);
 
         pa_policy_context_register(u, pa_policy_object_sink_input, sinp_name, sinp);
         pa_policy_group_insert_sink_input(u, group->name, sinp, flags);
 
+        /* Proplist overwriting can also mess up the retrieval of
+         * stream-specific flags later on, so we need to store those to the
+         * proplist as well (ugly hack). We could probably cope without this
+         * one though, since the stream-specific flags don't really seem to be
+         * used. */
+        pa_proplist_set(sinp->proplist, PA_PROP_POLICY_STREAM_FLAGS,
+                        (void*)&flags, sizeof(flags));
+
         pa_log_debug("new sink_input %s (idx=%u) (group=%s)", sinp_name, idx, group->name);
     }
+}
+
+pa_bool_t pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, pa_bool_t cork)
+{
+    struct pa_sink_input_ext *ext;
+    pa_bool_t sink_input_corking_changed = FALSE;
+
+    pa_assert(si);
+    pa_assert(u);
+    pa_assert(u->core);
+    pa_assert(u->ssi);
+
+    pa_assert_se((ext = pa_sink_input_ext_lookup(u, si)));
+
+    if (!u->ssi->state) {
+        /* Check current sink input state and enable corking state following. */
+        u->ssi->state = pa_hook_connect(&u->core->hooks[PA_CORE_HOOK_SINK_INPUT_STATE_CHANGED],
+                                        PA_HOOK_EARLY, (pa_hook_cb_t) sink_input_state_changed, (void *) u);
+        ext->local.corked_by_client = PA_SINK_INPUT_CORKED == pa_sink_input_get_state(si);
+    }
+
+    if (cork) {
+        if (!ext->local.corked_by_client) {
+            ext->local.ignore_state_change = TRUE;
+            pa_log_debug("sink input wasn't already corked by client -> cork");
+            pa_sink_input_cork(si, TRUE);
+            sink_input_corking_changed = TRUE;
+        } else
+            pa_log_debug("sink input was already corked by client -> not corking");
+    } else {
+        if (!ext->local.corked_by_client) {
+            ext->local.ignore_state_change = TRUE;
+            pa_log_debug("sink input wasn't already corked by client -> uncork");
+            pa_sink_input_cork(si, FALSE);
+            sink_input_corking_changed = TRUE;
+        } else
+            pa_log_debug("sink input was already corked by client -> not uncorking");
+    }
+
+    return sink_input_corking_changed;
+}
+
+static pa_hook_result_t sink_input_state_changed(pa_core *c, pa_sink_input *sinp, struct userdata *u)
+{
+    struct pa_sink_input_ext *ext;
+    pa_bool_t corked_by_client;
+
+    pa_assert(c);
+    pa_assert(sinp);
+    pa_assert(u);
+
+    pa_assert_se((ext = pa_sink_input_ext_lookup(u, sinp)));
+    if (ext->local.ignore_state_change) {
+        pa_log_debug("local state change -> IGNORE");
+        return PA_HOOK_OK;
+    }
+
+    ext->local.ignore_state_change = FALSE;
+    corked_by_client = PA_SINK_INPUT_CORKED == pa_sink_input_get_state(sinp);
+    if (corked_by_client != ext->local.corked_by_client) {
+        pa_log_debug("corked_by_client changes to %s", corked_by_client ? "TRUE" : "FALSE");
+        ext->local.corked_by_client = corked_by_client;
+    }
+
+    return PA_HOOK_OK;
 }
 
 static void handle_sink_input_fixate(struct userdata *u,

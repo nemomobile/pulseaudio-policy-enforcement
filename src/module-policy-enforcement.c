@@ -133,12 +133,18 @@ int pa__init(pa_module *m) {
         goto fail;
 
     pa_policy_groupset_update_default_sink(u, PA_IDXSET_INVALID);
-    pa_policy_groupset_create_default_group(u, preempt);
 
     if (!pa_policy_parse_config_file(u, cfgfile) ||
         !pa_policy_parse_files_in_configdir(u, cfgdir))
         goto fail;
-    
+
+    if (pa_policy_group_find(u, PA_POLICY_DEFAULT_GROUP_NAME) == NULL) {
+        pa_log_debug("default group '%s' not defined, generating default group.", PA_POLICY_DEFAULT_GROUP_NAME);
+        pa_policy_groupset_create_default_group(u, preempt);
+    } else {
+        pa_log_debug("default group '%s' defined in configuration.", PA_POLICY_DEFAULT_GROUP_NAME);
+    }
+
     pa_sink_ext_discover(u);
     pa_source_ext_discover(u);
     pa_client_ext_discover(u);
