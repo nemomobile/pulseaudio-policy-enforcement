@@ -124,13 +124,13 @@ const char *pa_sink_ext_get_name(struct pa_sink *sink)
 struct delayed_port_change {
     char *sink_name;
     char *port_name;
-    pa_bool_t refresh;
+    bool refresh;
 };
 
 static struct delayed_port_change change_list[8];
 static int change_list_size = 0;
 
-static int set_port(pa_sink *sink, const char *port, pa_bool_t refresh);
+static int set_port(pa_sink *sink, const char *port, bool refresh);
 
 static void delay_cb(pa_mainloop_api *m, pa_time_event *e, const struct timeval *t, void *userdata) {
     struct userdata *u = userdata;
@@ -177,7 +177,7 @@ static void set_port_start(struct userdata *u) {
     }
 }
 
-static int set_port(pa_sink *sink, const char *port, pa_bool_t refresh) {
+static int set_port(pa_sink *sink, const char *port, bool refresh) {
     int ret = 0;
 
     if (refresh) {
@@ -187,7 +187,7 @@ static int set_port(pa_sink *sink, const char *port, pa_bool_t refresh) {
             sink->set_port(sink, sink->active_port);
         }
     } else {
-        if (pa_sink_set_port(sink, port, FALSE) < 0) {
+        if (pa_sink_set_port(sink, port, false) < 0) {
             ret = -1;
             pa_log("failed to set sink '%s' port to '%s'",
                    sink->name, port);
@@ -201,7 +201,7 @@ static int set_port(pa_sink *sink, const char *port, pa_bool_t refresh) {
     return ret;
 }
 
-static int set_port_add(struct userdata *u, pa_sink *sink, const char *port, pa_bool_t delay, pa_bool_t refresh) {
+static int set_port_add(struct userdata *u, pa_sink *sink, const char *port, bool delay, bool refresh) {
     int ret = 0;
 
     pa_assert(u);
@@ -263,13 +263,13 @@ int pa_sink_ext_set_ports(struct userdata *u, const char *type)
 
             if (!sink->active_port || !pa_streq(port,sink->active_port->name)){
                 if (!ext->overridden_port) {
-                    ret = set_port_add(u, sink, port, data->flags & PA_POLICY_DELAYED_PORT_CHANGE, FALSE);
+                    ret = set_port_add(u, sink, port, data->flags & PA_POLICY_DELAYED_PORT_CHANGE, false);
                 }
                 continue;
             }
 
             if ((data->flags & PA_POLICY_REFRESH_PORT_ALWAYS) && !ext->overridden_port) {
-                ret = set_port_add(u, sink, port, data->flags & PA_POLICY_DELAYED_PORT_CHANGE, TRUE);
+                ret = set_port_add(u, sink, port, data->flags & PA_POLICY_DELAYED_PORT_CHANGE, true);
                 continue;
             }
 
@@ -297,8 +297,8 @@ void pa_sink_ext_set_volumes(struct userdata *u)
 
         if (ext->need_volume_setting) {
             pa_log_debug("set sink '%s' volume", pa_sink_ext_get_name(sink));
-            pa_sink_set_volume(sink, NULL, TRUE, FALSE);
-            ext->need_volume_setting = FALSE;
+            pa_sink_set_volume(sink, NULL, true, false);
+            ext->need_volume_setting = false;
         }
     }
 }
@@ -335,7 +335,7 @@ void pa_sink_ext_override_port(struct userdata *u, struct pa_sink *sink,
         ext->overridden_port = pa_xstrdup(active_port);
 
         if (strcmp(port, active_port)) {
-            if (pa_sink_set_port(sink, port, FALSE) < 0)
+            if (pa_sink_set_port(sink, port, false) < 0)
                 pa_log("failed to override sink '%s' port to '%s'", name,port);
             else
                 pa_log_debug("overrode sink '%s' port to '%s'", name, port);
@@ -368,7 +368,7 @@ void pa_sink_ext_restore_port(struct userdata *u, struct pa_sink *sink)
 
     if (overridden_port) {
         if (strcmp(overridden_port, active_port)) {
-            if (pa_sink_set_port(sink, overridden_port, FALSE) < 0) {
+            if (pa_sink_set_port(sink, overridden_port, false) < 0) {
                 pa_log("failed to restore sink '%s' port to '%s'",
                        name, overridden_port);
             }
@@ -425,12 +425,12 @@ static void handle_new_sink(struct userdata *u, struct pa_sink *sink)
         ns   = u->nullsink;
 
         if (strcmp(name, ns->name))
-            is_null_sink = FALSE;
+            is_null_sink = false;
         else {
             ns->sink = sink;
             pa_log_debug("new sink '%s' (idx=%d) will be used to "
                          "mute-by-route", name, idx);
-            is_null_sink = TRUE;
+            is_null_sink = true;
         }
 
         pa_policy_context_register(u, pa_policy_object_sink, name, sink);

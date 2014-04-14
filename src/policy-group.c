@@ -72,7 +72,7 @@ struct pa_policy_groupset *pa_policy_groupset_new(struct userdata *u)
     pa_assert(u);
 
     if (!initialized) {
-        initialized = TRUE;
+        initialized = true;
 
         for (i = 0;   i < (sizeof(dbtbl) / sizeof(dbtbl[0]));  i++) {
             dB = -(double)i;
@@ -513,7 +513,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
                 pa_log_debug("move sink input '%s' to sink '%s'",
                              sinp_name, ns->name);
 
-                pa_sink_input_move_to(si, ns->sink, TRUE);
+                pa_sink_input_move_to(si, ns->sink, true);
             }
             else if (group->flags & route_flags) {
                 static_route = ((group->flags & route_flags) == setsink_flag);
@@ -521,7 +521,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
                 pa_log_debug("move stream '%s'/'%s' to sink '%s'",
                              group->name, sinp_name, sink_name);
 
-                pa_sink_input_move_to(si, group->sink, TRUE);
+                pa_sink_input_move_to(si, group->sink, true);
 
                 if (local_route && group->portname && static_route) {
                     pa_sink_ext_override_port(u, group->sink, group->portname);
@@ -662,7 +662,7 @@ void pa_policy_group_insert_source_output(struct userdata         *u,
                 pa_log_debug("move source output '%s' to source '%s'",
                              sout_name, src_name);
 
-                pa_source_output_move_to(so, group->source, TRUE);
+                pa_source_output_move_to(so, group->source, true);
             }
         }
 
@@ -744,7 +744,7 @@ int pa_policy_group_move_to(struct userdata *u, const char *name,
                                                  PA_SUBSCRIPTION_EVENT_CHANGE;
     struct pa_policy_group   *grp;
     struct target             target;
-    pa_bool_t                 target_is_sink = FALSE;
+    bool                 target_is_sink = false;
     int                       ret = -1;
     struct cursor             cursor = { .idx = 0, .grp = NULL, };
 
@@ -758,12 +758,12 @@ int pa_policy_group_move_to(struct userdata *u, const char *name,
         
     case pa_policy_route_to_sink:
         target.sink = find_sink_by_type(u, type);
-        target_is_sink = TRUE;
+        target_is_sink = true;
         break;
 
     case pa_policy_route_to_source:
         target.source = find_source_by_type(u, type);
-        target_is_sink = FALSE;
+        target_is_sink = false;
         break;
 
     default:
@@ -939,7 +939,7 @@ int pa_policy_group_volume_limit(struct userdata *u, const char *name,
                 if (ns->sink == NULL)
                     ret = volset_group(u, group, percent);
                 else {
-                    mute = percent > 0 ? FALSE : TRUE;
+                    mute = percent > 0 ? false : true;
                     ret  = mute_group_by_route(group, mute, ns); 
                     
                     if (!mute)
@@ -1019,7 +1019,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 
                     if (!sinp->sink) {
                         pa_assert(group->num_moving > 0);
-                        if (pa_sink_input_finish_move(sinp, sink, TRUE) >= 0)
+                        if (pa_sink_input_finish_move(sinp, sink, true) >= 0)
                             group->num_moving--;
                         else {
                             ret = -1;
@@ -1027,7 +1027,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                                          pa_sink_input_ext_get_name(sinp),
                                          sinkname);
                         }
-                    } else if (pa_sink_input_move_to(sinp, sink, TRUE) < 0) {
+                    } else if (pa_sink_input_move_to(sinp, sink, true) < 0) {
                         ret = -1;
                         pa_log_error("Failed to move %s to %s",
                                      pa_sink_input_ext_get_name(sinp),
@@ -1043,7 +1043,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                 pa_log_debug("Re-attaching %s to %s",
                              pa_source_output_ext_get_name(sout),
                              pa_source_ext_get_name(group->source));
-                if (pa_source_output_finish_move(sout, group->source, TRUE) < 0) {
+                if (pa_source_output_finish_move(sout, group->source, true) < 0) {
                     ret = -1;
                     pa_log_error("Failed to re-attach %s to %s",
                                  pa_source_output_ext_get_name(sout),
@@ -1081,7 +1081,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
 
                 if (!sout->source) {
                     pa_assert(group->num_moving > 0);
-                    if (pa_source_output_finish_move(sout, source, TRUE) >= 0)
+                    if (pa_source_output_finish_move(sout, source, true) >= 0)
                         group->num_moving--;
                     else {
                         ret = -1;
@@ -1089,7 +1089,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                                      pa_source_output_ext_get_name(sout),
                                      pa_source_ext_get_name(source));
                     }
-                } else if (pa_source_output_move_to(sout, source, TRUE) < 0) {
+                } else if (pa_source_output_move_to(sout, source, true) < 0) {
                     ret = -1;
                     pa_log_error("Failed to move %s to %s",
                                  pa_source_output_ext_get_name(sout),
@@ -1104,7 +1104,7 @@ static int move_group(struct pa_policy_group *group, struct target *target)
                 pa_log_debug("Re-attaching %s to %s",
                              pa_sink_input_ext_get_name(sinp),
                              pa_sink_ext_get_name(group->sink));
-                if (pa_sink_input_finish_move(sinp, group->sink, TRUE) < 0) {
+                if (pa_sink_input_finish_move(sinp, group->sink, true) < 0) {
                     ret = -1;
                     pa_log_error("Failed to re-attach %s to %s",
                                  pa_sink_input_ext_get_name(sinp),
@@ -1236,7 +1236,7 @@ static int mute_group_by_route(struct pa_policy_group *group,
                                  "mute-by-route",
                                  pa_sink_input_ext_get_name(sinp), sink_name);
                     
-                    if (pa_sink_input_move_to(sinp, sink, TRUE) < 0)
+                    if (pa_sink_input_move_to(sinp, sink, true) < 0)
                         ret = -1;
                 }
             }
@@ -1300,12 +1300,12 @@ static int mute_group_locally(struct userdata        *u,
                              group->name, sinp_name, sink_name);
 
                 if (sinp->sink) {
-                    if (pa_sink_input_move_to(sinp, sink, TRUE) < 0)
+                    if (pa_sink_input_move_to(sinp, sink, true) < 0)
                         ret = -1;
                 } else {
                     pa_log_debug("stream '%s'/'%s' is currently moving. finishing move",
                             group->name, sinp_name);
-                    if (pa_sink_input_finish_move(sinp, sink, TRUE) < 0)
+                    if (pa_sink_input_finish_move(sinp, sink, true) < 0)
                         ret = -1;
                     else {
                         pa_assert(group->num_moving > 0);
@@ -1341,7 +1341,7 @@ static int cork_group(struct userdata *u, struct pa_policy_group *group, int cor
 {
     struct pa_sink_input_list *sl;
     struct pa_sink_input *sinp;
-    pa_bool_t changed;
+    bool changed;
 
 
     if (corked == group->corked) {

@@ -120,6 +120,7 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
     const char      *pn;
     const char      *cn;
     pa_card_profile *ap;
+    pa_card_profile *new_profile;
     int              sts;
     int              i;
 
@@ -149,10 +150,13 @@ int pa_card_ext_set_profile(struct userdata *u, char *type)
 
         ap = card->active_profile;
         pn = data->profile;
+        if (!pn)
+            continue;
+        new_profile = pa_hashmap_get(card->profiles, pn);
         cn = pa_card_ext_get_name(card);
 
-        if (pn && (!ap || strcmp(pn, ap->name))) {
-            if (pa_card_set_profile(card, pn, FALSE) < 0) {
+        if (new_profile && (!ap || ap != new_profile)) {
+            if (pa_card_set_profile(card, new_profile, false) < 0) {
                 sts = -1;
                 pa_log("failed to set card '%s' profile to '%s'", cn, pn);
             }

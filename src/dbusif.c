@@ -525,7 +525,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
     DBusMessageIter  arrit;
     DBusMessageIter  entit;
     DBusMessageIter  actit;
-    int              success = TRUE;
+    int              success = true;
 
     pa_log_debug("got policy actions");
 
@@ -540,7 +540,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
 
     if (!dbus_message_iter_next(&msgit) ||
         dbus_message_iter_get_arg_type(&msgit) != DBUS_TYPE_ARRAY) {
-        success = FALSE;
+        success = false;
         goto send_signal;
     }
 
@@ -548,7 +548,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
 
     do {
         if (dbus_message_iter_get_arg_type(&arrit) != DBUS_TYPE_DICT_ENTRY) {
-            success = FALSE;
+            success = false;
             continue;
         }
 
@@ -556,7 +556,7 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
 
         do {
             if (dbus_message_iter_get_arg_type(&entit) != DBUS_TYPE_STRING) {
-                success = FALSE;
+                success = false;
                 continue;
             }
             
@@ -564,14 +564,14 @@ static void handle_action_message(struct userdata *u, DBusMessage *msg)
             
             if (!dbus_message_iter_next(&entit) ||
                 dbus_message_iter_get_arg_type(&entit) != DBUS_TYPE_ARRAY) {
-                success = FALSE;
+                success = false;
                 continue;
             }
             
             dbus_message_iter_recurse(&entit, &actit);
             
             if (dbus_message_iter_get_arg_type(&actit) != DBUS_TYPE_ARRAY) {
-                success = FALSE;
+                success = false;
                 continue;
             }
             
@@ -609,20 +609,20 @@ static int action_parser(DBusMessageIter *actit, struct argdsc *descs,
 
     do {
         if (dbus_message_iter_get_arg_type(&cmdit) != DBUS_TYPE_STRUCT)
-            return FALSE;
+            return false;
 
         dbus_message_iter_recurse(&cmdit, &argit);
 
         if (dbus_message_iter_get_arg_type(&argit) != DBUS_TYPE_STRING)
-            return FALSE;
+            return false;
 
         dbus_message_iter_get_basic(&argit, (void *)&argname);
 
         if (!dbus_message_iter_next(&argit))
-            return FALSE;
+            return false;
 
         if (dbus_message_iter_get_arg_type(&argit) != DBUS_TYPE_VARIANT)
-            return FALSE;
+            return false;
 
         dbus_message_iter_recurse(&argit, &valit);
 
@@ -631,11 +631,11 @@ static int action_parser(DBusMessageIter *actit, struct argdsc *descs,
                 if (desc->offs + (int)sizeof(char *) > len) {
                     pa_log("%s(): desc offset %d is out of range %d",
                            __FUNCTION__, desc->offs, len);
-                    return FALSE;
+                    return false;
                 }
                 else {
                     if (dbus_message_iter_get_arg_type(&valit) != desc->type)
-                        return FALSE;
+                        return false;
 
                     argval = (char *)args + desc->offs;
 
@@ -647,7 +647,7 @@ static int action_parser(DBusMessageIter *actit, struct argdsc *descs,
 
     } while (dbus_message_iter_next(&cmdit));
 
-    return TRUE;
+    return true;
 }
 
 static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
@@ -667,8 +667,8 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
     int num_decisions_done = 0;
     int i = 0;
     int num_moving = 0;
-    pa_bool_t result = TRUE;
-    pa_bool_t route_changed = FALSE;
+    bool result = true;
+    bool route_changed = false;
 
     /* Parse message. It's safe to bail out here, because we're not moving any streams yet. */
     do {
@@ -677,21 +677,21 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
 
         if (num_decisions > MAX_ROUTING_DECISIONS) {
             pa_log_error("Too many routing decisions (max %d)", MAX_ROUTING_DECISIONS);
-            return FALSE;
+            return false;
         }
 
         if (!action_parser(actit, descs, &args, sizeof(args)))
-            return FALSE;
+            return false;
 
         if (args.type == NULL || args.device == NULL)
-            return FALSE;
+            return false;
 
         if (!strcmp(args.type, "sink"))
             decisions[i].class = pa_policy_route_to_sink;
         else if (!strcmp(args.type, "source"))
             decisions[i].class = pa_policy_route_to_source;
         else
-            return FALSE;
+            return false;
 
         decisions[i].target = args.device;
         decisions[i].mode   = (args.mode && strcmp(args.mode, "na")) ? args.mode : "";
@@ -708,7 +708,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
                 !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SINK_MODE  )), decisions[i].mode)   ||
                 !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SINK_HWID  )), decisions[i].hwid)) {
 
-                route_changed = TRUE;
+                route_changed = true;
                 pa_log_debug("Sink route has changed");
             }
         } else {
@@ -716,7 +716,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
                 !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SOURCE_MODE  )), decisions[i].mode)   ||
                 !pa_streq(pa_strempty(pa_proplist_gets(p, PROP_ROUTE_SOURCE_HWID  )), decisions[i].hwid)) {
 
-                route_changed = TRUE;
+                route_changed = true;
                 pa_log_debug("Source route has changed");
             }
         }
@@ -725,7 +725,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
 
     if (!route_changed) {
         pa_log_debug("New audio route is identical to the current one. No need to move streams.");
-        return TRUE;
+        return true;
     }
 
     /* Detach groups. */
@@ -755,7 +755,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
               (decisions[i].class == pa_policy_route_to_source &&
                  pa_source_ext_set_ports(u, decisions[i].target) < 0))
         {
-            result = FALSE; /* Continue anyway to avoid leaving streams detached. */
+            result = false; /* Continue anyway to avoid leaving streams detached. */
             pa_log_error("can't set profiles/ports to %s %s",
                          (decisions[i].class == pa_policy_route_to_sink ? "sink" : "source"),
                           decisions[i].target);
@@ -775,7 +775,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
                                                  decisions[i].target,
                                                  decisions[i].mode,
                                                  decisions[i].hwid)) < 0) {
-            result = FALSE;
+            result = false;
             pa_log_error("Failed to move group %s %s %s", decisions[i].target,
                                                           decisions[i].mode,
                                                           decisions[i].hwid);
@@ -795,7 +795,7 @@ static int audio_route_parser(struct userdata *u, DBusMessageIter *actit)
                      num_decisions, num_decisions - num_decisions_done);
 
         pa_policy_group_assert_moving(u);
-        result = FALSE;
+        result = false;
     }
 
     return result;
@@ -810,16 +810,16 @@ static int volume_limit_parser(struct userdata *u, DBusMessageIter *actit)
     };
 
     struct argvol  args;
-    int            success = TRUE;
+    int            success = true;
 
     do {
         if (!action_parser(actit, descs, &args, sizeof(args))) {
-            success = FALSE;
+            success = false;
             break;
         }
 
         if (args.group == NULL || args.limit < 0 || args.limit > 100) {
-            success = FALSE;
+            success = false;
             break;
         }
 
@@ -848,10 +848,10 @@ static int audio_cork_parser(struct userdata *u, DBusMessageIter *actit)
     
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
-            return FALSE;
+            return false;
 
         if (args.group == NULL || args.cork == NULL)
-            return FALSE;
+            return false;
 
         grp = args.group;
 
@@ -860,14 +860,14 @@ static int audio_cork_parser(struct userdata *u, DBusMessageIter *actit)
         else if (!strcmp(args.cork, "uncorked"))
             val = 0;
         else
-            return FALSE;
+            return false;
         
         pa_log_debug("cork stream (%s|%d)", grp, val);
         pa_policy_group_cork(u, grp, val);
 
     } while (dbus_message_iter_next(actit));
     
-    return TRUE;
+    return true;
 }
 
 static int audio_mute_parser(struct userdata *u, DBusMessageIter *actit)
@@ -884,10 +884,10 @@ static int audio_mute_parser(struct userdata *u, DBusMessageIter *actit)
     
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
-            return FALSE;
+            return false;
 
         if (args.device == NULL || args.mute == NULL)
-            return FALSE;
+            return false;
 
         device = args.device;
 
@@ -896,14 +896,14 @@ static int audio_mute_parser(struct userdata *u, DBusMessageIter *actit)
         else if (!strcmp(args.mute, "unmuted"))
             val = 0;
         else
-            return FALSE;
+            return false;
         
         pa_log_debug("mute device (%s|%d)", device, val);
         pa_source_ext_set_mute(u, device, val);
 
     } while (dbus_message_iter_next(actit));
     
-    return TRUE;
+    return true;
 }
 
 static int context_parser(struct userdata *u, DBusMessageIter *actit)
@@ -918,10 +918,10 @@ static int context_parser(struct userdata *u, DBusMessageIter *actit)
     
     do {
         if (!action_parser(actit, descs, &args, sizeof(args)))
-            return FALSE;
+            return false;
 
         if (args.variable == NULL || args.value == NULL)
-            return FALSE;
+            return false;
 
         pa_log_debug("context (%s|%s)", args.variable, args.value);
 
@@ -929,7 +929,7 @@ static int context_parser(struct userdata *u, DBusMessageIter *actit)
 
     } while (dbus_message_iter_next(actit));
     
-    return TRUE;
+    return true;
 }
 
 static void registration_cb(DBusPendingCall *pend, void *data)
@@ -994,7 +994,7 @@ static int register_to_pdp(struct pa_policy_dbusif *dbusif, struct userdata *u)
 
     if (msg == NULL) {
         pa_log("Failed to create D-Bus message to register");
-        success = FALSE;
+        success = false;
         goto failed;
     }
 

@@ -262,7 +262,7 @@ int pa_policy_context_variable_changed(struct userdata *u, const char *name,
     union pa_policy_context_action    *actn;
     int                                success;
 
-    success = TRUE;
+    success = true;
 
     for (var = u->context->variables;  var != NULL;  var = var->next) {
         if (!strcmp(name, var->name)) {
@@ -278,7 +278,7 @@ int pa_policy_context_variable_changed(struct userdata *u, const char *name,
                         {
                             if (u->context->variable_change_count == PA_POLICY_CONTEXT_MAX_CHANGES) {
                                 pa_log_warn("Max policy context value changes, dropping '%s':'%s'", name, value);
-                                return FALSE;
+                                return false;
                             } else {
                                 u->context->variable_change[u->context->variable_change_count].action = actn;
                                 u->context->variable_change[u->context->variable_change_count].value = pa_xstrdup(value);
@@ -531,7 +531,7 @@ static int perform_action(struct userdata                *u,
         object  = &setprop->object;
 
         if (!object_assert(u, object))
-            success = FALSE;
+            success = false;
         else {
             switch (setprop->value.type) {
 
@@ -549,9 +549,9 @@ static int perform_action(struct userdata                *u,
             }
             
             if (prop_value == NULL)
-                success = FALSE;
+                success = false;
             else {
-                success = TRUE;
+                success = true;
 
                 old_value = get_object_property(object, setprop->property);
                 objname   = object_name(object);
@@ -581,9 +581,9 @@ static int perform_action(struct userdata                *u,
         object  = &delprop->object;
 
         if (!object_assert(u, object))
-            success = FALSE;
+            success = false;
         else {
-            success = TRUE;
+            success = true;
 
             objname = object_name(object);
             objtype = object_type_str(object->type);
@@ -596,7 +596,7 @@ static int perform_action(struct userdata                *u,
         break;
 
     default:
-        success = FALSE;
+        success = false;
         break;
     }
 
@@ -609,7 +609,7 @@ static int match_setup(struct pa_policy_match  *match,
                        enum pa_classify_method *method_name_ret)
 {
     enum pa_classify_method method_name = method;
-    int   success = TRUE;
+    int   success = true;
 
     switch (method) {
 
@@ -638,7 +638,7 @@ static int match_setup(struct pa_policy_match  *match,
     default:
         memset(match, 0, sizeof(*match));
         method_name = pa_method_unknown;
-        success = FALSE;
+        success = false;
         break;
     };
 
@@ -667,7 +667,7 @@ static int value_setup(union pa_policy_value     *value,
     struct pa_policy_value_copy     *copy;
     va_list  arg;
     char    *string;
-    int      success = TRUE;
+    int      success = true;
 
     va_copy(arg, ap);
 
@@ -691,7 +691,7 @@ static int value_setup(union pa_policy_value     *value,
 
     default:
         memset(value, 0, sizeof(*value));
-        success = FALSE;
+        success = false;
         break;
     }
 
@@ -861,14 +861,14 @@ static int object_assert(struct userdata *u, struct pa_policy_object *object)
             if (ptr != object->ptr)
                 break;
 
-            return TRUE;
+            return true;
 
         case pa_policy_object_card:
         case pa_policy_object_sink:
         case pa_policy_object_source:
         case pa_policy_object_sink_input:
         case pa_policy_object_source_output:
-            return TRUE;
+            return true;
 
         default:
             break;
@@ -877,7 +877,7 @@ static int object_assert(struct userdata *u, struct pa_policy_object *object)
     
     pa_log("%s() failed", __FUNCTION__);
 
-    return FALSE;
+    return false;
 }
 
 static const char *object_name(struct pa_policy_object *object)

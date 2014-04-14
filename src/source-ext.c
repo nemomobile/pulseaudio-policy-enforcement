@@ -94,7 +94,7 @@ int pa_source_ext_set_mute(struct userdata *u, const char *type, int mute)
     pa_idxset         *idxset;
     struct pa_source  *source;
     const char        *name;
-    pa_bool_t          current_mute;
+    bool          current_mute;
 
     pa_assert(u);
     pa_assert(type);
@@ -114,7 +114,7 @@ int pa_source_ext_set_mute(struct userdata *u, const char *type, int mute)
                 pa_log_debug("%s() %smute source '%s' type '%s'",
                              __FUNCTION__, mute ? "" : "un", name, type);
 
-                pa_source_set_mute(source, mute, TRUE);
+                pa_source_set_mute(source, mute, true);
             }
 
             return 0;
@@ -148,7 +148,7 @@ int pa_source_ext_set_ports(struct userdata *u, const char *type)
                               source->active_port->name)) {
 
                 if (pa_source_set_port(source, port_entry->port_name,
-                                       FALSE) < 0) {
+                                       false) < 0) {
                     ret = -1;
                     pa_log("failed to set source '%s' port to '%s'",
                            source->name, port_entry->port_name);
