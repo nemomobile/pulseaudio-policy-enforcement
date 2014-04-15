@@ -83,7 +83,8 @@ void  pa_sink_input_ext_subscription_free(struct pa_sinp_evsubscr *subscr)
         pa_hook_slot_free(subscr->fixate);
         pa_hook_slot_free(subscr->put);
         pa_hook_slot_free(subscr->unlink);
-        pa_hook_slot_free(subscr->state);
+        if (subscr->state)
+            pa_hook_slot_free(subscr->state);
 
         pa_xfree(subscr);
     }
