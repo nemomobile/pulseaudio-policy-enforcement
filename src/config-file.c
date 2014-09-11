@@ -140,6 +140,8 @@ struct activitydef {
     struct ctxact           *active_acts;   /* array of actions when changing to active state */
     int                      inactive_nact; /* number of actions when changing to inactive state */
     struct ctxact           *inactive_acts; /* array of actions when changing to inactive state */
+    int                      default_state; /* whether active, inactive or no action is performed when
+                                               activity ends */
 };
 
 struct section {
@@ -287,6 +289,9 @@ int pa_policy_parse_config_file(struct userdata *u, const char *cfgfile)
 
             case section_activity:
                 actdef = section.def.activity;
+
+                /* default for activity state */
+                actdef->default_state = -1;
 
                 if (activitydef_parse(lineno, line, actdef) < 0)
                     success = false;
@@ -752,9 +757,11 @@ static int section_close(struct userdata *u, struct section *sec)
             rule = NULL;
             actdef = sec->def.activity;
 
-            if (actdef->active_nact > 0)
+            if (actdef->active_nact > 0) {
+                pa_policy_activity_add(u, actdef->device, actdef->default_state);
                 rule = pa_policy_activity_add_active_rule(u, actdef->device,
                                                           actdef->method, actdef->name);
+            }
 
             for (i = 0;  i < actdef->active_nact;  i++) {
                 act = actdef->active_acts + i;
@@ -787,9 +794,11 @@ static int section_close(struct userdata *u, struct section *sec)
             }
 
             rule = NULL;
-            if (actdef->inactive_nact > 0)
+            if (actdef->inactive_nact > 0) {
+                pa_policy_activity_add(u, actdef->device, actdef->default_state);
                 rule = pa_policy_activity_add_inactive_rule(u, actdef->device,
                                                             actdef->method, actdef->name);
+            }
 
             for (i = 0;  i < actdef->inactive_nact;  i++) {
                 act = actdef->inactive_acts + i;
@@ -1158,6 +1167,7 @@ static int activitydef_parse(int lineno, char *line, struct activitydef *actdef)
 {
     int sts;
     char *end;
+    char *def;
 
     if (actdef == NULL)
         sts = -1;
@@ -1175,6 +1185,15 @@ static int activitydef_parse(int lineno, char *line, struct activitydef *actdef)
         }
         else if (!strncmp(line, "inactive=", 9)) {
             sts = contextsetprop_parse(lineno, line+9, &actdef->inactive_nact, &actdef->inactive_acts);
+        }
+        else if (!strncmp(line, "default=", 8)) {
+            def = line+8;
+            if (!strncmp(def, "active", 6))
+                actdef->default_state = 1;
+            else if (!strncmp(def, "inactive", 8))
+                actdef->default_state = 0;
+            else
+                sts = -1;
         }
         else {
             if ((end = strchr(line, '=')) == NULL) {
