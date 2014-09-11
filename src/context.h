@@ -121,6 +121,8 @@ struct pa_policy_activity_variable {
     struct pa_policy_context_rule      *active_rules;
     struct pa_policy_context_rule      *inactive_rules;
     struct userdata                    *userdata;
+    int                                 default_state; /* when activity is not active,
+                                                          set active or inactive or no change */
     /* activity variable is active if hook slot pointer is not-null */
     pa_hook_slot                       *sink_state_changed_hook_slot;
     /* cache some values when variable is active */
@@ -172,6 +174,9 @@ void pa_policy_context_variable_commit(struct userdata *u);
 /* device       - device mode, bta2dp, bthsp, etc.
  * sink_name    - active sink on device mode, matched with method & arg
  */
+
+void pa_policy_activity_add(struct userdata *u, const char *device, const int default_state);
+
 struct pa_policy_context_rule
     *pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
                                          enum pa_classify_method method, const char *sink_name);

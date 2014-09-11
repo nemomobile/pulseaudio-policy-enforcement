@@ -58,7 +58,7 @@ static const char *object_type_str(enum pa_policy_object_type);
 
 /* activities */
 static struct pa_policy_activity_variable
-            *add_activity_variable(struct userdata *u, struct pa_policy_context *, const char *);
+            *get_activity_variable(struct userdata *u, struct pa_policy_context *, const char *, const int);
 static void delete_activity(struct pa_policy_context *,
                             struct pa_policy_activity_variable *);
 
@@ -996,8 +996,8 @@ static const char *object_type_str(enum pa_policy_object_type type)
 }
 
 static
-struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, struct pa_policy_context *ctx,
-                                                          const char *device)
+struct pa_policy_activity_variable *get_activity_variable(struct userdata *u, struct pa_policy_context *ctx,
+                                                          const char *device, const int default_state)
 {
     struct pa_policy_activity_variable *var;
     struct pa_policy_activity_variable *last;
@@ -1015,13 +1015,21 @@ struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, st
     var = pa_xmalloc0(sizeof(*var));
 
     var->device = pa_xstrdup(device);
+    var->default_state = default_state;
     var->userdata = u;
 
     last->next = var;
 
-    pa_log_debug("created context activity variable '%s'", var->device);
+    pa_log_debug("created context activity variable '%s', default %d", var->device, var->default_state);
 
     return var;
+}
+
+void
+pa_policy_activity_add(struct userdata *u, const char *device, const int default_state)
+{
+    /* create new activity variable here */
+    get_activity_variable(u, u->context, device, default_state);
 }
 
 struct pa_policy_context_rule *
@@ -1031,7 +1039,7 @@ pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
     struct pa_policy_activity_variable *variable;
     struct pa_policy_context_rule      *rule;
 
-    variable = add_activity_variable(u, u->context, device);
+    pa_assert_se((variable = get_activity_variable(u, u->context, device, -1)));
     rule = add_rule(&variable->active_rules, method, sink_name);
 
     return rule;
@@ -1044,7 +1052,7 @@ pa_policy_activity_add_inactive_rule(struct userdata *u, const char *device,
     struct pa_policy_activity_variable *variable;
     struct pa_policy_context_rule      *rule;
 
-    variable = add_activity_variable(u, u->context, device);
+    pa_assert_se((variable = get_activity_variable(u, u->context, device, -1)));
     rule = add_rule(&variable->inactive_rules, method, sink_name);
 
     return rule;
@@ -1118,6 +1126,7 @@ static void enable_activity(struct userdata *u, struct pa_policy_activity_variab
                                                         (pa_hook_cb_t) sink_state_changed_cb, var);
 
     var->sink_opened = -1;
+    pa_log_debug("enabling activity for %s", var->device);
     PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
         perform_activity_action(sink, var, -1);
 }
@@ -1133,8 +1142,9 @@ static void disable_activity(struct userdata *u, struct pa_policy_activity_varia
         return;
 
     var->sink_opened = -1;
+    pa_log_debug("disabling activity for %s: defaulting to %d", var->device, var->default_state);
     PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
-        perform_activity_action(sink, var, 0);
+        perform_activity_action(sink, var, var->default_state);
 
     pa_hook_slot_free(var->sink_state_changed_hook_slot);
     var->sink_state_changed_hook_slot = NULL;
@@ -1146,16 +1156,10 @@ int pa_policy_activity_device_changed(struct userdata *u, const char *device)
     int                                 success = 0;
 
     for (var = u->context->activities;  var != NULL;  var = var->next) {
-        if (!strcmp(device, var->device)) {
-            if (var->sink_state_changed_hook_slot)
-                pa_log_debug("already active for device -> no action");
-            else {
-
-                enable_activity(u, var);
-            }
-        } else if (var->sink_state_changed_hook_slot) {
+        if (!strcmp(device, var->device))
+            enable_activity(u, var);
+        else
             disable_activity(u, var);
-        }
     }
 
     return success;
