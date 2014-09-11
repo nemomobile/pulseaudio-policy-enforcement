@@ -752,9 +752,11 @@ static int section_close(struct userdata *u, struct section *sec)
             rule = NULL;
             actdef = sec->def.activity;
 
-            if (actdef->active_nact > 0)
+            if (actdef->active_nact > 0) {
+                pa_policy_activity_add(u, actdef->device);
                 rule = pa_policy_activity_add_active_rule(u, actdef->device,
                                                           actdef->method, actdef->name);
+            }
 
             for (i = 0;  i < actdef->active_nact;  i++) {
                 act = actdef->active_acts + i;
@@ -787,9 +789,11 @@ static int section_close(struct userdata *u, struct section *sec)
             }
 
             rule = NULL;
-            if (actdef->inactive_nact > 0)
+            if (actdef->inactive_nact > 0) {
+                pa_policy_activity_add(u, actdef->device);
                 rule = pa_policy_activity_add_inactive_rule(u, actdef->device,
                                                             actdef->method, actdef->name);
+            }
 
             for (i = 0;  i < actdef->inactive_nact;  i++) {
                 act = actdef->inactive_acts + i;

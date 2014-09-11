@@ -172,6 +172,9 @@ void pa_policy_context_variable_commit(struct userdata *u);
 /* device       - device mode, bta2dp, bthsp, etc.
  * sink_name    - active sink on device mode, matched with method & arg
  */
+
+void pa_policy_activity_add(struct userdata *u, const char *device);
+
 struct pa_policy_context_rule
     *pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
                                          enum pa_classify_method method, const char *sink_name);
