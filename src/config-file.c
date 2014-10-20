@@ -71,6 +71,13 @@ struct delprop {                         /* delete property of a PA object */
     PROPERTY_ACTION_COMMON;
 };
 
+struct setdef {
+    PROPERTY_ACTION_COMMON;
+    char *activity_group;
+    int default_state;                   /* default state for activity, used
+                                            when activity ends */
+};
+
 
 struct ctxact {                          /* context rule actions */
     enum pa_policy_action_type type;     /* context action type */
@@ -79,6 +86,7 @@ struct ctxact {                          /* context rule actions */
         struct anyprop         anyprop;  /* common for all prop.operation */
         struct setprop         setprop;  /* setting property of an object */
         struct delprop         delprop;  /* deleting property of an object */
+        struct setdef          setdef;   /* setting default value for activity */
     };
 };
 
@@ -175,6 +183,7 @@ static int streamprop_parse(int, char *, struct streamdef *);
 static int contextval_parse(int, char *, enum pa_classify_method *method, char **arg);
 static int contextsetprop_parse(int, char *, int *nact, struct ctxact **acts);
 static int contextdelprop_parse(int, char *, int *nact, struct ctxact **acts);
+static int contextsetdef_parse(int lineno, char *setdefdef, int *nact, struct ctxact **acts);
 static int contextanyprop_parse(int, char *, char *, struct anyprop *);
 static int cardname_parse(int, char *, struct carddef *, int field);
 static int flags_parse(int, char *, enum section_type, uint32_t *);
@@ -585,6 +594,7 @@ static int section_close(struct userdata *u, struct section *sec)
     struct pa_policy_context_rule *rule;
     struct setprop    *setprop;
     struct delprop    *delprop;
+    struct setdef     *setdef;
     int                i;
     int                status;
 
@@ -732,6 +742,21 @@ static int section_close(struct userdata *u, struct section *sec)
 
                     pa_xfree(delprop->arg);
                     pa_xfree(delprop->propnam);
+
+                    break;
+
+                case pa_policy_set_default:
+                    setdef = &act->setdef;
+
+                    if (rule != NULL) {
+                        pa_policy_context_set_default_action(
+                                          rule, act->lineno,
+                                          u,
+                                          setdef->activity_group,
+                                          setdef->default_state);
+                    }
+
+                    pa_xfree(setdef->activity_group);
 
                     break;
 
@@ -1143,6 +1168,9 @@ static int contextdef_parse(int lineno, char *line, struct contextdef *ctxdef)
         else if (!strncmp(line, "delete-property=", 16)) { 
             sts = contextdelprop_parse(lineno, line+16, &ctxdef->nact, &ctxdef->acts);
         }
+        else if (!strncmp(line, "set-default=", 12)) {
+            sts = contextsetdef_parse(lineno, line+12, &ctxdef->nact, &ctxdef->acts);
+        }
         else {
             if ((end = strchr(line, '=')) == NULL) {
                 pa_log("invalid definition '%s' in line %d", line, lineno);
@@ -1484,6 +1512,59 @@ static int contextdelprop_parse(int lineno, char *delpropdef,
 
     (*nact)++;
     
+    return 0;
+}
+
+static int contextsetdef_parse(int lineno, char *setdefdef,
+                                int *nact, struct ctxact **acts)
+{
+    size_t          size;
+    struct ctxact  *act;
+    struct setdef  *setdef;
+    char           *colon;
+    char           *activity_group;
+    char           *value;
+    int             default_state;
+
+    /*
+     * activity-group:<active/inactive/state>
+     */
+
+    size = sizeof(*act) * (*nact + 1);
+    act  = (*acts = pa_xrealloc(*acts, size)) + *nact;
+
+    memset(act, 0, sizeof(*act));
+    act->type   = pa_policy_set_default;
+    act->lineno = lineno;
+
+    setdef = &act->setdef;
+
+    if ((colon = strchr(setdefdef, ':')) == NULL) {
+        pa_log("invalid definition '%s' in line %d", setdefdef, lineno);
+        return -1;
+    }
+
+    *colon = '\0';
+
+    activity_group = setdefdef;
+    value = colon + 1;
+
+    if (!strncmp(value, "active", 6))
+        default_state = 1;
+    else if (!strncmp(value, "inactive", 8))
+        default_state = 0;
+    else if (!strncmp(value, "state", 5))
+        default_state = -1;
+    else {
+        pa_log("invalid value definition '%s' in line %d", value, lineno);
+        return -1;
+    }
+
+    setdef->activity_group = pa_xstrdup(activity_group);
+    setdef->default_state = default_state;
+
+    (*nact)++;
+
     return 0;
 }
 
