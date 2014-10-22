@@ -11,6 +11,7 @@ enum pa_policy_action_type {
 
     pa_policy_set_property,
     pa_policy_delete_property,
+    pa_policy_set_default,
 
     pa_policy_action_max
 };
@@ -90,10 +91,17 @@ struct pa_policy_del_property {
     char                               *property;
 };
 
+struct pa_policy_set_default {
+    PA_POLICY_CONTEXT_ACTION_COMMON;
+    struct pa_policy_activity_variable *var;
+    int                                 default_state;
+};
+
 union pa_policy_context_action {
     struct pa_policy_context_action_any any;
     struct pa_policy_set_property       setprop;
     struct pa_policy_del_property       delprop;
+    struct pa_policy_set_default        setdef;
 };
 
 struct pa_policy_context_rule {
@@ -123,6 +131,8 @@ struct pa_policy_activity_variable {
     struct userdata                    *userdata;
     /* activity variable is active if hook slot pointer is not-null */
     pa_hook_slot                       *sink_state_changed_hook_slot;
+    int                                 default_state; /* -1 select based on sink running/suspended,
+                                                          1 active, 0 inactive */
     /* cache some values when variable is active */
     int                                 sink_opened; /* -1 not set, 0 closed, 1 opened */
 };
@@ -163,6 +173,12 @@ void pa_policy_context_delete_property_action(struct pa_policy_context_rule *,
                                               enum pa_classify_method,
                                               const char *, const char *);
 
+void pa_policy_context_set_default_action(struct pa_policy_context_rule *rule,
+                                          int lineno,
+                                          struct userdata *u,
+                                          const char *activity_group,
+                                          int default_state);
+
 /* collect context variable change as name and value. */
 int pa_policy_context_variable_changed(struct userdata *u, const char *name, const char *value);
 /* commit variable changes to proplists. this needs to be always called after adding
@@ -172,6 +188,9 @@ void pa_policy_context_variable_commit(struct userdata *u);
 /* device       - device mode, bta2dp, bthsp, etc.
  * sink_name    - active sink on device mode, matched with method & arg
  */
+
+void pa_policy_activity_add(struct userdata *u, const char *device);
+
 struct pa_policy_context_rule
     *pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
                                          enum pa_classify_method method, const char *sink_name);

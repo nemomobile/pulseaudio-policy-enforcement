@@ -58,7 +58,7 @@ static const char *object_type_str(enum pa_policy_object_type);
 
 /* activities */
 static struct pa_policy_activity_variable
-            *add_activity_variable(struct userdata *u, struct pa_policy_context *, const char *);
+            *get_activity_variable(struct userdata *u, struct pa_policy_context *, const char *);
 static void delete_activity(struct pa_policy_context *,
                             struct pa_policy_activity_variable *);
 
@@ -250,6 +250,28 @@ pa_policy_context_delete_property_action(struct pa_policy_context_rule *rule,
     match_setup(&delprop->object.match, obj_classify, obj_name, NULL);
 
     delprop->property = pa_xstrdup(prop_name);
+
+    append_action(&rule->actions, action);
+}
+
+void
+pa_policy_context_set_default_action(struct pa_policy_context_rule *rule,
+                                     int lineno,
+                                     struct userdata *u,
+                                     const char *activity_group,
+                                     int default_state)
+{
+    union pa_policy_context_action *action;
+    struct pa_policy_set_default   *setdef;
+
+    action = pa_xmalloc0(sizeof(*action));
+    setdef = &action->setdef;
+
+    setdef->type   = pa_policy_set_default;
+    setdef->lineno = lineno;
+
+    pa_assert_se((setdef->var = get_activity_variable(u, u->context, activity_group)));
+    setdef->default_state = default_state;
 
     append_action(&rule->actions, action);
 }
@@ -495,6 +517,10 @@ static void delete_action(union pa_policy_context_action **actions,
 
                 break;
 
+            case pa_policy_set_default:
+                /* no-op */
+                break;
+
             default:
                 pa_log("%s(): confused with data structure: invalid action "
                        "type %d", __FUNCTION__, action->any.type);
@@ -517,6 +543,7 @@ static int perform_action(struct userdata                *u,
 {
     struct pa_policy_set_property *setprop;
     struct pa_policy_del_property *delprop;
+    struct pa_policy_set_default  *setdef;
     struct pa_policy_object       *object;
     const char                    *old_value;
     const char                    *prop_value;
@@ -593,6 +620,15 @@ static int perform_action(struct userdata                *u,
             
             delete_object_property(object, delprop->property);
         }
+        break;
+
+    case pa_policy_set_default:
+        setdef = &action->setdef;
+
+        setdef->var->default_state = setdef->default_state;
+        pa_log_debug("setting activity group %s default state to %d",
+                     setdef->var->device, setdef->default_state);
+        success = true;
         break;
 
     default:
@@ -996,7 +1032,7 @@ static const char *object_type_str(enum pa_policy_object_type type)
 }
 
 static
-struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, struct pa_policy_context *ctx,
+struct pa_policy_activity_variable *get_activity_variable(struct userdata *u, struct pa_policy_context *ctx,
                                                           const char *device)
 {
     struct pa_policy_activity_variable *var;
@@ -1016,12 +1052,20 @@ struct pa_policy_activity_variable *add_activity_variable(struct userdata *u, st
 
     var->device = pa_xstrdup(device);
     var->userdata = u;
+    var->default_state = -1;
 
     last->next = var;
 
     pa_log_debug("created context activity variable '%s'", var->device);
 
     return var;
+}
+
+void
+pa_policy_activity_add(struct userdata *u, const char *device)
+{
+    /* create new activity variable here */
+    get_activity_variable(u, u->context, device);
 }
 
 struct pa_policy_context_rule *
@@ -1031,7 +1075,7 @@ pa_policy_activity_add_active_rule(struct userdata *u, const char *device,
     struct pa_policy_activity_variable *variable;
     struct pa_policy_context_rule      *rule;
 
-    variable = add_activity_variable(u, u->context, device);
+    pa_assert_se((variable = get_activity_variable(u, u->context, device)));
     rule = add_rule(&variable->active_rules, method, sink_name);
 
     return rule;
@@ -1044,7 +1088,7 @@ pa_policy_activity_add_inactive_rule(struct userdata *u, const char *device,
     struct pa_policy_activity_variable *variable;
     struct pa_policy_context_rule      *rule;
 
-    variable = add_activity_variable(u, u->context, device);
+    pa_assert_se((variable = get_activity_variable(u, u->context, device)));
     rule = add_rule(&variable->inactive_rules, method, sink_name);
 
     return rule;
@@ -1097,7 +1141,7 @@ static pa_hook_result_t sink_state_changed_cb(pa_core *c, pa_object *o, struct p
 
     if (pa_sink_isinstance(o)) {
         sink = PA_SINK(o);
-        perform_activity_action(sink, var, -1);
+        perform_activity_action(sink, var, var->default_state);
     }
 
     return PA_HOOK_OK;
@@ -1118,8 +1162,9 @@ static void enable_activity(struct userdata *u, struct pa_policy_activity_variab
                                                         (pa_hook_cb_t) sink_state_changed_cb, var);
 
     var->sink_opened = -1;
+    pa_log_debug("enabling activity for %s", var->device);
     PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
-        perform_activity_action(sink, var, -1);
+        perform_activity_action(sink, var, var->default_state);
 }
 
 static void disable_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
@@ -1133,8 +1178,9 @@ static void disable_activity(struct userdata *u, struct pa_policy_activity_varia
         return;
 
     var->sink_opened = -1;
+    pa_log_debug("disabling activity for %s", var->device);
     PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
-        perform_activity_action(sink, var, 0);
+        perform_activity_action(sink, var, var->default_state);
 
     pa_hook_slot_free(var->sink_state_changed_hook_slot);
     var->sink_state_changed_hook_slot = NULL;
@@ -1146,16 +1192,10 @@ int pa_policy_activity_device_changed(struct userdata *u, const char *device)
     int                                 success = 0;
 
     for (var = u->context->activities;  var != NULL;  var = var->next) {
-        if (!strcmp(device, var->device)) {
-            if (var->sink_state_changed_hook_slot)
-                pa_log_debug("already active for device -> no action");
-            else {
-
-                enable_activity(u, var);
-            }
-        } else if (var->sink_state_changed_hook_slot) {
+        if (!strcmp(device, var->device))
+            enable_activity(u, var);
+        else
             disable_activity(u, var);
-        }
     }
 
     return success;
