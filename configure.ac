@@ -1,10 +1,6 @@
 AC_PREREQ(2.61)
 
-m4_define(PA_MAJOR, [5])
-m4_define(PA_MINOR, [0])
-m4_define(NEMO_MICRO, [13])
-
-AC_INIT([pulseaudio-policy-enforcement],[PA_MAJOR.PA_MINOR.NEMO_MICRO],[janos.f.kovacs@nokia.com])
+AC_INIT([pulseaudio-policy-enforcement], [m4_esyscmd(./git-version-gen .tarball-version)], [mer-general@lists.merproject.org])
 AC_CONFIG_HEADER([config.h])
 
 DOC_SUPPORT_INIT()
@@ -13,11 +9,19 @@ AC_CONFIG_SRCDIR([src/module-policy-enforcement.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([foreign 1.8.5 -Wall])
 
+AS_IF([! test -n "$VERSION"], [
+   AC_MSG_ERROR([git-version-gen failed])
+])
+
 # this would not be really needed if everything would be as it should be
 AS_IF([test x${exec_prefix} = xNONE], [LIBDIR=$ac_default_prefix/lib], [LIBDIR=${libdir}])
 AC_SUBST(LIBDIR)
 
-AC_SUBST(PA_MAJORMINOR, [PA_MAJOR.PA_MINOR])
+m4_define(pa_major, `echo $VERSION | cut -d. -f1 | cut -d- -f1`)
+m4_define(pa_minor, `echo $VERSION | cut -d. -f2 | cut -d- -f1`)
+
+AC_SUBST(PA_MAJOR, pa_major)
+AC_SUBST(PA_MAJORMINOR, pa_major.pa_minor)
 
 AC_PROG_MKDIR_P
 AC_PROG_CC

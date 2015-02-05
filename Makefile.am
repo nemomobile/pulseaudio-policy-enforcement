@@ -13,3 +13,10 @@ MAINTAINERCLEANFILES = \
 
 clean-local:
 	dh_clean
+
+$(top_srcdir)/.version:
+	echo $(VERSION) > $@-t && mv $@-t $@
+
+dist-hook:
+	echo $(VERSION) > $(distdir)/.tarball-version
+	echo $(VERSION) > $(distdir)/.version
