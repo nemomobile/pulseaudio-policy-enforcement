@@ -20,18 +20,11 @@ struct pa_sinp_evsubscr {
     pa_hook_slot    *state;
 };
 
-enum sink_input_ext_state {
-    SINK_INPUT_EXT_UNSET = 0,
-    SINK_INPUT_EXT_TRUE,
-    SINK_INPUT_EXT_FALSE,
-};
-
 struct pa_sink_input_ext {
     struct {
         int route;
         int mute;
-        enum sink_input_ext_state corked_by_client;
-        enum sink_input_ext_state muted_by_client;
+        bool corked_by_client;
         bool ignore_state_change;
     }                local;     /* local policies */
 };
@@ -46,10 +39,8 @@ struct pa_sink_input_ext *pa_sink_input_ext_lookup(struct userdata *,
 int   pa_sink_input_ext_set_policy_group(struct pa_sink_input *, const char *);
 const char *pa_sink_input_ext_get_policy_group(struct pa_sink_input *);
 const char *pa_sink_input_ext_get_name(struct pa_sink_input *);
-int   pa_sink_input_ext_set_volume_limit(struct userdata *u,
-                                         struct pa_sink_input *, pa_volume_t);
+int   pa_sink_input_ext_set_volume_limit(struct pa_sink_input *, pa_volume_t);
 bool pa_sink_input_ext_cork(struct userdata *u, pa_sink_input *si, bool cork);
-bool pa_sink_input_ext_mute(struct userdata *u, pa_sink_input *si, bool mute);
 
 #endif
 
