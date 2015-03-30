@@ -61,6 +61,7 @@ static struct pa_policy_activity_variable
             *get_activity_variable(struct userdata *u, struct pa_policy_context *, const char *);
 static void delete_activity(struct pa_policy_context *,
                             struct pa_policy_activity_variable *);
+static void apply_activity(struct userdata *u, struct pa_policy_activity_variable *var);
 
 struct pa_policy_context *pa_policy_context_new(struct userdata *u)
 {
@@ -628,6 +629,7 @@ static int perform_action(struct userdata                *u,
         setdef->var->default_state = setdef->default_state;
         pa_log_debug("setting activity group %s default state to %d",
                      setdef->var->device, setdef->default_state);
+        apply_activity(u, setdef->var);
         success = true;
         break;
 
@@ -1147,10 +1149,18 @@ static pa_hook_result_t sink_state_changed_cb(pa_core *c, pa_object *o, struct p
     return PA_HOOK_OK;
 }
 
-static void enable_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
+static void apply_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
     pa_sink                            *sink;
     uint32_t                            idx = 0;
 
+    pa_assert(u);
+    pa_assert(var);
+
+    PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
+        perform_activity_action(sink, var, var->default_state);
+}
+
+static void enable_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
     pa_assert(u);
     pa_assert(var);
 
@@ -1163,14 +1173,10 @@ static void enable_activity(struct userdata *u, struct pa_policy_activity_variab
 
     var->sink_opened = -1;
     pa_log_debug("enabling activity for %s", var->device);
-    PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
-        perform_activity_action(sink, var, var->default_state);
+    apply_activity(u, var);
 }
 
 static void disable_activity(struct userdata *u, struct pa_policy_activity_variable *var) {
-    pa_sink                            *sink;
-    uint32_t                            idx = 0;
-
     pa_assert(u);
     pa_assert(var);
 
@@ -1179,8 +1185,7 @@ static void disable_activity(struct userdata *u, struct pa_policy_activity_varia
 
     var->sink_opened = -1;
     pa_log_debug("disabling activity for %s", var->device);
-    PA_IDXSET_FOREACH(sink, u->core->sinks, idx)
-        perform_activity_action(sink, var, var->default_state);
+    apply_activity(u, var);
 
     pa_hook_slot_free(var->sink_state_changed_hook_slot);
     var->sink_state_changed_hook_slot = NULL;
