@@ -11,7 +11,6 @@ Group:      System/Daemons
 License:    LGPLv2.1
 URL:        https://github.com/nemomobile/pulseaudio-policy-enforcement
 Source0:    %{name}-%{version}.tar.gz
-Source100:  pulseaudio-policy-enforcement.yaml
 BuildRequires:  pkgconfig(atomic_ops)
 BuildRequires:  pkgconfig(pulsecore) >= %{pulseversion}
 BuildRequires:  pkgconfig(libpulse) >= %{pulseversion}
