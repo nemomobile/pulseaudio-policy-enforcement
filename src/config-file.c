@@ -418,17 +418,26 @@ int pa_policy_parse_files_in_configdir(struct userdata *u, const char *cfgdir)
                 if (section_header(lineno, line, &newsect)) {
                     section_close(u, &section);
 
-                    if ((section.type = newsect) == section_stream)
-                        section_open(u, newsect, &section);
-                    else {
-                        pa_log("line %d: only [stream] section is allowed",
-                               lineno);
+                    section.type = newsect;
+
+                    switch (section.type) {
+                        case section_stream:
+                        case section_device:
+                            section_open(u, newsect, &section);
+                            break;
+                        default:
+                            pa_log("line %d: only [stream] or [device] section is allowed",
+                                   lineno);
+                            break;
                     }
                 }
                 else {
                     switch (section.type) {
                     case section_stream:
                         streamdef_parse(lineno, line, section.def.stream);
+                        break;
+                    case section_device:
+                        devicedef_parse(lineno, line, section.def.device);
                         break;
                     default:
                         break;
