@@ -20,12 +20,18 @@ struct pa_sinp_evsubscr {
     pa_hook_slot    *state;
 };
 
+enum pa_sink_input_ext_state {
+    PA_SINK_INPUT_EXT_STATE_NONE    = 0,
+    PA_SINK_INPUT_EXT_STATE_USER    = 1 << 0,
+    PA_SINK_INPUT_EXT_STATE_POLICY  = 1 << 1
+};
+
 struct pa_sink_input_ext {
     struct {
         int route;
         int mute;
-        bool corked_by_client;
-        bool ignore_state_change;
+        uint32_t cork_state;
+        bool ignore_cork_state_change;
     }                local;     /* local policies */
 };
 
