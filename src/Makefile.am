@@ -17,4 +17,4 @@ module_policy_enforcement_la_SOURCES = \
 			dbusif.c
 module_policy_enforcement_la_LDFLAGS = -module -avoid-version
 module_policy_enforcement_la_LIBADD = $(AM_LIBADD) $(DBUS_LIBS) $(LIBPULSECORE_LIBS) $(LIBPULSE_LIBS) $(MEEGOCOMMON_LIBS)
-module_policy_enforcement_la_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS) $(LIBPULSE_CFLAGS) $(LIBPULSECORE_CFLAGS) $(MEEGOCOMMON_CFLAGS)
+module_policy_enforcement_la_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS) $(LIBPULSE_CFLAGS) $(LIBPULSECORE_CFLAGS) $(MEEGOCOMMON_CFLAGS) -DPULSEAUDIO_VERSION=@PA_MAJOR@

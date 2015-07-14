@@ -545,7 +545,7 @@ void pa_policy_group_insert_sink_input(struct userdata      *u,
                 pa_log_debug("set volume limit %d for sink input '%s'",
                              (group->limit * 100) / PA_VOLUME_NORM,sinp_name);
 
-                pa_sink_input_ext_set_volume_limit(si, group->limit);
+                pa_sink_input_ext_set_volume_limit(u, si, group->limit);
             }
         }
 
@@ -1174,7 +1174,7 @@ static int volset_group(struct userdata        *u,
         if (!group->locmute) {
             for (sl = group->sinpls;   sl != NULL;   sl = sl->next) {
                 sinp = sl->sink_input;
-                vset = pa_sink_input_ext_set_volume_limit(sinp, limit);
+                vset = pa_sink_input_ext_set_volume_limit(u, sinp, limit);
 
                 if (vset < 0)
                     retval = -1;
@@ -1324,7 +1324,7 @@ static int mute_group_locally(struct userdata        *u,
             pa_log_debug("set volume limit %d for sink input '%s'/'%s'",
                          percent, group->name, sinp_name);
 
-            if (pa_sink_input_ext_set_volume_limit(sinp, volume) < 0)
+            if (pa_sink_input_ext_set_volume_limit(u, sinp, volume) < 0)
                 ret = -1;
             else {
                 pa_log_debug("now volume limit %d for sink input '%s'/'%s'",
